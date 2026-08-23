@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: #eff6ff;
+  --accent-text: #ffffff;
+}
+
+/* Dark Mode Global Overrides */
+html.dark {
+  color-scheme: dark;
+  background-color: #121318 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark body {
+  background-color: #121318 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .bg-white {
+  background-color: #1e1f26 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .bg-\[\#faf9fd\],
+html.dark .bg-\[\#f8fafc\],
+html.dark .bg-\[\#f4f3f7\],
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+html.dark .bg-\[\#F1F5F9\] {
+  background-color: #25262f !important;
+}
+
+html.dark .bg-\[\#F8FAFC\] {
+  background-color: #181920 !important;
+}
+
+html.dark .border-\[\#E2E8F0\],
+html.dark .border-\[\#e2e8f0\] {
+  border-color: #2d303a !important;
+}
+
+html.dark .text-\[\#1a1b1e\] {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-\[\#44474e\] {
+  color: #a1a5b7 !important;
+}
+
+/* Dark mode hover overrides so row/button hover in dark mode stays dark */
+html.dark .hover\:bg-\[\#f4f3f7\]:hover,
+html.dark .hover\:bg-\[\#f8fafc\]:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-\[\#f1f5f9\]:hover,
+html.dark .hover\:bg-\[\#e9e8ec\]:hover {
+  background-color: #2b2d37 !important;
+}
+
+/* Avatar circle dark mode overrides */
+html.dark .bg-\[\#aec7f7\] {
+  background-color: #2a3e66 !important;
+  color: #d6e3ff !important;
+}
+html.dark .text-\[\#2e476f\] {
+  color: #90b4f8 !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #262730 !important;
+  color: #f1f5f9 !important;
+  border-color: #3b3d48 !important;
+}
+
+/* Custom Accent Color Utilities */
+.bg-accent {
+  background-color: var(--accent-primary);
+  color: var(--accent-text);
+}
+
+.hover\:bg-accent:hover {
+  background-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-primary) !important;
+}
+
+.hover\:bg-accent-hover:hover {
+  background-color: var(--accent-hover);
+}
+
+.text-accent {
+  color: var(--accent-primary);
+}
+
+.border-accent {
+  border-color: var(--accent-primary);
+}
+
+.bg-accent-light {
+  background-color: var(--accent-light);
+}
+
+.fill-accent {
+  fill: var(--accent-primary);
+}
+
+/* Contrast adjustments */
+[data-contrast="high"] {
+  filter: contrast(118%);
+  font-weight: 500;
+}
+
+[data-contrast="high"] button,
+[data-contrast="high"] input,
+[data-contrast="high"] select {
+  font-weight: 600 !important;
+}
+
+[data-contrast="low"] {
+  filter: contrast(90%);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
+}
+
