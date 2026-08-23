@@ -1,0 +1,23 @@
+{
+  "name": "ctv-manage-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "app/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=app/backend",
+    "dev:frontend": "npm run dev --workspace=app/frontend",
+    "dev:api": "npm run dev --workspace=app/backend",
+    "dev:web": "npm run dev --workspace=app/frontend",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue.bold,green.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "prisma:generate": "npm run prisma:generate --workspace=app/backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace=app/backend",
+    "prisma:seed": "npm run prisma:seed --workspace=app/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -1,0 +1,246 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  role               String    @default("Cộng tác viên") // "Admin" | "Cộng tác viên"
+  status             String    @default("Kích hoạt")     // "Kích hoạt" | "Vô hiệu hóa"
+  mustChangePassword Boolean   @default(false)
+  displayName        String
+  phone              String
+  ctvCode            String?   @unique
+  dateOfBirth        String?   // DD/MM/YYYY or YYYY-MM-DD
+  gender             String?   // "Nam" | "Nữ" | "Khác"
+  citizenId          String?
+  address            String?
+  adminNotes         String?
+  joinedAt           DateTime  @default(now())
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  sessions              Session[]
+  skills                AccountSkill[]
+  files                 AccountFile[]
+  scheduleRegistrations ScheduleRegistration[]
+  shiftAssignments      ShiftAssignment[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]              @relation("ActorAuditLogs")
+  reviewedRequests      RegistrationRequest[]   @relation("ReviewedRequests")
+  approvedRequests      RegistrationRequest[]   @relation("ApprovedAccountRequests")
+
+  @@index([status, deletedAt])
+  @@index([email])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  accountId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, revokedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model RegistrationRequest {
+  id                String    @id @default(cuid())
+  email             String
+  displayName       String
+  phone             String
+  dateOfBirth       String?
+  citizenId         String?
+  address           String?
+  experience        String?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectionReason   String?
+  reviewedById      String?
+  approvedAccountId String?
+  submittedAt       DateTime  @default(now())
+  reviewedAt        DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  reviewedBy      Account?                  @relation("ReviewedRequests", fields: [reviewedById], references: [id])
+  approvedAccount Account?                  @relation("ApprovedAccountRequests", fields: [approvedAccountId], references: [id])
+  files           RegistrationRequestFile[]
+
+  @@index([status, submittedAt])
+  @@index([email])
+}
+
+model FileAsset {
+  id           String    @id @default(cuid())
+  storageKey   String    @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String?
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  requestFiles RegistrationRequestFile[]
+  accountFiles AccountFile[]
+
+  @@index([deletedAt])
+}
+
+model RegistrationRequestFile {
+  requestId String
+  fileId    String
+  category  String // "CCCD_FRONT" | "CCCD_BACK" | "CV" | "AVATAR"
+
+  request RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  file    FileAsset           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, fileId])
+}
+
+model AccountFile {
+  accountId String
+  fileId    String
+  category  String // "CCCD_FRONT" | "CCCD_BACK" | "CV" | "AVATAR"
+  createdAt DateTime @default(now())
+
+  account Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  file    FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, fileId])
+}
+
+model Skill {
+  id       String         @id @default(cuid())
+  name     String         @unique
+  accounts AccountSkill[]
+}
+
+model AccountSkill {
+  accountId String
+  skillId   String
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, skillId])
+}
+
+model ScheduleRegistration {
+  id          String    @id @default(cuid())
+  accountId   String
+  startDate   String // YYYY-MM-DD
+  endDate     String // YYYY-MM-DD
+  timeZone    String    @default("Asia/Ho_Chi_Minh")
+  roomCode    String // "ROOM_1" | "ROOM_2" | "ROOM_3" | "ROOM_4"
+  workContent String?
+  version     Int       @default(1)
+  status      String    @default("ACTIVE") // "ACTIVE" | "CANCELLED" | "EXPIRED"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+
+  account          Account                @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  patternSlots     SchedulePatternSlot[]
+  shiftAssignments ShiftAssignment[]
+
+  @@index([accountId, status, startDate, endDate])
+}
+
+model SchedulePatternSlot {
+  registrationId String
+  weekday        Int // 0 (Mon) -> 6 (Sun)
+  period         String // "MORNING" | "AFTERNOON" | "EVENING"
+  enabled        Boolean @default(true)
+
+  registration ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@id([registrationId, weekday, period])
+}
+
+model Shift {
+  id                String   @id @default(cuid())
+  workDate          String // YYYY-MM-DD
+  weekday           Int // 0 (Mon) -> 6 (Sun)
+  period            String // "MORNING" | "AFTERNOON" | "EVENING"
+  roomCode          String // "ROOM_1" | "ROOM_2" | "ROOM_3" | "ROOM_4"
+  status            String   @default("OPEN") // "OPEN" | "CLOSED" | "CANCELLED"
+  allowRegistration Boolean  @default(true)
+  targetCapacity    Int      @default(4)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  assignments ShiftAssignment[]
+
+  @@unique([workDate, period, roomCode])
+  @@index([workDate, status])
+}
+
+model ShiftAssignment {
+  id                 String    @id @default(cuid())
+  shiftId            String
+  accountId          String
+  registrationId     String?
+  status             String    @default("APPROVED") // "PENDING" | "APPROVED" | "CANCELLED"
+  taskContent        String?
+  assignedById       String?
+  assignedAt         DateTime  @default(now())
+  approvedAt         DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  updatedAt          DateTime  @updatedAt
+
+  shift        Shift                 @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  account      Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  registration ScheduleRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@unique([shiftId, accountId])
+  @@index([accountId, status, shiftId])
+  @@index([registrationId, status])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  accountId  String
+  type       String    @default("info") // "info" | "success" | "warning" | "danger"
+  title      String
+  message    String
+  sourceType String?
+  sourceId   String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, readAt, createdAt])
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  actorAccountId String?
+  action         String
+  targetType     String?
+  targetId       String?
+  requestId      String?
+  metadataJson   String?
+  createdAt      DateTime @default(now())
+
+  actorAccount Account? @relation("ActorAuditLogs", fields: [actorAccountId], references: [id], onDelete: SetNull)
+
+  @@index([actorAccountId, createdAt])
+  @@index([targetType, targetId, createdAt])
+}

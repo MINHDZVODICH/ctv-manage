@@ -1,0 +1,6 @@
+{
+  "name": "Hệ thống Điều phối & Quản lý Lịch trình",
+  "description": "Hệ thống Điều phối & Quản lý Lịch trình cho Quản trị viên và Cộng tác viên",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
