@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { useAuth } from './useAuth';
 
-export function LoginScreen() {
+export function LoginScreen({ onRegister }: { onRegister?: () => void }) {
   const { error, isSubmitting, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,6 +57,9 @@ export function LoginScreen() {
           <button className="primary-action" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
+          {onRegister && (
+            <button className="secondary-action" type="button" onClick={onRegister}>Đăng ký Cộng tác viên</button>
+          )}
         </form>
       </section>
     </main>

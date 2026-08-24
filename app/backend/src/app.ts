@@ -8,10 +8,13 @@ import { requestIdMiddleware } from './middleware/request-id.middleware.js';
 import { config } from './config.js';
 import { logger } from './shared/logger.js';
 import { createAuthRouter } from './modules/auth/index.js';
+import { createRegistrationRequestsRouter } from './modules/registration-requests/index.js';
+import { FileStorage } from './shared/file-storage.js';
 
 export interface AppDependencies {
   logger?: Logger;
   now?: () => Date;
+  fileStorage?: FileStorage;
 }
 
 export function createApp(deps: AppDependencies = {}): Express {
@@ -36,6 +39,7 @@ export function createApp(deps: AppDependencies = {}): Express {
     response.status(200).json({ data: { status: 'ok' } });
   });
   app.use('/api/v1/auth', createAuthRouter());
+  app.use('/api/v1/registration-requests', createRegistrationRequestsRouter(deps.fileStorage));
   app.use('/api/v1', notFoundMiddleware);
   app.use(errorMiddleware);
 

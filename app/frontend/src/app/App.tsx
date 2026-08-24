@@ -3,6 +3,8 @@ import { LoginScreen } from '../features/auth/LoginScreen';
 import { AuthProvider, useAuth } from '../features/auth/useAuth';
 import type { AppView } from '../shared/types';
 import { Sidebar } from './Sidebar';
+import { RegistrationScreen } from '../features/registration-requests/RegistrationScreen';
+import { RequestsScreen } from '../features/registration-requests/RequestsScreen';
 
 const viewTitles: Record<AppView, string> = {
   accounts: 'Quản lý tài khoản',
@@ -26,6 +28,7 @@ function AppContent() {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isRegistering, setRegistering] = useState(false);
 
   useEffect(() => {
     if (user) setCurrentView(user.role === 'ADMIN' ? 'accounts' : 'my-schedule');
@@ -35,10 +38,11 @@ function AppContent() {
     return <main className="session-loading" aria-live="polite">Đang tải phiên làm việc...</main>;
   }
   if (!user) {
+    if (isRegistering) return <RegistrationScreen onBackToLogin={() => setRegistering(false)} />;
     return (
       <>
         {notice && <SuccessNotice message={notice} onClose={clearNotice} />}
-        <LoginScreen />
+        <LoginScreen onRegister={() => setRegistering(true)} />
       </>
     );
   }
@@ -63,10 +67,14 @@ function AppContent() {
           <strong>Hệ thống Quản lý CTV</strong>
         </header>
         <main className="workspace">
-          <p className="eyebrow">Không gian làm việc</p>
-          <h1>{viewTitles[currentView]}</h1>
-          <p className="workspace-note">Dữ liệu cho chức năng này sẽ được tải từ API ở vertical slice tương ứng.</p>
-          {error && <p className="form-error" role="alert">{error}</p>}
+          {currentView === 'requests' ? <RequestsScreen /> : (
+            <>
+              <p className="eyebrow">Không gian làm việc</p>
+              <h1>{viewTitles[currentView]}</h1>
+              <p className="workspace-note">Dữ liệu cho chức năng này sẽ được tải từ API ở vertical slice tương ứng.</p>
+              {error && <p className="form-error" role="alert">{error}</p>}
+            </>
+          )}
         </main>
       </div>
       {isMobileMenuOpen && (

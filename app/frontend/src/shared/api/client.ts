@@ -8,6 +8,7 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   csrf?: boolean;
+  idempotencyKey?: string;
 }
 
 type UnauthorizedListener = () => void;
@@ -23,6 +24,10 @@ class ApiClient {
 
   post<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, { method: 'POST', body });
+  }
+
+  postMultipart<T>(path: string, body: FormData, idempotencyKey: string): Promise<T> {
+    return this.request<T>(path, { method: 'POST', body, csrf: false, idempotencyKey });
   }
 
   patch<T>(path: string, body?: unknown): Promise<T> {
@@ -47,17 +52,22 @@ class ApiClient {
 
   private async request<T>(path: string, options: RequestOptions): Promise<T> {
     const method = (options.method ?? 'GET').toUpperCase();
-    const isPublicLogin = method === 'POST' && path === '/auth/sessions';
-    const needsCsrf = options.csrf ?? (!SAFE_METHODS.has(method) && !isPublicLogin);
+    const isPublicMutation = method === 'POST'
+      && (path === '/auth/sessions' || path === '/registration-requests');
+    const needsCsrf = options.csrf ?? (!SAFE_METHODS.has(method) && !isPublicMutation);
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+    const isMultipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    if (options.body !== undefined && !isMultipart) headers['Content-Type'] = 'application/json';
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
     if (needsCsrf) headers['X-CSRF-Token'] = await this.getCsrfToken();
 
     const response = await fetch(`${API_ROOT}${path}`, {
       method,
       credentials: 'include',
       headers,
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      ...(options.body === undefined ? {} : {
+        body: (isMultipart ? options.body as FormData : JSON.stringify(options.body)) as BodyInit,
+      }),
     });
 
     if (response.status === 204) return undefined as T;
@@ -73,7 +83,7 @@ class ApiClient {
         message: 'Máy chủ trả về phản hồi không hợp lệ.',
       });
     }
-    if (isPublicLogin) this.clearSessionCache();
+    if (method === 'POST' && path === '/auth/sessions') this.clearSessionCache();
     return (payload as ApiSuccess<T>).data;
   }
 
