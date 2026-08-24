@@ -122,9 +122,13 @@ export class AccountsService {
 
   async softDelete(accountId: string): Promise<void> {
     const deletedAt = this.now();
-    await this.database.$transaction(async (transaction) => {
+    const removedStorageKeys = await this.database.$transaction(async (transaction) => {
       const target = await transaction.account.findUnique({ where: { id: accountId } });
-      if (!target || target.role !== AccountRole.CTV || target.deletedAt) return;
+      if (!target || target.role !== AccountRole.CTV || target.deletedAt) return [];
+      const activeFilesToRemove = await transaction.accountFile.findMany({
+        where: { accountId, deletedAt: null, file: { state: FileAssetState.ACTIVE, deletedAt: null } },
+        include: { file: true },
+      });
       await transaction.account.update({
         where: { id: accountId },
         data: { deletedAt, status: AccountStatus.DISABLED, version: { increment: 1 } },
@@ -134,7 +138,19 @@ export class AccountsService {
         where: { accountId, status: ShiftAssignmentStatus.ACTIVE, shift: { workDate: { gt: deletedAt } } },
         data: { status: ShiftAssignmentStatus.CANCELLED, cancelledAt: deletedAt, cancellationReason: 'ACCOUNT_DELETED' },
       });
+      if (activeFilesToRemove.length) {
+        const fileIds = activeFilesToRemove.map((entry) => entry.fileId);
+        await transaction.accountFile.updateMany({
+          where: { accountId, fileId: { in: fileIds }, deletedAt: null }, data: { deletedAt },
+        });
+        await transaction.fileAsset.updateMany({
+          where: { id: { in: fileIds }, state: FileAssetState.ACTIVE },
+          data: { state: FileAssetState.DELETED, deletedAt },
+        });
+      }
+      return activeFilesToRemove.map((entry) => entry.file.storageKey);
     });
+    await Promise.all(removedStorageKeys.map((storageKey) => this.fileStorage.remove(storageKey)));
   }
 
   async changePassword(accountId: string, input: PasswordChangeInput) {
@@ -252,7 +268,10 @@ export class AccountsService {
       await this.fileStorage.verifyActive(staged);
       activated = await this.activateFileReplacement(accountId, file.category, asset.id);
     } catch (error) {
-      if (assetId) await this.compensateFileReplacement(assetId, staged);
+      if (assetId) {
+        if (isReplacementTargetUnavailable(error)) await this.discardFileReplacement(assetId, staged);
+        else await this.compensateFileReplacement(assetId, staged);
+      }
       throw error;
     }
     await Promise.all(activated.previous.map((entry) => this.fileStorage.remove(entry.file.storageKey)));
@@ -282,8 +301,8 @@ export class AccountsService {
         await this.fileStorage.verifyActive(descriptor);
         activated = await this.activateFileReplacement(link.accountId, link.category, asset.id);
       } catch (error) {
-        await this.compensateFileReplacement(asset.id, descriptor);
-        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+        if (isReplacementTargetUnavailable(error)) await this.discardFileReplacement(asset.id, descriptor);
+        else await this.compensateFileReplacement(asset.id, descriptor);
       }
       if (activated) await Promise.all(activated.previous.map((entry) => this.fileStorage.remove(entry.file.storageKey)));
     }
@@ -294,12 +313,19 @@ export class AccountsService {
     const deletedAt = this.now();
     const removed = await this.database.$transaction(async (transaction) => {
       const links = await transaction.accountFile.findMany({
-        where: { accountId, category, deletedAt: null }, include: { file: true },
+        where: {
+          accountId, category, deletedAt: null,
+          file: { state: FileAssetState.ACTIVE, deletedAt: null },
+        },
+        include: { file: true },
       });
       if (!links.length) return [];
-      await transaction.accountFile.updateMany({ where: { accountId, category, deletedAt: null }, data: { deletedAt } });
+      const fileIds = links.map((entry) => entry.fileId);
+      await transaction.accountFile.updateMany({
+        where: { accountId, category, deletedAt: null, fileId: { in: fileIds } }, data: { deletedAt },
+      });
       await transaction.fileAsset.updateMany({
-        where: { id: { in: links.map((entry) => entry.fileId) } },
+        where: { id: { in: fileIds }, state: FileAssetState.ACTIVE },
         data: { state: FileAssetState.DELETED, deletedAt },
       });
       return links.map((entry) => entry.file.storageKey);
@@ -309,6 +335,10 @@ export class AccountsService {
 
   private async activateFileReplacement(accountId: string, category: FileCategory, assetId: string) {
     return this.database.$transaction(async (transaction) => {
+      const target = await transaction.account.findFirst({ where: { id: accountId, deletedAt: null } });
+      if (!target) {
+        throw new ApiError(409, 'FILE_REPLACEMENT_TARGET_UNAVAILABLE', 'The file replacement target is no longer available.');
+      }
       const intent = await transaction.accountFile.findUnique({ where: { accountId_fileId: { accountId, fileId: assetId } } });
       if (!intent || intent.deletedAt || intent.category !== category) {
         throw new ApiError(500, 'FILE_REPLACEMENT_INTENT_MISSING', 'File replacement intent is missing.');
@@ -353,6 +383,25 @@ export class AccountsService {
       ]);
     } catch (error) { failures.push(error); }
     if (failures.length) throw new AggregateError(failures, 'Account file replacement cleanup failed.');
+  }
+
+  private async discardFileReplacement(assetId: string, file: StagedFile): Promise<void> {
+    const failures: unknown[] = [];
+    const storageResults = await Promise.allSettled([
+      this.fileStorage.discard(file),
+      this.fileStorage.remove(file.storageKey),
+    ]);
+    failures.push(...storageResults.filter((result): result is PromiseRejectedResult => result.status === 'rejected').map((result) => result.reason));
+    try {
+      await this.database.$transaction([
+        this.database.accountFile.updateMany({ where: { fileId: assetId, deletedAt: null }, data: { deletedAt: this.now() } }),
+        this.database.fileAsset.updateMany({
+          where: { id: assetId, state: FileAssetState.STAGED },
+          data: { state: FileAssetState.DELETED, deletedAt: this.now() },
+        }),
+      ]);
+    } catch (error) { failures.push(error); }
+    if (failures.length) throw new AggregateError(failures, 'Account file replacement discard failed.');
   }
 
   private async resolveQuarantinedIntent(assetId: string, file: StagedFile): Promise<void> {
@@ -418,6 +467,10 @@ function notFound(message = 'Account was not found.'): ApiError {
 
 function versionConflict(): ApiError {
   return new ApiError(409, 'VERSION_CONFLICT', 'The account was updated by another request.');
+}
+
+function isReplacementTargetUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'FILE_REPLACEMENT_TARGET_UNAVAILABLE';
 }
 
 export function fileCategoryFromSlug(slug: string): FileCategory {
