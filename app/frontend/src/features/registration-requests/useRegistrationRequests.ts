@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../shared/api/client';
 import { ApiClientError } from '../../shared/api/errors';
 
@@ -49,18 +49,48 @@ interface RegistrationPage {
   pagination: { page: number; pageSize: number; total: number };
 }
 
-export async function submitRegistration(profile: RegistrationProfile, files: RegistrationFiles) {
+export async function submitRegistration(
+  profile: RegistrationProfile,
+  files: RegistrationFiles,
+  idempotencyKey: string,
+) {
   const form = new FormData();
   form.set('profile', JSON.stringify(profile));
   for (const [field, file] of Object.entries(files)) {
     if (file) form.set(field, file);
   }
-  const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `registration-${Date.now()}-${Math.random()}`;
   return apiClient.postMultipart<{ id: string; status: RegistrationStatus; submittedAt: string }>(
     '/registration-requests',
     form,
     idempotencyKey,
   );
+}
+
+export function useRegistrationSubmission() {
+  const retained = useRef<{ payloadFingerprint: string; key: string } | undefined>(undefined);
+
+  return useCallback(async (profile: RegistrationProfile, files: RegistrationFiles) => {
+    const payloadFingerprint = registrationPayloadFingerprint(profile, files);
+    if (retained.current?.payloadFingerprint !== payloadFingerprint) {
+      retained.current = {
+        payloadFingerprint,
+        key: globalThis.crypto?.randomUUID?.() ?? `registration-${Date.now()}-${Math.random()}`,
+      };
+    }
+    const result = await submitRegistration(profile, files, retained.current.key);
+    retained.current = undefined;
+    return result;
+  }, []);
+}
+
+function registrationPayloadFingerprint(profile: RegistrationProfile, files: RegistrationFiles): string {
+  return JSON.stringify({
+    profile,
+    files: Object.entries(files)
+      .filter((entry): entry is [string, File] => Boolean(entry[1]))
+      .map(([field, file]) => ({ field, name: file.name, size: file.size, type: file.type, lastModified: file.lastModified }))
+      .sort((left, right) => left.field.localeCompare(right.field)),
+  });
 }
 
 export function useRegistrationRequests() {

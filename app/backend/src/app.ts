@@ -27,7 +27,7 @@ export function createApp(deps: AppDependencies = {}): Express {
     origin: config.allowedOrigins,
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-CSRF-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-CSRF-Token', 'Idempotency-Key'],
     optionsSuccessStatus: 204,
   }));
   app.use(pinoHttp<Request, Response>({

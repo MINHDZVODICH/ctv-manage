@@ -33,6 +33,7 @@ test('allowlisted browser preflight receives credentialed CORS headers', async (
   assert.equal(response.headers['access-control-allow-origin'], 'http://localhost:5173');
   assert.equal(response.headers['access-control-allow-credentials'], 'true');
   assert.match(response.headers['access-control-allow-methods'], /POST/);
+  assert.match(response.headers['access-control-allow-headers'], /Idempotency-Key/i);
 });
 
 test('malformed JSON returns the standard client-input error envelope', async () => {

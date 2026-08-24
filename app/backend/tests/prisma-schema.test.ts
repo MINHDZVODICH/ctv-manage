@@ -40,3 +40,31 @@ test('schema rejects a room code outside the fixed room set', async () => {
     },
   }));
 });
+
+test('idempotency keys are isolated by scope and fingerprint with hash-only storage', async () => {
+  const columns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info("IdempotencyRecord")');
+  const names = columns.map(({ name }) => name);
+  assert.ok(names.includes('keyHash'));
+  assert.ok(names.includes('scope'));
+  assert.ok(names.includes('fingerprintHash'));
+  assert.ok(names.includes('status'));
+  assert.equal(names.includes('key'), false);
+
+  const expiresAt = new Date('2026-08-26T00:00:00Z').getTime();
+  const createdAt = new Date('2026-08-25T00:00:00Z').getTime();
+  for (const [id, scope, fingerprintHash] of [
+    ['idem-a', 'registration:create', 'fingerprint-a'],
+    ['idem-b', 'password-reset', 'fingerprint-a'],
+    ['idem-c', 'registration:create', 'fingerprint-b'],
+  ]) {
+    await prisma.$executeRawUnsafe(
+      'INSERT INTO "IdempotencyRecord" ("id", "scope", "fingerprintHash", "keyHash", "requestHash", "status", "expiresAt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      id, scope, fingerprintHash, 'hashed-key', 'request-hash', 'IN_PROGRESS', expiresAt, createdAt, createdAt,
+    );
+  }
+
+  await assert.rejects(() => prisma.$executeRawUnsafe(
+    'INSERT INTO "IdempotencyRecord" ("id", "scope", "fingerprintHash", "keyHash", "requestHash", "status", "expiresAt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'idem-duplicate', 'registration:create', 'fingerprint-a', 'hashed-key', 'request-hash', 'IN_PROGRESS', expiresAt, createdAt, createdAt,
+  ));
+});

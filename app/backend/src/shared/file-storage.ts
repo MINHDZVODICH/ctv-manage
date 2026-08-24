@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
-import { access, mkdir, open, rename, rm, stat } from 'node:fs/promises';
+import { access, mkdir, open, readFile, rename, rm, stat } from 'node:fs/promises';
 import { basename, extname, resolve, sep } from 'node:path';
 import type { FileCategory } from '@prisma/client';
 import { config } from '../config.js';
@@ -60,7 +60,28 @@ export class FileStorage {
     this.limits = { ...defaultLimits, ...limits };
   }
 
-  async stage(input: StageFileInput): Promise<StagedFile> {
+  async stage(
+    input: StageFileInput,
+    storageKey = `${randomBytes(24).toString('hex')}${extname(input.originalName).toLowerCase()}`,
+  ): Promise<StagedFile> {
+    const inspected = this.inspect(input, storageKey);
+    const stagingPath = this.pathFor('staging', storageKey);
+    await mkdir(resolve(this.root, 'staging'), { recursive: true });
+    const handle = await open(stagingPath, 'wx', 0o600);
+    try {
+      await handle.writeFile(input.buffer);
+    } finally {
+      await handle.close();
+    }
+    return inspected;
+  }
+
+  deterministicKey(workflowKey: string, input: Pick<StageFileInput, 'category' | 'originalName'>): string {
+    const extension = extname(input.originalName).toLowerCase();
+    return `${createHash('sha256').update(`${workflowKey}:${input.category}`).digest('hex').slice(0, 48)}${extension}`;
+  }
+
+  inspect(input: StageFileInput, storageKey: string): StagedFile {
     const sizeLimit = input.category === 'CV' ? this.limits.cvMaxBytes : this.limits.imageMaxBytes;
     if (input.buffer.length > sizeLimit) {
       throw new ApiError(413, 'FILE_TOO_LARGE', 'The uploaded file exceeds the configured byte limit.');
@@ -81,16 +102,7 @@ export class FileStorage {
       throw new ApiError(415, 'UNSUPPORTED_FILE_TYPE', 'The uploaded file type is not supported.');
     }
 
-    const storageKey = `${randomBytes(24).toString('hex')}${extension}`;
-    const stagingPath = this.pathFor('staging', storageKey);
-    await mkdir(resolve(this.root, 'staging'), { recursive: true });
-    const handle = await open(stagingPath, 'wx', 0o600);
-    try {
-      await handle.writeFile(input.buffer);
-    } finally {
-      await handle.close();
-    }
-
+    this.pathFor('staging', storageKey);
     return {
       category: input.category,
       storageKey,
@@ -103,7 +115,12 @@ export class FileStorage {
 
   async finalize(file: StagedFile): Promise<void> {
     await mkdir(resolve(this.root, 'active'), { recursive: true });
-    await rename(this.pathFor('staging', file.storageKey), this.pathFor('active', file.storageKey));
+    try {
+      await rename(this.pathFor('staging', file.storageKey), this.pathFor('active', file.storageKey));
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
+    await this.verifyActive(file);
   }
 
   async open(storageKey: string): Promise<OpenedFile> {
@@ -122,22 +139,52 @@ export class FileStorage {
     await rm(this.pathFor('active', storageKey), { force: true });
   }
 
+  async verifyActive(file: Pick<StagedFile, 'storageKey' | 'sizeBytes' | 'sha256'>): Promise<void> {
+    await this.verifyStored('active', file);
+  }
+
+  async verifyQuarantined(file: Pick<StagedFile, 'storageKey' | 'sizeBytes' | 'sha256'>): Promise<void> {
+    await this.verifyStored('quarantine', file);
+  }
+
+  private async verifyStored(
+    area: 'active' | 'quarantine',
+    file: Pick<StagedFile, 'storageKey' | 'sizeBytes' | 'sha256'>,
+  ): Promise<void> {
+    const path = this.pathFor(area, file.storageKey);
+    const metadata = await stat(path);
+    const content = await readFile(path);
+    const digest = createHash('sha256').update(content).digest('hex');
+    if (metadata.size !== file.sizeBytes || digest !== file.sha256) {
+      throw new ApiError(409, 'FILE_CONTENT_MISMATCH', 'Stored file content does not match its metadata.');
+    }
+  }
+
   async discard(file: StagedFile): Promise<void> {
     await rm(this.pathFor('staging', file.storageKey), { force: true });
   }
 
-  async quarantine(file: StagedFile): Promise<void> {
+  async quarantine(file: StagedFile): Promise<string | undefined> {
     const quarantineRoot = resolve(this.root, 'quarantine');
     await mkdir(quarantineRoot, { recursive: true });
-    const destination = this.pathFor('quarantine', file.storageKey);
+    const extension = extname(file.storageKey);
+    const destinationKey = `${createHash('sha256').update(`quarantine:${file.storageKey}`).digest('hex').slice(0, 48)}${extension}`;
+    const destination = this.pathFor('quarantine', destinationKey);
+    try {
+      await access(destination, constants.R_OK);
+      return destinationKey;
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
     for (const area of ['staging', 'active'] as const) {
       try {
         await rename(this.pathFor(area, file.storageKey), destination);
-        return;
+        return destinationKey;
       } catch (error) {
         if (!isMissingFile(error)) throw error;
       }
     }
+    return undefined;
   }
 
   private pathFor(area: 'staging' | 'active' | 'quarantine', storageKey: string): string {

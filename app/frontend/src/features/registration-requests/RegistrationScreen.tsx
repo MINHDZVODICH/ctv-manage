@@ -1,5 +1,5 @@
 import { cloneElement, type FormEvent, type ReactElement, useRef, useState } from 'react';
-import { messageFor, submitRegistration, type RegistrationFiles, type RegistrationProfile } from './useRegistrationRequests';
+import { messageFor, useRegistrationSubmission, type RegistrationFiles, type RegistrationProfile } from './useRegistrationRequests';
 
 interface RegistrationScreenProps {
   onBackToLogin: () => void;
@@ -22,6 +22,7 @@ export function RegistrationScreen({ onBackToLogin }: RegistrationScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileForm = useRef<HTMLFormElement>(null);
+  const submitRegistration = useRegistrationSubmission();
 
   const update = (field: keyof RegistrationProfile, value: string) => {
     setProfile((current) => ({ ...current, [field]: value }));

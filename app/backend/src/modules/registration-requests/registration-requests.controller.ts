@@ -3,7 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import type { AuthLocals } from '../../middleware/auth.middleware.js';
 import { ApiError } from '../../shared/api-error.js';
-import { type FileStorage, type StagedFile } from '../../shared/file-storage.js';
+import type { StageFileInput } from '../../shared/file-storage.js';
 import {
   registrationDecisionSchema,
   registrationListQuerySchema,
@@ -19,13 +19,9 @@ const categoryByField: Record<string, FileCategory> = {
 };
 
 export class RegistrationRequestsController {
-  constructor(
-    private readonly service: RegistrationRequestsService,
-    private readonly fileStorage: FileStorage,
-  ) {}
+  constructor(private readonly service: RegistrationRequestsService) {}
 
   create = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    const staged: StagedFile[] = [];
     try {
       const key = request.get('idempotency-key') ?? '';
       const rawProfile = request.body?.profile;
@@ -39,19 +35,21 @@ export class RegistrationRequestsController {
         throw new ApiError(422, 'VALIDATION_FAILED', 'The multipart profile field must contain valid JSON.');
       }
       const profile = registrationProfileSchema.parse(parsedProfile);
-      const files = Object.values(request.files ?? {}).flat() as Express.Multer.File[];
-      for (const file of files) {
-        staged.push(await this.fileStorage.stage({
+      const files = (Object.values(request.files ?? {}).flat() as Express.Multer.File[]).map((file): StageFileInput => ({
           category: categoryByField[file.fieldname],
           originalName: file.originalname,
           mimeType: file.mimetype,
           buffer: file.buffer,
-        }));
-      }
-      const result = await this.service.create(key, profile, staged);
+      }));
+      const result = await this.service.create({
+        scope: 'registration:create',
+        fingerprint: `${request.ip ?? 'unknown'}:${request.get('user-agent') ?? 'unknown'}`,
+        key,
+        profile,
+        files,
+      });
       response.status(result.statusCode).json(result.body);
     } catch (error) {
-      await Promise.allSettled(staged.map((file) => this.fileStorage.discard(file)));
       next(normalizeValidationError(error));
     }
   };

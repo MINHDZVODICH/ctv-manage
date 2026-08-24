@@ -1,11 +1,15 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { logger } from './shared/logger.js';
-import { initializePrisma } from './shared/prisma.js';
+import { initializePrisma, prisma } from './shared/prisma.js';
+import { FileStorage } from './shared/file-storage.js';
+import { RegistrationRequestsService } from './modules/registration-requests/registration-requests.service.js';
 
 async function start(): Promise<void> {
   await initializePrisma();
-  const app = createApp();
+  const fileStorage = new FileStorage();
+  await new RegistrationRequestsService(prisma, fileStorage).reconcileIncomplete();
+  const app = createApp({ fileStorage });
   app.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Backend listening');
   });

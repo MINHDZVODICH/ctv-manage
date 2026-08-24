@@ -62,6 +62,49 @@ describe('RegistrationScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/mật khẩu phải trùng khớp/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('reuses one Idempotency-Key when the same payload is retried after an unknown failure', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('network interrupted'))
+      .mockResolvedValueOnce(jsonResponse({
+        data: { id: 'req_retry', status: 'PENDING', submittedAt: '2026-08-25T10:00:00.000Z' },
+      }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<RegistrationScreen onBackToLogin={() => undefined} />);
+    await fillRegistration(user);
+
+    await user.click(screen.getByRole('button', { name: /gửi yêu cầu đăng ký/i }));
+    expect(await screen.findByRole('alert')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /gửi yêu cầu đăng ký/i }));
+    expect(await screen.findByText(/đã gửi hồ sơ/i)).toBeVisible();
+
+    const keys = fetchMock.mock.calls.map((call) => call[1].headers['Idempotency-Key']);
+    expect(keys[0]).toBe(keys[1]);
+  });
+
+  it('rotates the retained Idempotency-Key when the payload changes after a failure', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('network interrupted'))
+      .mockResolvedValueOnce(jsonResponse({
+        data: { id: 'req_changed', status: 'PENDING', submittedAt: '2026-08-25T10:00:00.000Z' },
+      }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<RegistrationScreen onBackToLogin={() => undefined} />);
+    await fillRegistration(user);
+
+    await user.click(screen.getByRole('button', { name: /gửi yêu cầu đăng ký/i }));
+    expect(await screen.findByRole('alert')).toBeVisible();
+    const phone = screen.getByLabelText(/số điện thoại/i);
+    await user.clear(phone);
+    await user.type(phone, '0911111111');
+    await user.click(screen.getByRole('button', { name: /gửi yêu cầu đăng ký/i }));
+    expect(await screen.findByText(/đã gửi hồ sơ/i)).toBeVisible();
+
+    const keys = fetchMock.mock.calls.map((call) => call[1].headers['Idempotency-Key']);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
 });
 
 describe('RequestsScreen', () => {
@@ -130,4 +173,12 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+async function fillRegistration(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.type(screen.getByLabelText(/họ và tên/i), 'Nguyễn Văn A');
+  await user.type(screen.getByLabelText(/^email$/i), 'ctv@example.vn');
+  await user.type(screen.getByLabelText(/số điện thoại/i), '0900000000');
+  await user.type(screen.getByLabelText(/^mật khẩu$/i), 'Secret123');
+  await user.type(screen.getByLabelText(/nhập lại mật khẩu/i), 'Secret123');
 }

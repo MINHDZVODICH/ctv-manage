@@ -13,7 +13,7 @@ import { RegistrationRequestsService } from './registration-requests.service.js'
 export function createRegistrationRequestsRouter(fileStorage = new FileStorage()): Router {
   const router = Router();
   const service = new RegistrationRequestsService(undefined, fileStorage);
-  const controller = new RegistrationRequestsController(service, fileStorage);
+  const controller = new RegistrationRequestsController(service);
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { files: 3, fields: 1, fileSize: Math.max(config.FILE_IMAGE_MAX_BYTES, config.FILE_CV_MAX_BYTES) },

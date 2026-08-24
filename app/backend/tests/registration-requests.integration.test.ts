@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import argon2 from 'argon2';
 import { AccountRole, AccountStatus, FileAssetState } from '@prisma/client';
-import { afterAll, beforeAll, describe, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, test } from 'vitest';
 import request, { type Response } from 'supertest';
 import { createApp } from '../src/app.js';
 import { FileStorage } from '../src/shared/file-storage.js';
@@ -38,6 +38,10 @@ describe.sequential('registration request API', () => {
     ]);
   });
 
+  beforeEach(() => {
+    app = createApp({ fileStorage: new FileStorage(storageRoot) });
+  });
+
   afterAll(async () => {
     await prisma.$disconnect();
     await rm(storageRoot, { recursive: true, force: true });
@@ -66,6 +70,12 @@ describe.sequential('registration request API', () => {
     assert.deepEqual(second.body, first.body);
     assert.equal(await prisma.registrationRequest.count({ where: { email: profile.email } }), 1);
     assert.equal(await prisma.idempotencyRecord.count(), 1);
+    const idempotency = await prisma.idempotencyRecord.findFirstOrThrow();
+    assert.equal((idempotency as unknown as { key?: string }).key, undefined);
+    assert.match((idempotency as unknown as { keyHash: string }).keyHash, /^[a-f0-9]{64}$/);
+    assert.equal((idempotency as unknown as { status: string }).status, 'COMPLETED');
+    const storedPending = await prisma.registrationRequest.findFirstOrThrow({ where: { email: profile.email } });
+    assert.match(storedPending.passwordHash, /^\$argon2id\$/);
     assert.equal(JSON.stringify(first.body).includes('password'), false);
     assert.equal(JSON.stringify(first.body).includes('storageKey'), false);
   });
@@ -171,6 +181,29 @@ describe.sequential('registration request API', () => {
     assert.equal(await prisma.notification.count({ where: { accountId: storedRequest.approvedAccountId! } }), 1);
     assert.equal(await prisma.fileAsset.count({ where: { state: FileAssetState.ACTIVE } }), 1);
     assertNoSecrets(a.status === 200 ? a.body : b.body);
+  });
+
+  test('approval rejects a request whose ACTIVE file bytes are unavailable', async () => {
+    const submitted = await submitRegistration('missing-approved-file', {
+      ...profile,
+      email: 'missing-approved-file@example.vn',
+    }, true, true);
+    assert.equal(submitted.status, 201);
+    const linked = await prisma.registrationRequestFile.findFirstOrThrow({
+      where: { requestId: submitted.body.data.id },
+      include: { file: true },
+    });
+    await new FileStorage(storageRoot).remove(linked.file.storageKey);
+    const admin = await login('admin-a@example.vn');
+
+    const response = await decide(submitted.body.data.id, admin, 'APPROVED');
+
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.code, 'REGISTRATION_FILES_UNAVAILABLE');
+    assert.equal(await prisma.account.count({ where: { email: 'missing-approved-file@example.vn' } }), 0);
+    const unchanged = await prisma.registrationRequest.findUniqueOrThrow({ where: { id: submitted.body.data.id } });
+    assert.equal(unchanged.status, 'PENDING');
+    assert.match(unchanged.passwordHash, /^\$argon2id\$/);
   });
 
   test('authenticated decision mutation requires CSRF and rejection creates no account', async () => {
