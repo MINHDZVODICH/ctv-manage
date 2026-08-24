@@ -373,7 +373,7 @@ git commit -m "feat: implement CTV schedule workflows"
 - Create: `app/backend/tests/schedule-summary.integration.test.ts`, `app/backend/tests/notifications.integration.test.ts`
 - Create: `app/frontend/src/features/schedules/useScheduleSummary.ts`, `SummaryScheduleScreen.tsx`, `ShiftRosterModal.tsx`, `schedule-summary.test.tsx`
 - Create: `app/frontend/src/features/notifications/useNotifications.ts`, `NotificationsPopover.tsx`, `notifications.test.tsx`
-- Modify: `app/backend/src/modules/schedules/*`, `app/backend/src/app.ts`, `app/frontend/src/app/App.tsx`, `app/frontend/src/app/Sidebar.tsx`, `app/frontend/src/index.css`
+- Modify: `app/backend/src/modules/schedules/schedule.service.ts`, `app/backend/src/modules/schedules/schedule.controller.ts`, `app/backend/src/modules/schedules/schedule.dto.ts`, `app/backend/src/app.ts`, `app/frontend/src/app/App.tsx`, `app/frontend/src/app/Sidebar.tsx`, `app/frontend/src/index.css`
 
 **Interfaces:**
 - Produces: Admin monthly summary, Admin shift roster, user notification list and read-state patch.
@@ -432,7 +432,7 @@ git commit -m "feat: add Admin schedule summary and notifications"
 - Create: `app/frontend/playwright.config.ts`, `app/frontend/e2e/auth.spec.ts`, `admin.spec.ts`, `ctv.spec.ts`, `visual-parity.spec.ts`
 - Create: `app/frontend/src/shared/ui/LoadingState.tsx`, `ErrorState.tsx`, `Toast.tsx`, `Modal.tsx`
 - Create: `app/backend/tests/api-contract.integration.test.ts`
-- Modify: all frontend screens/components and `app/frontend/src/index.css` where screenshot diffs identify discrepancies
+- Modify: `app/frontend/src/features/auth/LoginScreen.tsx`, `app/frontend/src/features/registration-requests/RegistrationScreen.tsx`, `app/frontend/src/features/registration-requests/RequestsScreen.tsx`, `app/frontend/src/features/registration-requests/ViewRequestModal.tsx`, `app/frontend/src/features/accounts/AccountListScreen.tsx`, `app/frontend/src/features/accounts/ViewAccountDetailModal.tsx`, `app/frontend/src/features/accounts/ResetPasswordModal.tsx`, `app/frontend/src/features/profile/ProfileScreen.tsx`, `app/frontend/src/features/profile/EditProfileModal.tsx`, `app/frontend/src/features/profile/ChangePasswordModal.tsx`, `app/frontend/src/features/schedules/CTVScheduleWorkspace.tsx`, `app/frontend/src/features/schedules/ScheduleScreen.tsx`, `app/frontend/src/features/schedules/ShiftDetailModal.tsx`, `app/frontend/src/features/schedules/SummaryScheduleScreen.tsx`, `app/frontend/src/features/schedules/ShiftRosterModal.tsx`, `app/frontend/src/features/notifications/NotificationsPopover.tsx`, `app/frontend/src/app/App.tsx`, `app/frontend/src/app/Sidebar.tsx`, `app/frontend/src/index.css`
 
 **Interfaces:**
 - Produces: deterministic E2E seed/reset command for test only, Playwright desktop 1440×900 and mobile 390×844 projects.
@@ -498,7 +498,7 @@ git commit -m "test: verify API coverage and prototype visual parity"
 
 **Files:**
 - Create: `app/backend/Dockerfile`, `app/frontend/Dockerfile`, `app/frontend/nginx.conf`, `docker-compose.yml`
-- Create: `.gitlab-ci.yml`, `README.md`
+- Create: `.gitlab-ci.yml`, `README.md`, `scripts/docker-smoke.mjs`
 - Modify: `app/backend/.env.example`, `package.json`, `package-lock.json`
 
 **Interfaces:**
