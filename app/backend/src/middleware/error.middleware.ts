@@ -9,9 +9,11 @@ export const notFoundMiddleware: RequestHandler = (request, _response, next) => 
 export const errorMiddleware: ErrorRequestHandler = (error, _request, response, _next) => {
   const apiError = error instanceof ApiError
     ? error
-    : new ApiError(500, 'INTERNAL_SERVER_ERROR', 'An unexpected error occurred.');
+    : isMalformedJsonError(error)
+      ? new ApiError(400, 'INVALID_JSON', 'Malformed JSON request body.')
+      : new ApiError(500, 'INTERNAL_SERVER_ERROR', 'An unexpected error occurred.');
 
-  if (!(error instanceof ApiError)) {
+  if (!(error instanceof ApiError) && !isMalformedJsonError(error)) {
     logger.error(error);
   }
 
@@ -24,3 +26,9 @@ export const errorMiddleware: ErrorRequestHandler = (error, _request, response, 
     },
   });
 };
+
+function isMalformedJsonError(error: unknown): error is SyntaxError & { status: number; type: string } {
+  return error instanceof SyntaxError
+    && (error as { status?: unknown }).status === 400
+    && (error as { type?: unknown }).type === 'entity.parse.failed';
+}

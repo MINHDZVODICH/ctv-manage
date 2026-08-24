@@ -1,16 +1,34 @@
+import { execFileSync } from 'node:child_process';
 import type { PrismaClient } from '@prisma/client';
 
+function schemaSql(): string {
+  const command = process.platform === 'win32' ? 'cmd.exe' : 'npx';
+  const args = process.platform === 'win32'
+    ? ['/d', '/s', '/c', 'npx.cmd prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script']
+    : ['prisma', 'migrate', 'diff', '--from-empty', '--to-schema-datamodel', 'prisma/schema.prisma', '--script'];
+
+  return execFileSync(command, args, {
+    cwd: new URL('..', import.meta.url),
+    encoding: 'utf8',
+    env: { ...process.env, DATABASE_URL: 'file:./test.db' },
+  });
+}
+
 export async function resetTestDatabase(client: PrismaClient): Promise<void> {
-  await client.$executeRawUnsafe('DROP TABLE IF EXISTS "Shift"');
-  await client.$executeRawUnsafe(`
-    CREATE TABLE "Shift" (
-      "id" TEXT NOT NULL PRIMARY KEY,
-      "workDate" DATETIME NOT NULL,
-      "period" TEXT NOT NULL,
-      "status" TEXT NOT NULL DEFAULT 'OPEN',
-      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" DATETIME NOT NULL,
-      CONSTRAINT "Shift_workDate_period_key" UNIQUE ("workDate", "period")
-    )
-  `);
+  await client.$executeRawUnsafe('PRAGMA foreign_keys=OFF');
+  const tables = await client.$queryRawUnsafe<Array<{ name: string }>>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+  );
+
+  for (const { name } of tables) {
+    await client.$executeRawUnsafe(`DROP TABLE IF EXISTS "${name.replaceAll('"', '""')}"`);
+  }
+
+  for (const statement of schemaSql().split(/;\s*(?:\r?\n|$)/)) {
+    if (statement.trim()) {
+      await client.$executeRawUnsafe(statement);
+    }
+  }
+
+  await client.$executeRawUnsafe('PRAGMA foreign_keys=ON');
 }

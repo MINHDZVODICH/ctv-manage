@@ -22,3 +22,26 @@ test('HTTP request logging redacts authorization credentials', async () => {
 
   assert.equal(entries.join('').includes('top-secret-token'), false);
 });
+
+test('allowlisted browser preflight receives credentialed CORS headers', async () => {
+  const response = await request(createApp())
+    .options('/api/v1/health')
+    .set('origin', 'http://localhost:5173')
+    .set('access-control-request-method', 'POST');
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers['access-control-allow-origin'], 'http://localhost:5173');
+  assert.equal(response.headers['access-control-allow-credentials'], 'true');
+  assert.match(response.headers['access-control-allow-methods'], /POST/);
+});
+
+test('malformed JSON returns the standard client-input error envelope', async () => {
+  const response = await request(createApp())
+    .post('/api/v1/health')
+    .set('content-type', 'application/json')
+    .send('{');
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'INVALID_JSON');
+  assert.match(response.body.error.requestId, /^req_/);
+});

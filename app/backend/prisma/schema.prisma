@@ -42,6 +42,13 @@ enum ShiftPeriod {
   AFTERNOON
 }
 
+enum RoomCode {
+  ROOM_1
+  ROOM_2
+  ROOM_3
+  ROOM_4
+}
+
 enum ScheduleRegistrationStatus {
   ACTIVE
   CANCELLED
@@ -176,7 +183,7 @@ model ScheduleRegistration {
   startDate   DateTime
   endDate     DateTime
   timeZone    String
-  roomCode    String
+  roomCode    RoomCode
   workContent String
   version     Int                        @default(1)
   status      ScheduleRegistrationStatus @default(ACTIVE)
@@ -217,7 +224,7 @@ model ShiftAssignment {
   shiftId            String
   accountId          String
   registrationId     String
-  roomCode           String
+  roomCode           RoomCode
   workContent        String
   status             ShiftAssignmentStatus @default(ACTIVE)
   assignedAt         DateTime              @default(now())
