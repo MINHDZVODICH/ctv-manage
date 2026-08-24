@@ -13,6 +13,22 @@ afterEach(() => {
 });
 
 describe('ProfileScreen', () => {
+  it('reloads the self profile on VERSION_CONFLICT and warns instead of overwriting', async () => {
+    let loads = 0;
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/users/me' && (!init?.method || init.method === 'GET')) { loads += 1; return Promise.resolve(jsonResponse({ data: { ...profile(null), displayName: loads > 1 ? 'Tên từ máy chủ' : 'Nguyễn Văn An', version: loads } })); }
+      if (url === '/api/v1/auth/csrf-token') return Promise.resolve(jsonResponse({ data: { csrfToken: 'csrf-profile' } }));
+      if (url === '/api/v1/users/me' && init?.method === 'PATCH') return Promise.resolve(jsonResponse({ error: { code: 'VERSION_CONFLICT', message: 'Conflict' } }, 409));
+      return Promise.resolve(jsonResponse({}, 404));
+    }));
+    const user = userEvent.setup();
+    render(<ProfileScreen />);
+    await user.click(await screen.findByRole('button', { name: /chỉnh sửa thông tin/i }));
+    await user.click(screen.getByRole('button', { name: /lưu thay đổi/i }));
+    expect(await screen.findByText(/dữ liệu đã thay đổi/i)).toBeVisible();
+    await waitFor(() => expect(loads).toBe(2));
+    expect(screen.getAllByText('Tên từ máy chủ').length).toBeGreaterThan(0);
+  });
   it('updates a profile file through the authorized endpoint and reloads metadata', async () => {
     let profileLoads = 0;
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

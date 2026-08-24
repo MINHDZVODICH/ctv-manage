@@ -22,6 +22,7 @@ const app = createApp({ now: () => now });
 
 let adminId: string;
 let ctvId: string;
+let adminActor: AuthenticatedActor;
 
 describe.sequential('account and profile API', () => {
   beforeAll(async () => {
@@ -40,12 +41,13 @@ describe.sequential('account and profile API', () => {
     ]);
     adminId = admin.id;
     ctvId = ctv.id;
+    adminActor = await authenticated('admin@example.vn');
   });
 
   afterAll(async () => prisma.$disconnect());
 
   test('Admin account list is server-paginated and never leaks credentials', async () => {
-    const admin = await authenticated('admin@example.vn');
+    const admin = adminActor;
     const response = await request(app)
       .get('/api/v1/accounts?q=Nguy%E1%BB%85n&status=ACTIVE&page=1&pageSize=5')
       .set('Cookie', admin.cookie);
@@ -65,7 +67,7 @@ describe.sequential('account and profile API', () => {
   });
 
   test('stale account versions return VERSION_CONFLICT without changing the account', async () => {
-    const admin = await authenticated('admin@example.vn');
+    const admin = adminActor;
     const response = await mutation(admin, request(app)
       .patch(`/api/v1/accounts/${ctvId}`)
       .send({ displayName: 'Tên bị ghi đè', version: 2 }));
@@ -76,7 +78,7 @@ describe.sequential('account and profile API', () => {
   });
 
   test('disabling an account revokes sessions and cancels only future assignments atomically', async () => {
-    const admin = await authenticated('admin@example.vn');
+    const admin = adminActor;
     const ctv = await authenticated('an@example.vn');
     const registration = await prisma.scheduleRegistration.create({ data: {
       accountId: ctvId,
@@ -142,7 +144,7 @@ describe.sequential('account and profile API', () => {
   });
 
   test('Admin password reset is durable and idempotent without echoing the password', async () => {
-    const admin = await authenticated('admin@example.vn');
+    const admin = adminActor;
     const account = await prisma.account.findUniqueOrThrow({ where: { id: ctvId } });
     const send = () => mutation(admin, request(app)
       .post(`/api/v1/accounts/${ctvId}/password-resets`)
@@ -160,8 +162,53 @@ describe.sequential('account and profile API', () => {
     assert.equal(account.id, first.body.data.accountId);
   });
 
+  test('password reset rejects key reuse with another payload but scopes the same key per Admin', async () => {
+    const admin = adminActor;
+    const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+    await prisma.account.create({ data: {
+      email: 'admin-two@example.vn', passwordHash, role: AccountRole.ADMIN,
+      status: AccountStatus.ACTIVE, mustChangePassword: false, displayName: 'Quản trị viên 2',
+    } });
+    const adminTwo = await authenticated('admin-two@example.vn');
+    const send = (actor: AuthenticatedActor, newPassword: string) => mutation(actor, request(app)
+      .post(`/api/v1/accounts/${ctvId}/password-resets`)
+      .set('Idempotency-Key', 'shared-reset-key')
+      .send({ newPassword, requireChangeOnLogin: true }));
+
+    assert.equal((await send(admin, 'AdminOne123')).status, 200);
+    const reused = await send(admin, 'Different123');
+    assert.equal(reused.status, 409);
+    assert.equal(reused.body.error.code, 'IDEMPOTENCY_KEY_REUSED');
+    assert.equal((await send(adminTwo, 'AdminTwo123')).status, 200);
+    assert.equal(await prisma.idempotencyRecord.count({ where: { scope: `account-password-reset:${ctvId}` } }), 3);
+  });
+
+  test('concurrent same-key password resets produce only one durable workflow and replay afterward', async () => {
+    const admin = adminActor;
+    const send = () => mutation(admin, request(app)
+      .post(`/api/v1/accounts/${ctvId}/password-resets`)
+      .set('Idempotency-Key', 'concurrent-reset-key')
+      .send({ newPassword: 'Concurrent123', requireChangeOnLogin: false }));
+    const concurrent = await Promise.all([send(), send()]);
+    assert.deepEqual(concurrent.map((response) => response.status).sort(), [200, 409]);
+    const replay = await send();
+    assert.equal(replay.status, 200);
+    assert.deepEqual(replay.body, concurrent.find((response) => response.status === 200)?.body);
+    assert.equal(await prisma.idempotencyRecord.count({ where: { scope: `account-password-reset:${ctvId}`, keyHash: { not: '' } } }), 4);
+  });
+
+  test('authenticated mutations still require both an allowed Origin and CSRF token', async () => {
+    const admin = adminActor;
+    const withoutOrigin = await request(app).patch(`/api/v1/accounts/${ctvId}/notes`)
+      .set('Cookie', admin.cookie).set('X-CSRF-Token', admin.csrf).send({ notes: 'blocked', version: 1 });
+    const withoutCsrf = await request(app).patch(`/api/v1/accounts/${ctvId}/notes`)
+      .set('Cookie', admin.cookie).set('Origin', allowedOrigin).send({ notes: 'blocked', version: 1 });
+    assert.equal(withoutOrigin.status, 403);
+    assert.equal(withoutCsrf.status, 403);
+  });
+
   test('soft delete is idempotent, revokes sessions, and retains assignment history', async () => {
-    const admin = await authenticated('admin@example.vn');
+    const admin = adminActor;
     const beforeAssignments = await prisma.shiftAssignment.count({ where: { accountId: ctvId } });
     const first = await mutation(admin, request(app).delete(`/api/v1/accounts/${ctvId}`));
     const second = await mutation(admin, request(app).delete(`/api/v1/accounts/${ctvId}`));

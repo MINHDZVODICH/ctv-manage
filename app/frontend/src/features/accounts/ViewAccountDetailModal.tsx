@@ -9,6 +9,7 @@ interface Props {
   onClose: () => void;
   onSaveNotes: (notes: string) => void;
   onResetPassword: () => void;
+  onEditProfile: () => void;
   onReplaceFile: (category: FileCategory, file: File) => void;
   onDeleteFile: (category: FileCategory) => void;
 }
@@ -18,7 +19,7 @@ const labels: Record<FileCategory, string> = {
 };
 
 export function ViewAccountDetailModal(props: Props) {
-  const { account, isLoading, error, isSaving, onClose, onSaveNotes, onResetPassword, onReplaceFile, onDeleteFile } = props;
+  const { account, isLoading, error, isSaving, onClose, onSaveNotes, onResetPassword, onEditProfile, onReplaceFile, onDeleteFile } = props;
   const [notes, setNotes] = useState('');
   useEffect(() => setNotes(account?.adminNotes ?? ''), [account?.id, account?.adminNotes]);
 
@@ -52,7 +53,7 @@ export function ViewAccountDetailModal(props: Props) {
           </section>
           <label className="notes-field">Ghi chú nội bộ<textarea value={notes} maxLength={4000} onChange={(event) => setNotes(event.target.value)} /></label>
         </div>}
-        <footer><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onResetPassword}>Đặt lại mật khẩu</button><button type="button" className="primary-action" disabled={!account || isSaving} onClick={() => onSaveNotes(notes)}>{isSaving ? 'Đang lưu...' : 'Lưu ghi chú'}</button></footer>
+        <footer><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onResetPassword}>Đặt lại mật khẩu</button><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onEditProfile}>Chỉnh sửa thông tin</button><button type="button" className="primary-action" disabled={!account || isSaving} onClick={() => onSaveNotes(notes)}>{isSaving ? 'Đang lưu...' : 'Lưu ghi chú'}</button></footer>
       </section>
     </div>
   );

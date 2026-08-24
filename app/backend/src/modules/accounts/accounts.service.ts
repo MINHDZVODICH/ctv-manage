@@ -1,4 +1,5 @@
 import argon2 from 'argon2';
+import { randomUUID } from 'node:crypto';
 import {
   AccountRole,
   AccountStatus,
@@ -236,42 +237,55 @@ export class AccountsService {
 
   async replaceFile(accountId: string, file: StageFileInput, admin = false) {
     await this.requireFileTarget(accountId, admin);
-    const staged = await this.fileStorage.stage(file);
+    const storageKey = this.fileStorage.deterministicKey(`account-file:${randomUUID()}`, file);
+    const staged = this.fileStorage.inspect(file, storageKey);
     let assetId: string | undefined;
+    let activated: Awaited<ReturnType<AccountsService['activateFileReplacement']>> | undefined;
     try {
-      const asset = await this.database.fileAsset.create({ data: fileAssetData(staged) });
+      const asset = await this.database.fileAsset.create({ data: {
+        ...fileAssetData(staged),
+        accountFiles: { create: { accountId, category: file.category } },
+      } });
       assetId = asset.id;
+      await this.fileStorage.stage(file, storageKey);
       await this.fileStorage.finalize(staged);
       await this.fileStorage.verifyActive(staged);
-      const activated = await this.database.$transaction(async (transaction) => {
-        const replacedAt = this.now();
-        const previous = await transaction.accountFile.findMany({
-          where: { accountId, category: file.category, deletedAt: null }, include: { file: true },
-        });
-        await transaction.accountFile.updateMany({
-          where: { accountId, category: file.category, deletedAt: null }, data: { deletedAt: replacedAt },
-        });
-        if (previous.length) {
-          await transaction.fileAsset.updateMany({
-            where: { id: { in: previous.map((entry) => entry.fileId) } },
-            data: { state: FileAssetState.DELETED, deletedAt: replacedAt },
-          });
-        }
-        const active = await transaction.fileAsset.update({
-          where: { id: asset.id }, data: { state: FileAssetState.ACTIVE },
-        });
-        await transaction.accountFile.create({ data: { accountId, fileId: asset.id, category: file.category } });
-        return { active, previous };
-      });
-      await Promise.allSettled(activated.previous.map((entry) => this.fileStorage.remove(entry.file.storageKey)));
-      return toFileDto(activated.active, file.category);
+      activated = await this.activateFileReplacement(accountId, file.category, asset.id);
     } catch (error) {
-      const quarantined = await this.fileStorage.quarantine(staged).catch(() => undefined);
-      if (assetId) await this.database.fileAsset.updateMany({
-        where: { id: assetId, state: FileAssetState.STAGED },
-        data: quarantined ? { storageKey: quarantined, state: FileAssetState.QUARANTINED } : { state: FileAssetState.DELETED, deletedAt: this.now() },
-      });
+      if (assetId) await this.compensateFileReplacement(assetId, staged);
       throw error;
+    }
+    await Promise.all(activated.previous.map((entry) => this.fileStorage.remove(entry.file.storageKey)));
+    return toFileDto(activated.active, file.category);
+  }
+
+  async reconcileIncompleteFileReplacements(): Promise<void> {
+    const incomplete = await this.database.fileAsset.findMany({
+      where: {
+        state: { in: [FileAssetState.STAGED, FileAssetState.QUARANTINED] },
+        accountFiles: { some: { deletedAt: null } },
+      },
+      include: { accountFiles: { where: { deletedAt: null } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    for (const asset of incomplete) {
+      const link = asset.accountFiles[0];
+      if (!link) continue;
+      const descriptor: StagedFile = { ...asset, category: link.category };
+      if (asset.state === FileAssetState.QUARANTINED) {
+        await this.resolveQuarantinedIntent(asset.id, descriptor);
+        continue;
+      }
+      let activated: Awaited<ReturnType<AccountsService['activateFileReplacement']>> | undefined;
+      try {
+        await this.fileStorage.finalize(descriptor);
+        await this.fileStorage.verifyActive(descriptor);
+        activated = await this.activateFileReplacement(link.accountId, link.category, asset.id);
+      } catch (error) {
+        await this.compensateFileReplacement(asset.id, descriptor);
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+      }
+      if (activated) await Promise.all(activated.previous.map((entry) => this.fileStorage.remove(entry.file.storageKey)));
     }
   }
 
@@ -290,7 +304,69 @@ export class AccountsService {
       });
       return links.map((entry) => entry.file.storageKey);
     });
-    await Promise.allSettled(removed.map((storageKey) => this.fileStorage.remove(storageKey)));
+    await Promise.all(removed.map((storageKey) => this.fileStorage.remove(storageKey)));
+  }
+
+  private async activateFileReplacement(accountId: string, category: FileCategory, assetId: string) {
+    return this.database.$transaction(async (transaction) => {
+      const intent = await transaction.accountFile.findUnique({ where: { accountId_fileId: { accountId, fileId: assetId } } });
+      if (!intent || intent.deletedAt || intent.category !== category) {
+        throw new ApiError(500, 'FILE_REPLACEMENT_INTENT_MISSING', 'File replacement intent is missing.');
+      }
+      const replacedAt = this.now();
+      const previous = await transaction.accountFile.findMany({
+        where: { accountId, category, deletedAt: null, fileId: { not: assetId }, file: { state: FileAssetState.ACTIVE } },
+        include: { file: true },
+      });
+      if (previous.length) {
+        await transaction.accountFile.updateMany({
+          where: { accountId, category, deletedAt: null, fileId: { in: previous.map((entry) => entry.fileId) } },
+          data: { deletedAt: replacedAt },
+        });
+        await transaction.fileAsset.updateMany({
+          where: { id: { in: previous.map((entry) => entry.fileId) } },
+          data: { state: FileAssetState.DELETED, deletedAt: replacedAt },
+        });
+      }
+      const activated = await transaction.fileAsset.updateMany({
+        where: { id: assetId, state: FileAssetState.STAGED, deletedAt: null },
+        data: { state: FileAssetState.ACTIVE },
+      });
+      if (activated.count !== 1) throw new ApiError(500, 'FILE_REPLACEMENT_STATE_INVALID', 'File replacement state changed unexpectedly.');
+      return { active: await transaction.fileAsset.findUniqueOrThrow({ where: { id: assetId } }), previous };
+    });
+  }
+
+  private async compensateFileReplacement(assetId: string, file: StagedFile): Promise<void> {
+    const failures: unknown[] = [];
+    let quarantined: string | undefined;
+    try { quarantined = await this.fileStorage.quarantine(file); } catch (error) { failures.push(error); }
+    try {
+      await this.database.$transaction([
+        this.database.accountFile.updateMany({ where: { fileId: assetId, deletedAt: null }, data: { deletedAt: this.now() } }),
+        this.database.fileAsset.updateMany({
+          where: { id: assetId, state: FileAssetState.STAGED },
+          data: quarantined
+            ? { storageKey: quarantined, state: FileAssetState.QUARANTINED }
+            : { state: FileAssetState.DELETED, deletedAt: this.now() },
+        }),
+      ]);
+    } catch (error) { failures.push(error); }
+    if (failures.length) throw new AggregateError(failures, 'Account file replacement cleanup failed.');
+  }
+
+  private async resolveQuarantinedIntent(assetId: string, file: StagedFile): Promise<void> {
+    let present = true;
+    try { await this.fileStorage.verifyQuarantined(file); } catch { present = false; }
+    const unlink = this.database.accountFile.updateMany({ where: { fileId: assetId, deletedAt: null }, data: { deletedAt: this.now() } });
+    if (present) await unlink;
+    else await this.database.$transaction([
+      unlink,
+      this.database.fileAsset.updateMany({
+        where: { id: assetId, state: FileAssetState.QUARANTINED },
+        data: { state: FileAssetState.DELETED, deletedAt: this.now() },
+      }),
+    ]);
   }
 
   private async requireVisibleAccount(accountId: string) {

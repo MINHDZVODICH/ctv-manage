@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../../shared/api/client';
 import type { AccountDetail, FileCategory } from '../accounts/useAccounts';
-import { messageFor } from '../accounts/useAccounts';
+import { isVersionConflict, messageFor } from '../accounts/useAccounts';
 
 export interface ProfileUpdate {
   displayName?: string;
@@ -25,8 +25,15 @@ export function useProfile() {
   useEffect(() => { void load(); }, [load]);
 
   const update = async (input: ProfileUpdate) => {
-    if (!profile) return;
-    setProfile(await apiClient.patch<AccountDetail>('/users/me', { ...input, version: profile.version }));
+    if (!profile) return 'updated' as const;
+    try {
+      setProfile(await apiClient.patch<AccountDetail>('/users/me', { ...input, version: profile.version }));
+      return 'updated' as const;
+    } catch (reason) {
+      if (!isVersionConflict(reason)) throw reason;
+      await load();
+      return 'conflict' as const;
+    }
   };
   const replaceFile = async (category: FileCategory, file: File) => {
     const form = new FormData(); form.set('file', file);

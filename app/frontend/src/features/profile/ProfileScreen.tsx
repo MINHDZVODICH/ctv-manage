@@ -30,6 +30,15 @@ export function ProfileScreen() {
     void perform(() => profileState.replaceFile(category, file), success);
     event.target.value = '';
   };
+  const saveProfile = async (input: Parameters<typeof profileState.update>[0]) => {
+    setSubmitting(true); setActionError(null); setNotice(null);
+    try {
+      const result = await profileState.update(input);
+      if (result === 'conflict') { setEditing(false); setNotice('Dữ liệu đã thay đổi trên máy chủ. Đã tải lại thông tin mới nhất.'); }
+      else { setNotice('Đã cập nhật thông tin hồ sơ cá nhân.'); setEditing(false); }
+    } catch (reason) { setActionError(messageFor(reason)); }
+    finally { setSubmitting(false); }
+  };
 
   if (profileState.isLoading && !profile) return <section className="profile-workspace"><p aria-live="polite">Đang tải hồ sơ cá nhân...</p></section>;
   if (!profile) return <section className="profile-workspace"><p className="form-error" role="alert">{profileState.error ?? 'Không tìm thấy hồ sơ.'}</p><button type="button" onClick={() => void profileState.load()}>Thử lại</button></section>;
@@ -44,7 +53,7 @@ export function ProfileScreen() {
         <section className="profile-files"><h2>Hồ sơ đính kèm</h2>{(['CCCD_FRONT', 'CCCD_BACK', 'CV'] as FileCategory[]).map((category) => { const file = profile.files.find((entry) => entry.category === category); return <article key={category}><div><strong>{fileLabels[category]}</strong>{file ? <a href={`/api/v1/files/${file.id}/content`} target="_blank" rel="noreferrer">{file.originalName} · {formatBytes(file.sizeBytes)}</a> : <span>Chưa có tệp</span>}</div><div><label className="file-action">{file ? 'Thay đổi' : 'Tải lên'}<input type="file" aria-label={fileLabels[category]} accept={category === 'CV' ? '.pdf,.doc,.docx' : 'image/jpeg,image/png,image/webp'} onChange={replace(category)} /></label>{file && <button type="button" className="danger-link" onClick={() => void perform(() => profileState.deleteFile(category), `Đã xóa ${fileLabels[category].toLowerCase()}.`)}>Xóa</button>}</div></article>; })}</section>
       </div>
     </div>
-    {isEditing && <EditProfileModal profile={profile} isSubmitting={isSubmitting} error={actionError} onClose={() => { setEditing(false); setActionError(null); }} onSave={(input) => void perform(() => profileState.update(input), 'Đã cập nhật thông tin hồ sơ cá nhân.', () => setEditing(false))} />}
+    {isEditing && <EditProfileModal profile={profile} isSubmitting={isSubmitting} error={actionError} onClose={() => { setEditing(false); setActionError(null); }} onSave={(input) => void saveProfile(input)} />}
     {isChangingPassword && <ChangePasswordModal isSubmitting={isSubmitting} serverError={actionError} onClose={() => { setChangingPassword(false); setActionError(null); }} onSubmit={(currentPassword, newPassword) => void perform(() => profileState.changePassword(currentPassword, newPassword), 'Đổi mật khẩu thành công!', () => setChangingPassword(false))} />}
   </section>;
 }

@@ -90,11 +90,18 @@ export function useAccounts() {
   return {
     ...state, isLoading, error, load, changeStatus, remove,
     detail: (accountId: string) => apiClient.get<AccountDetail>(`/accounts/${accountId}`),
+    update: (account: AccountDetail, input: { displayName?: string; phone?: string | null; dateOfBirth?: string | null; gender?: string | null; address?: string | null }) => (
+      apiClient.patch<AccountDetail>(`/accounts/${account.id}`, { ...input, version: account.version })
+    ),
     saveNotes: (account: AccountDetail, notes: string) => apiClient.patch<AccountDetail>(`/accounts/${account.id}/notes`, { notes, version: account.version }),
     resetPassword: (accountId: string, newPassword: string, requireChangeOnLogin: boolean, key: string) => (
       apiClient.postIdempotent(`/accounts/${accountId}/password-resets`, { newPassword, requireChangeOnLogin }, key)
     ),
   };
+}
+
+export function isVersionConflict(reason: unknown): boolean {
+  return reason instanceof ApiClientError && reason.status === 409 && reason.code === 'VERSION_CONFLICT';
 }
 
 export function messageFor(reason: unknown): string {

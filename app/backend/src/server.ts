@@ -4,11 +4,13 @@ import { logger } from './shared/logger.js';
 import { initializePrisma, prisma } from './shared/prisma.js';
 import { FileStorage } from './shared/file-storage.js';
 import { RegistrationRequestsService } from './modules/registration-requests/registration-requests.service.js';
+import { AccountsService } from './modules/accounts/accounts.service.js';
 
 async function start(): Promise<void> {
   await initializePrisma();
   const fileStorage = new FileStorage();
   await new RegistrationRequestsService(prisma, fileStorage).reconcileIncomplete();
+  await new AccountsService(prisma, fileStorage).reconcileIncompleteFileReplacements();
   const app = createApp({ fileStorage });
   app.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Backend listening');
