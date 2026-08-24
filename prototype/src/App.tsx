@@ -460,7 +460,6 @@ export const App: React.FC = () => {
           };
           setNotifications((prev) => [newNotif, ...prev]);
         }}
-        onForgotPassword={() => alert("Vui lòng liên hệ Quản trị viên để đặt lại mật khẩu.")}
       />
     );
   }

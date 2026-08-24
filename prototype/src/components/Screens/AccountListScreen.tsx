@@ -242,7 +242,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
         </div>
       </div>
 
-      {/* UC 1.6 Modal: Confirm Activate / Disable */}
+      {/* UC 1.5 Modal: Confirm Activate / Disable */}
       {accountToToggle && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-150">
@@ -287,7 +287,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
         </div>
       )}
 
-      {/* UC 1.7 Modal: Confirm Delete */}
+      {/* UC 1.6 Modal: Confirm Delete */}
       {accountToDelete && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in zoom-in-95 duration-150">

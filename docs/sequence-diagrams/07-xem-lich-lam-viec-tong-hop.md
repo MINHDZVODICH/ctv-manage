@@ -1,71 +1,56 @@
 # Sequence diagram - Xem lịch làm việc tổng hợp
 
+Nguồn nghiệp vụ: Use case 2.4 trong [USE-CASE.md](../USE-CASE.md).
+
 ```mermaid
 sequenceDiagram
-    title XEM LỊCH LÀM VIỆC TỔNG HỢP
-
-    actor A as Quản trị viên
-
+    actor A as Admin
     box LỚP FRONTEND
         participant UI as Lịch tổng hợp Admin
-        participant API as API Client
+        participant H as Schedule Feature Hook
+        participant API as Shared API Client
     end
-
     box LỚP BACKEND
         participant C as Schedule Controller
         participant S as Schedule Service
     end
-
     box LỚP DỮ LIỆU
-        participant DB as Database
+        participant DB as SQLite qua Prisma
     end
 
-    A->>UI: Mở Lịch làm việc tổng hợp
-    UI->>API: Yêu cầu dữ liệu tháng hiện tại
+    A->>UI: Chọn tháng cần xem
+    UI->>H: loadScheduleSummary(month)
+    H->>API: getScheduleSummary(month)
     API->>C: GET /api/v1/schedule-summary?month={month}
-    activate C
-    C->>S: Lấy dữ liệu lịch tổng hợp
-    activate S
-    S->>DB: Truy vấn dữ liệu ca dùng chung với lịch cá nhân CTV
-    DB-->>S: Danh sách CTV và các ca hôm nay
-    S->>DB: Đếm CTV theo ngày và ca trong tháng
-    DB-->>S: Số lượng CTV theo từng ca
+    C->>C: Xác thực vai trò ADMIN và month
+    C->>S: getMonthlySummary(month)
+    S->>S: Tính ngày đầu và cuối tháng
+    S->>DB: Đọc active assignments, account và roomCode
+    DB-->>S: Các assignment trong tháng
+    S->>S: Nhóm theo date và period
+    S-->>C: ScheduleSummary DTO
+    C-->>API: 200 + data
+    API-->>H: Cells và assignments
+    H-->>UI: Render lưới tháng
+    UI-->>A: Hiển thị số CTV theo từng ô
 
-    alt Không có ca trong giai đoạn được chọn
-        S-->>C: Dữ liệu tổng hợp rỗng
-        C-->>API: 200 OK
-        API-->>UI: Danh sách rỗng
-        UI-->>A: Hiển thị trạng thái chưa có lịch
-    else Có dữ liệu ca
-        S-->>C: Danh sách hôm nay và số lượng theo ca
-        C-->>API: 200 OK
-        API-->>UI: Dữ liệu lịch tổng hợp
-        UI-->>A: Hiển thị CTV hôm nay và lịch tháng
-    end
-
-    deactivate S
-    deactivate C
-
-    opt CTV đăng ký, cập nhật hoặc hủy ca rồi Admin tải lại
-        A->>UI: Tải lại lịch tổng hợp
-        UI->>API: Yêu cầu dữ liệu mới nhất
+    opt Admin bấm làm mới
+        UI->>H: reload(month)
+        H->>API: getScheduleSummary(month)
         API->>C: GET /api/v1/schedule-summary?month={month}
-        C->>S: Tổng hợp lại lịch
-        S->>DB: Đọc dữ liệu ca hiện tại
-        DB-->>S: Dữ liệu sau thay đổi của CTV
-        S-->>C: Kết quả tổng hợp mới
-        C-->>API: 200 OK
-        API-->>UI: Dữ liệu mới
-        UI-->>A: Cập nhật danh sách và số lượng CTV
+        C->>S: getMonthlySummary(month)
+        S->>DB: Đọc dữ liệu hiện tại
+        DB-->>S: Assignments mới nhất
+        S-->>C: ScheduleSummary DTO
+        C-->>API: 200 + data
+        API-->>H: Summary mới
+        H-->>UI: Cập nhật lưới
     end
 ```
 
-## Làm rõ các mũi tên còn mơ hồ
+## Chú thích
 
-- **`Schedule Service → Database — Truy vấn dữ liệu ca dùng chung với lịch cá nhân CTV`:** Prisma đọc active shift assignments theo khoảng đầu/cuối tháng và lấy `{ shiftId, date, period, roomId, userId, displayName }`.
-- **`Database → Schedule Service — Danh sách CTV và các ca hôm nay`:** SQLite trả `[{ shiftId, date, period, room, user:{ id, displayName } }]`, không chứa CCCD/CV hoặc thông tin xác thực.
-- **`Schedule Service → Database — Đếm CTV theo ngày và ca trong tháng`:** Prisma `groupBy` hoặc SQL parameterized nhóm theo `{ date, period }` và dùng `COUNT(DISTINCT userId)` để tránh đếm trùng.
-- **`Database → Schedule Service — Số lượng CTV theo từng ca`:** kết quả có dạng `[{ date:'YYYY-MM-DD', period:'MORNING|AFTERNOON|EVENING', count:N }]`.
-- **`Schedule Service → Schedule Controller — Danh sách hôm nay và số lượng theo ca`:** Service ghép thành `{ month, today:[{ shiftId, userId, displayName, period, room }], days:[{ date, slots:[{ period, count }] }] }`.
-- **`Schedule Service → Database — Đọc dữ liệu ca hiện tại`:** khi Admin tải lại, Prisma chạy truy vấn mới trên shared shift assignments đã commit; không dùng snapshot cũ của Frontend.
-- **`Database → Schedule Service — Dữ liệu sau thay đổi của CTV`:** SQLite trả rows/count mới sau đăng ký, cập nhật hoặc hủy; đây là refresh theo request, không phải WebSocket/realtime.
+- Mỗi ô tháng nhóm theo `date + period` và chứa `shiftId`; Admin dùng mã này để mở luồng chi tiết ca ở sơ đồ 13.
+- `roomCode` thuộc từng assignment và hiển thị trong danh sách CTV; period chỉ có `MORNING` và `AFTERNOON`.
+- Lịch tổng hợp và lịch cá nhân đọc cùng bảng assignment nên không cần một bản sao dữ liệu riêng.
+- Prototype dùng cơ chế mở/tải lại để nhận dữ liệu mới; WebSocket hoặc realtime chưa nằm trong phạm vi.

@@ -1,70 +1,64 @@
 # Sequence diagram - Đăng ký
 
-## CTV gửi yêu cầu đăng ký
+Nguồn nghiệp vụ: Use case 1.3 trong [USE-CASE.md](../USE-CASE.md).
 
 ```mermaid
 sequenceDiagram
-    title ĐĂNG KÝ TÀI KHOẢN CTV
-
-    actor U as Người đăng ký
-
+    actor U as Ứng viên CTV
     box LỚP FRONTEND
         participant UI as Trang đăng ký
-        participant API as API Client
+        participant H as Registration Feature Hook
+        participant API as Shared API Client
     end
-
     box LỚP BACKEND
         participant C as Registration Controller
         participant S as Registration Service
     end
-
     box LỚP DỮ LIỆU
-        participant DB as Database
-        participant FS as Kho tệp
+        participant DB as SQLite qua Prisma
+        participant FS as Private File Storage
     end
 
-    U->>UI: Nhập thông tin và chọn tệp CCCD/CV
-    UI->>UI: Kiểm tra dữ liệu, định dạng và dung lượng tệp
+    U->>UI: Nhập thông tin, mật khẩu và chọn tệp
+    UI->>H: submitRegistration(form)
+    H->>H: Kiểm tra trường bắt buộc và confirmPassword
+    H->>API: createRegistrationRequest(FormData)
+    API->>C: POST /api/v1/registration-requests
+    C->>C: Parse multipart, giới hạn kích thước và magic bytes
 
-    alt Dữ liệu không hợp lệ
-        UI-->>U: Hiển thị lỗi tại trường tương ứng
+    alt Payload hoặc tệp không hợp lệ
+        C-->>API: 400, 413 hoặc 415 + error
+        API-->>H: Lỗi chuẩn hóa
+        H-->>UI: Hiển thị lỗi tại trường liên quan
     else Dữ liệu hợp lệ
-        UI->>API: Gửi yêu cầu đăng ký
-        API->>C: POST /api/v1/registration-requests
-        activate C
-        C->>S: Tạo yêu cầu đăng ký
-        activate S
-        S->>DB: Kiểm tra email đã tồn tại
-        DB-->>S: Kết quả kiểm tra
-
-        alt Email đã được sử dụng
-            S-->>C: Từ chối yêu cầu
-            C-->>API: 409 Conflict
-            API-->>UI: Email đã tồn tại
-            UI-->>U: Hiển thị thông báo lỗi
-        else Có thể đăng ký
-            opt Có tệp CCCD hoặc CV
-                S->>FS: Lưu tệp hồ sơ
-                FS-->>S: Mã tham chiếu tệp
+        C->>S: createRequest(profile, password, files, idempotencyKey)
+        S->>DB: Kiểm tra email và Idempotency-Key
+        alt Yêu cầu đã được xử lý
+            DB-->>S: Kết quả trước đó
+            S-->>C: RegistrationRequest DTO
+        else Yêu cầu mới
+            S->>S: Hash mật khẩu ngay trong bộ nhớ
+            S->>FS: Ghi tệp vào vùng staging
+            FS-->>S: stagedPath và metadata
+            S->>DB: Transaction tạo request và file metadata
+            DB-->>S: requestId
+            S->>FS: Chuyển tệp sang thư mục của request
+            alt Hoàn tất file thất bại
+                S->>DB: Đánh dấu file cần dọn dẹp/quarantine
+                S-->>C: Lỗi lưu trữ
+            else Hoàn tất
+                S-->>C: RegistrationRequest DTO
             end
-            S->>DB: Lưu yêu cầu ở trạng thái Chờ duyệt
-            DB-->>S: Mã yêu cầu
-            S-->>C: Tạo yêu cầu thành công
-            C-->>API: 201 Created
-            API-->>UI: Yêu cầu đang chờ duyệt
-            UI-->>U: Hiển thị thông báo và quay về Đăng nhập
         end
-
-        deactivate S
-        deactivate C
+        C-->>API: 201 hoặc kết quả idempotent
+        API-->>H: Mã hồ sơ và trạng thái PENDING
+        H-->>UI: Xóa dữ liệu nhạy cảm khỏi biểu mẫu
+        UI-->>U: Thông báo đã gửi hồ sơ
     end
 ```
 
-## Làm rõ các mũi tên còn mơ hồ
+## Chú thích
 
-- **`Trang đăng ký → API Client — Gửi yêu cầu đăng ký`:** TanStack Query tạo `FormData`; key `profile` chứa JSON `{ fullName, email, phone, dateOfBirth, address }`, còn `cccdFiles[]`/`cvFile` chứa binary và request có `Idempotency-Key`.
-- **`Registration Controller → Registration Service — Tạo yêu cầu đăng ký`:** Express + Zod tạo `CreateRegistrationCommand { fullName, email, phone, dateOfBirth, address, files, idempotencyKey, requestId }` rồi gọi Service bằng hàm TypeScript nội bộ.
-- **`Registration Service → Kho tệp — Lưu tệp hồ sơ`:** Multer nhận multipart; adapter dùng `file-type` kiểm tra magic bytes, sinh UUID làm tên và ghi stream vào private filesystem.
-- **`Kho tệp → Registration Service — Mã tham chiếu tệp`:** adapter trả `{ fileId, storageKey, originalName, mimeType, size, sha256 }`; `storageKey` là đường dẫn tương đối và không trả ra Frontend.
-- **`Registration Service → Database — Lưu yêu cầu ở trạng thái Chờ duyệt`:** Prisma transaction tạo yêu cầu `{ id, profileFields, status:'PENDING', createdAt }` cùng metadata các tệp `{ fileId, category, storageKey, mimeType, size, sha256 }`.
-- **`Registration Service → Registration Controller — Tạo yêu cầu thành công`:** Service trả DTO tối thiểu `{ id, status:'PENDING', submittedAt }`, loại bỏ `storageKey`, hash tệp và model Prisma.
+- `profile` chứa thông tin cá nhân và `password`; `confirmPassword` chỉ được kiểm tra ở Frontend.
+- Tệp không nằm trong thư mục public. API chỉ lưu đường dẫn tương đối và metadata trong SQLite.
+- Nếu transaction hoặc bước hoàn tất file thất bại, Service phải dọn staging hoặc ghi nhận tác vụ dọn dẹp; không để hồ sơ trỏ tới tệp chưa tồn tại.

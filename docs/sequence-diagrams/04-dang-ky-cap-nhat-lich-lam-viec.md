@@ -1,90 +1,71 @@
 # Sequence diagram - Đăng ký hoặc cập nhật lịch làm việc
 
+Nguồn nghiệp vụ: Use case 2.1 trong [USE-CASE.md](../USE-CASE.md).
+
 ```mermaid
 sequenceDiagram
-    title ĐĂNG KÝ HOẶC CẬP NHẬT LỊCH LÀM VIỆC
-
     actor U as CTV
-    actor A as Quản trị viên
-
     box LỚP FRONTEND
         participant UI as Màn hình lịch làm việc
-        participant AUI as Lịch tổng hợp Admin
-        participant API as API Client
+        participant H as Schedule Feature Hook
+        participant API as Shared API Client
     end
-
     box LỚP BACKEND
         participant C as Schedule Controller
         participant S as Schedule Service
     end
-
     box LỚP DỮ LIỆU
-        participant DB as Database
+        participant DB as SQLite qua Prisma
     end
 
-    U->>UI: Chọn Đăng ký lịch làm việc
-    UI->>API: Lấy phòng và mẫu đăng ký gần nhất
+    U->>UI: Mở biểu mẫu lịch
+    UI->>H: loadScheduleRegistration()
+    H->>API: getMyScheduleRegistration()
     API->>C: GET /api/v1/users/me/schedule-registration
-    C->>S: Chuẩn bị dữ liệu biểu mẫu
-    S->>DB: Truy vấn danh sách phòng và đăng ký gần nhất
-    DB-->>S: Dữ liệu biểu mẫu
-    S-->>C: Phòng, mẫu tuần
-    C-->>API: 200 OK
-    API-->>UI: Hiển thị hộp thoại đăng ký
+    C->>S: getRegistration(currentUserId)
+    S->>DB: Đọc mẫu lịch và version
+    DB-->>S: Registration hoặc không có
+    S-->>C: ScheduleRegistration DTO
+    C-->>API: 200 + data
+    API-->>H: Dữ liệu biểu mẫu
+    H-->>UI: Render roomCode và các slot
 
-    U->>UI: Chọn phòng, bật/tắt ca và chọn Đăng ký lịch
-    UI->>UI: Kiểm tra phòng và ít nhất một ca
+    U->>UI: Chọn Buồng 1-4, thời gian và ca
+    UI->>H: saveScheduleRegistration(form)
+    H->>H: Kiểm tra ngày và ít nhất một slot
+    H->>API: putMyScheduleRegistration(payload)
+    API->>C: PUT /api/v1/users/me/schedule-registration
+    C->>S: upsertRegistration(currentUserId, payload)
+    S->>S: Kiểm tra roomCode cố định và period hợp lệ
+    S->>S: Sinh danh sách ngày-ca từ mẫu tuần
+    S->>DB: Transaction kiểm tra version và upsert assignments
 
-    alt Dữ liệu không hợp lệ
-        UI-->>U: Hiển thị lỗi nhập liệu
-    else Dữ liệu hợp lệ
-        UI->>API: Gửi mẫu lịch làm việc
-        API->>C: PUT /api/v1/users/me/schedule-registration
-        activate C
-        C->>S: Lưu hoặc cập nhật lịch
-        activate S
-        S->>S: Sinh các ca từ mẫu tuần và khoảng áp dụng
-        S->>DB: Bắt đầu Transaction
-        S->>DB: Lưu đăng ký, các ca và phân công phòng
-        DB-->>S: Hoàn tất Transaction
-        S-->>C: Lịch đã được cập nhật
-        C-->>API: 200 OK
-        API-->>UI: Kết quả thành công
-        UI->>API: Tải lại lịch tuần và lịch sử
+    alt Version đã thay đổi
+        DB-->>S: Xung đột phiên bản
+        S-->>C: VERSION_CONFLICT
+        C-->>API: 409 + currentVersion
+        API-->>H: Yêu cầu tải lại dữ liệu
+        H-->>UI: Cảnh báo dữ liệu đã thay đổi
+    else Lưu thành công
+        DB-->>S: Registration, version mới và shifts
+        S-->>C: ScheduleRegistration DTO
+        C-->>API: 200 + data
+        API-->>H: Mẫu lịch đã lưu
+        H->>API: getMyShifts(filters)
         API->>C: GET /api/v1/users/me/shifts
-        C->>S: Lấy lịch cá nhân
-        S->>DB: Truy vấn các ca hiện tại
+        C->>S: listMyShifts(currentUserId, filters)
+        S->>DB: Đọc assignments đang hoạt động
         DB-->>S: Danh sách ca
-        S-->>C: Lịch cá nhân
-        C-->>API: 200 OK
-        API-->>UI: Dữ liệu lịch mới
-        UI-->>U: Đóng hộp thoại và hiển thị thông báo
-
-        deactivate S
-        deactivate C
-    end
-
-    opt Sau khi cập nhật thành công, Admin mở hoặc tải lại lịch tổng hợp
-        A->>AUI: Xem Lịch làm việc tổng hợp
-        AUI->>API: Yêu cầu lịch tổng hợp
-        API->>C: GET /api/v1/schedule-summary
-        C->>S: Lấy lịch tổng hợp
-        S->>DB: Tổng hợp CTV hôm nay và số lượng theo từng ca
-        DB-->>S: Dữ liệu đã bao gồm lịch CTV vừa cập nhật
-        S-->>C: Danh sách và số lượng CTV theo ca
-        C-->>API: 200 OK
-        API-->>AUI: Dữ liệu lịch tổng hợp mới
-        AUI-->>A: Hiển thị lịch và số lượng đã cập nhật
+        S-->>C: Shift DTOs
+        C-->>API: 200 + data
+        API-->>H: Lịch cá nhân mới
+        H-->>UI: Cập nhật lịch
+        UI-->>U: Thông báo lưu thành công
     end
 ```
 
-## Làm rõ các mũi tên còn mơ hồ
+## Chú thích
 
-- **`Database → Schedule Service — Dữ liệu biểu mẫu`:** Prisma trả `{ rooms:[{ id, name }], registration?:{ id, startDate, endDate, roomId, slots, version } }`; ngày dùng `YYYY-MM-DD`, slot dùng `{ weekday, period, enabled }`.
-- **`Màn hình lịch làm việc → API Client — Gửi mẫu lịch làm việc`:** TanStack Query gửi JSON `{ roomId, startDate, endDate, timeZone, slots:[{ weekday, period, enabled }], version }`; `version` dùng phát hiện cập nhật đồng thời.
-- **`Schedule Service → Schedule Service — Sinh các ca từ mẫu tuần và khoảng áp dụng`:** hàm TypeScript lặp từng ngày theo múi giờ, tạo `ShiftDraft { date, weekday, period, roomId, registrationId }` cho các slot được bật và loại khóa trùng.
-- **`Schedule Service → Database — Lưu đăng ký, các ca và phân công phòng`:** Prisma transaction upsert mẫu, tính diff ca cũ/mới rồi `createMany/update/deleteMany`; unique key `registrationId+date+period` ngăn sinh trùng.
-- **`Database → Schedule Service — Hoàn tất Transaction`:** SQLite trả `{ registrationId, version, createdCount, updatedCount, removedCount }`; lỗi bất kỳ rollback toàn bộ mẫu và ca.
-- **`Database → Schedule Service — Danh sách ca`:** Prisma trả `[{ id, date, period, room:{ id, name }, registrationId, status }]`, được dùng chung cho lịch tuần, tháng và lịch sử.
-- **`Schedule Service → Database — Tổng hợp CTV hôm nay và số lượng theo từng ca`:** Prisma `groupBy` hoặc SQL parameterized đọc shared shift assignments, lọc tháng/ngày và nhóm theo `{ date, period }`.
-- **`Schedule Service → Schedule Controller — Danh sách và số lượng CTV theo ca`:** Service trả `{ month, today:[{ shiftId, userId, displayName, period, room }], days:[{ date, slots:[{ period, count }] }] }`; Admin chỉ nhận bản mới khi mở hoặc tải lại.
+- `roomCode` chỉ nhận `ROOM_1` đến `ROOM_4`; không có API hay bảng quản trị phòng.
+- `period` chỉ nhận `MORNING` hoặc `AFTERNOON`; ngày truyền theo `YYYY-MM-DD`.
+- `version` bảo vệ cập nhật đồng thời. Frontend phải tải lại thay vì tự ghi đè khi nhận `409`.

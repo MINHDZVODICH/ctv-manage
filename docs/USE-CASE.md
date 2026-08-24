@@ -19,22 +19,19 @@
     - [1.1. Đăng nhập](#11-đăng-nhập)
     - [1.2. Đăng xuất](#12-đăng-xuất)
     - [1.3. Đăng ký tài khoản](#13-đăng-ký-tài-khoản)
-    - [1.4. Quên mật khẩu và xác nhận mã](#14-quên-mật-khẩu-và-xác-nhận-mã)
-    - [1.5. Quản lý danh sách tài khoản](#15-quản-lý-danh-sách-tài-khoản)
-    - [1.6. Kích hoạt/vô hiệu hóa tài khoản](#16-kích-hoạtvô-hiệu-hóa-tài-khoản)
-    - [1.7. Xóa tài khoản](#17-xóa-tài-khoản)
-    - [1.8. Xem thông tin tài khoản](#18-xem-thông-tin-tài-khoản)
-    - [1.9. Cập nhật thông tin hồ sơ](#19-cập-nhật-thông-tin-hồ-sơ)
-    - [1.10. Đổi/đặt lại mật khẩu](#110-đổiđặt-lại-mật-khẩu)
-    - [1.11. Duyệt yêu cầu đăng ký tài khoản](#111-duyệt-yêu-cầu-đăng-ký-tài-khoản)
-  - [2. Quản lý lịch trình và phòng làm việc](#2-quản-lý-lịch-trình-và-phòng-làm-việc)
+    - [1.4. Quản lý danh sách tài khoản](#14-quản-lý-danh-sách-tài-khoản)
+    - [1.5. Kích hoạt/vô hiệu hóa tài khoản](#15-kích-hoạtvô-hiệu-hóa-tài-khoản)
+    - [1.6. Xóa tài khoản](#16-xóa-tài-khoản)
+    - [1.7. Xem thông tin tài khoản](#17-xem-thông-tin-tài-khoản)
+    - [1.8. Cập nhật thông tin hồ sơ](#18-cập-nhật-thông-tin-hồ-sơ)
+    - [1.9. Đổi/đặt lại mật khẩu](#19-đổiđặt-lại-mật-khẩu)
+    - [1.10. Duyệt yêu cầu đăng ký tài khoản](#110-duyệt-yêu-cầu-đăng-ký-tài-khoản)
+  - [2. Quản lý lịch trình](#2-quản-lý-lịch-trình)
     - [2.1. Đăng ký/cập nhật lịch làm việc](#21-đăng-kýcập-nhật-lịch-làm-việc)
     - [2.2. Xem lịch tuần và lịch sử làm việc](#22-xem-lịch-tuần-và-lịch-sử-làm-việc)
     - [2.3. Xem chi tiết và hủy ca làm việc](#23-xem-chi-tiết-và-hủy-ca-làm-việc)
     - [2.4. Xem lịch làm việc tổng hợp](#24-xem-lịch-làm-việc-tổng-hợp)
     - [2.5. Xem chi tiết ca và hồ sơ CTV](#25-xem-chi-tiết-ca-và-hồ-sơ-ctv)
-    - [2.6. Thêm/cập nhật phòng làm việc](#26-thêmcập-nhật-phòng-làm-việc)
-    - [2.7. Đổi trạng thái/xóa phòng làm việc](#27-đổi-trạng-tháixóa-phòng-làm-việc)
 
 ## I. Danh sách tác nhân
 
@@ -43,7 +40,7 @@ Hệ thống gồm có 2 tác nhân chính:
 |          |                       |                      |                                                                                                                                  |
 |----------|-----------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | **Mã**   | **Tác nhân**          | **Loại**             | **Mô tả và quyền hạn chính**                                                                                                     |
-| **AC-1** | Quản trị viên (Admin) | Người dùng đặc quyền | Quản lý tài khoản và hồ sơ CTV, duyệt yêu cầu đăng ký, xem lịch làm việc tổng hợp và quản lý phòng làm việc                      |
+| **AC-1** | Quản trị viên (Admin) | Người dùng đặc quyền | Quản lý tài khoản và hồ sơ CTV, duyệt yêu cầu đăng ký và xem lịch làm việc tổng hợp                                            |
 | **AC-2** | Cộng tác viên (CTV)   | Người dùng           | Đăng ký tài khoản và đính kèm hồ sơ, quản lý thông tin cá nhân, đăng ký/cập nhật ca làm việc, xem lịch tuần và lịch sử làm việc. |
 
 ## II. Danh sách use case
@@ -55,22 +52,19 @@ Hệ thống gồm có 2 tác nhân chính:
 | **1.1**                                              | Đăng nhập                         | Xác thực người dùng để có thể sử dụng một số tính năng của hệ thống theo quyền hạn                                     |
 | **1.2**                                              | Đăng xuất                         | Người dùng kết thúc phiên làm việc trên hệ thống                                                                       |
 | **1.3**                                              | Đăng ký tài khoản                 | CTV nhập thông tin, đính kèm CCCD/CV tùy chọn và gửi yêu cầu chờ Admin duyệt.                                          |
-| **1.4**                                              | Quên mật khẩu                     | Gửi mã 6 chữ số đến email, xác nhận mã và cho phép người dùng truy cập hệ thống.                                       |
-| **1.5**                                              | Quản lý danh sách tài khoản       | Hiển thị danh sách CTV, hỗ trợ tìm kiếm, phân trang và các thao tác đặt lại mật khẩu, khóa/mở khóa hoặc xóa tài khoản. |
-| **1.6**                                              | Kích hoạt/vô hiệu hóa tài khoản   | Cho phép hoặc chặn người dùng truy cập hệ thống thông qua tài khoản                                                    |
-| **1.7**                                              | Xoá tài khoản                     | Admin xóa tài khoản CTV sau bước cảnh báo và xác nhận.                                                                 |
-| **1.8**                                              | Xem thông tin tài khoản           | Admin xem hồ sơ đính kèm, lịch trình CTV và mở thao tác đặt lại mật khẩu; người dùng xem hồ sơ cá nhân của mình.       |
-| **1.9**                                              | Cập nhật thông tin hồ sơ          | Admin/CTV cập nhật thông tin cá nhân, ảnh đại diện, ảnh CCCD và hồ sơ ứng tuyển (CV) được phép chỉnh sửa.              |
-| **1.10**                                             | Đổi/đặt lại mật khẩu              | Người dùng đổi mật khẩu cá nhân; Admin đặt lại mật khẩu mặc định cho CTV.                                              |
-| **1.11**                                             | Duyệt yêu cầu đăng ký tài khoản   | Admin xem, duyệt hoặc từ chối yêu cầu đăng ký đang chờ.                                                                |
-| **Phân hệ 2 – Quản lý lịch trình và phòng làm việc** |                                   |                                                                                                                        |
+| **1.4**                                              | Quản lý danh sách tài khoản       | Hiển thị danh sách CTV, hỗ trợ tìm kiếm, phân trang và các thao tác đặt lại mật khẩu, khóa/mở khóa hoặc xóa tài khoản. |
+| **1.5**                                              | Kích hoạt/vô hiệu hóa tài khoản   | Cho phép hoặc chặn người dùng truy cập hệ thống thông qua tài khoản                                                    |
+| **1.6**                                              | Xoá tài khoản                     | Admin xóa tài khoản CTV sau bước cảnh báo và xác nhận.                                                                 |
+| **1.7**                                              | Xem thông tin tài khoản           | Admin xem hồ sơ đính kèm, lịch trình CTV và mở thao tác đặt lại mật khẩu; người dùng xem hồ sơ cá nhân của mình.       |
+| **1.8**                                              | Cập nhật thông tin hồ sơ          | Admin/CTV cập nhật thông tin cá nhân, ảnh đại diện, ảnh CCCD và hồ sơ ứng tuyển (CV) được phép chỉnh sửa.              |
+| **1.9**                                              | Đổi/đặt lại mật khẩu              | Người dùng đổi mật khẩu cá nhân; Admin đặt lại mật khẩu mặc định cho CTV.                                              |
+| **1.10**                                             | Duyệt yêu cầu đăng ký tài khoản   | Admin xem, duyệt hoặc từ chối yêu cầu đăng ký đang chờ.                                                                |
+| **Phân hệ 2 – Quản lý lịch trình**                   |                                   |                                                                                                                        |
 | **2.1**                                              | Đăng ký/cập nhật lịch làm việc    | CTV chọn buồng và mẫu ca Sáng/Chiều theo tuần để đăng ký hoặc cập nhật lịch làm việc.                                  |
 | **2.2**                                              | Xem lịch tuần và lịch sử làm việc | CTV xem cùng dữ liệu lịch cá nhân theo tuần hoặc lịch sử theo tháng.                                                   |
 | **2.3**                                              | Xem chi tiết và hủy ca làm việc   | CTV xem chi tiết ca, hủy riêng một ca hoặc hủy chuỗi ca định kỳ trong tương lai.                                       |
 | **2.4**                                              | Xem lịch làm việc tổng hợp        | Admin xem CTV làm việc hôm nay và số lượng CTV theo từng ca trong lịch tháng.                                          |
 | **2.5**                                              | Xem chi tiết ca và hồ sơ CTV      | Admin xem danh sách CTV trong ca và mở hồ sơ, CV, lịch trình hoặc ghi chú của từng người.                              |
-| **2.6**                                              | Thêm/cập nhật phòng làm việc      | Admin thêm phòng mới hoặc chỉnh sửa tên, mô tả, vị trí và trạng thái phòng.                                            |
-| **2.7**                                              | Đổi trạng thái/xóa phòng làm việc | Admin chuyển phòng giữa Hoạt động/Bảo trì hoặc xóa phòng sau bước xác nhận.                                            |
 
 ## III. Đặc tả chi tiết use case
 
@@ -121,7 +115,6 @@ Hệ thống gồm có 2 tác nhân chính:
 <p>- Tiêu đề Đăng nhập</p>
 <p>- Trường Email</p>
 <p>- Trường Mật khẩu và nút hiển thị/che ký tự</p>
-<p>- Liên kết Quên mật khẩu?</p>
 <p>- Nút Đăng nhập và Tạo tài khoản mới</p></td>
 </tr>
 <tr class="odd">
@@ -148,7 +141,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 3, nếu người dùng nhấn biểu tượng mắt trong trường Mật khẩu, hệ thống chuyển giữa chế độ hiển thị và che ký tự.
 
-- Tại bước 2, nếu người dùng chọn Quên mật khẩu? hoặc Tạo tài khoản mới, hệ thống chuyển sang luồng tương ứng.
+- Tại bước 2, nếu người dùng chọn Tạo tài khoản mới, hệ thống chuyển sang luồng đăng ký.
 
 #### 1.2. Đăng xuất
 
@@ -259,87 +252,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 3, nếu hai mật khẩu không khớp, trường Nhập lại mật khẩu hiển thị “Mật khẩu phải trùng khớp!”. Ảnh CCCD và CV là tài liệu đính kèm tùy chọn nhưng phải đúng định dạng khi được chọn.
 
-#### 1.4. Quên mật khẩu và xác nhận mã
-
-*a. Tác nhân chính*
-
-- Quản trị viên
-
-- Cộng tác viên
-
-*b. Điều kiện ban đầu*
-
-- Người dùng đang ở màn hình Đăng nhập
-
-*c. Điều kiện đối với kết quả*
-
-- Email được xác nhận bằng mã 6 chữ số và người dùng được đưa vào hệ thống
-
-*d. Kịch bản thành công chính*
-
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>Người dùng nhấn Quên mật khẩu? trên màn hình Đăng nhập</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td>Hiển thị trường Nhập email nhận mã, nút Nhận mã và Quay lại đăng nhập.</td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>Người dùng nhập Email và nhấn Nhận mã</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td></td>
-<td><p>Hệ thống chuyển sang màn hình Xác nhận tài khoản và thông báo mã đã được gửi đến Email.</p>
-<p>- Hiển thị trường Nhập mã 6 chữ số.</p>
-<p>- Hiển thị nút Tiếp tục, Không nhận được mã? và Hủy bỏ.</p></td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td>Người dùng nhập mã 6 chữ số và nhấn Tiếp tục</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td></td>
-<td>Nút chuyển sang “Đang xác nhận...” trong khi hệ thống kiểm tra mã.</td>
-</tr>
-<tr class="odd">
-<td>7</td>
-<td></td>
-<td>Nếu mã hợp lệ, người dùng được đưa thẳng vào giao diện hệ thống; không có bước nhập mật khẩu mới.</td>
-</tr>
-</tbody>
-</table>
-
-*e. Các trường hợp khác*
-
-- Tại bước 3, nếu Email trống, hiển thị “Vui lòng nhập trường này!”. Nếu Email không tồn tại, hiển thị “Email không tồn tại trong hệ thống!”.
-
-- Tại bước 5, nếu chọn Không nhận được mã?, hệ thống hiển thị “Vui lòng đợi vài phút để nhận mã gồm 6 chữ số trước khi yêu cầu mã khác.”.
-
-- Tại bước 5, nếu mã trống hoặc không hợp lệ, trường Nhập mã có viền đỏ và hiển thị thông báo tương ứng; người dùng vẫn ở màn hình Xác nhận tài khoản.
-
-#### 1.5. Quản lý danh sách tài khoản
+#### 1.4. Quản lý danh sách tài khoản
 
 *a. Tác nhân chính*
 
@@ -418,7 +331,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 5, nếu quản trị viên chuyển trang, hệ thống hiển thị tối đa 5 tài khoản trên mỗi trang và giữ nguyên từ khóa tìm kiếm.
 
-#### 1.6. Kích hoạt/vô hiệu hóa tài khoản
+#### 1.5. Kích hoạt/vô hiệu hóa tài khoản
 
 *a. Tác nhân chính*
 
@@ -494,7 +407,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Thao tác kích hoạt/vô hiệu hóa chỉ được thực hiện tại cột Thao tác của Danh sách tài khoản; cửa sổ Hồ sơ & Lịch trình tài khoản không hiển thị nút này.
 
-#### 1.7. Xóa tài khoản
+#### 1.6. Xóa tài khoản
 
 *a. Tác nhân chính*
 
@@ -571,7 +484,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 4, nếu quản trị viên hủy hộp xác nhận của trình duyệt, thao tác xóa dừng lại và tài khoản vẫn được giữ nguyên.
 
-#### 1.8. Xem thông tin tài khoản
+#### 1.7. Xem thông tin tài khoản
 
 *a. Tác nhân chính*
 
@@ -626,7 +539,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 2, từ Hồ sơ cá nhân, người dùng có thể xem hoặc thay đổi ảnh đại diện, ảnh CCCD; xem, thay đổi hoặc tải CV. Hệ thống hiển thị thông báo ngắn sau khi cập nhật.
 
-#### 1.9. Cập nhật thông tin hồ sơ
+#### 1.8. Cập nhật thông tin hồ sơ
 
 *a. Tác nhân chính*
 
@@ -710,7 +623,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 1, nếu người dùng thao tác trực tiếp trên ảnh đại diện, ảnh CCCD hoặc khối CV thay vì mở Chỉnh sửa thông tin, hệ thống cập nhật tệp tương ứng và hiển thị thông báo ngắn; CV hỗ trợ PDF, DOC và DOCX.
 
-#### 1.10. Đổi/đặt lại mật khẩu
+#### 1.9. Đổi/đặt lại mật khẩu
 
 *a. Tác nhân chính*
 
@@ -785,7 +698,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 3, nếu người dùng chọn Hủy hoặc biểu tượng đóng thay vì Đổi mật khẩu, hệ thống đóng hộp thoại và không đổi mật khẩu. Với luồng Admin đặt lại, nếu trường mật khẩu mặc định trống thì nút Xác nhận bị vô hiệu hóa; Admin có thể dùng nút Sao chép trước khi xác nhận.
 
-#### 1.11. Duyệt yêu cầu đăng ký tài khoản
+#### 1.10. Duyệt yêu cầu đăng ký tài khoản
 
 *a. Tác nhân chính*
 
@@ -876,7 +789,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 3, cửa sổ Chi tiết Hồ sơ Đăng ký CTV cho phép xem thông tin, ảnh CCCD và CV (Xem/Tải về), đồng thời có nút Từ chối hồ sơ, Phê duyệt và biểu tượng X; Duyệt/Từ chối cũng có thể thực hiện bằng biểu tượng tại bảng.
 
-### 2. Quản lý lịch trình và phòng làm việc
+### 2. Quản lý lịch trình
 
 #### 2.1. Đăng ký/cập nhật lịch làm việc
 
@@ -1204,164 +1117,3 @@ Hệ thống gồm có 2 tác nhân chính:
 - Tại bước 3, nếu không tìm thấy tài khoản khớp với CTV, hệ thống hiển thị thông báo không tìm thấy hồ sơ.
 
 - Tại bước 5, quản trị viên có thể xem/tải CV, xem lịch sử bằng các biểu tượng có chú thích hoặc lưu Ghi chú; đóng cửa sổ bằng biểu tượng X.
-
-#### 2.6. Thêm/cập nhật phòng làm việc
-
-*a. Tác nhân chính*
-
-- Quản trị viên
-
-*b. Điều kiện ban đầu*
-
-- Quản trị viên đã đăng nhập
-
-- Quản trị viên đang ở màn hình Quản lý phòng làm việc
-
-*c. Điều kiện đối với kết quả*
-
-- Phòng mới được thêm hoặc thông tin phòng hiện có được cập nhật trong danh sách
-
-*d. Kịch bản thành công chính*
-
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>Quản trị viên chọn Quản lý phòng làm việc trên thanh điều hướng</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td><p>Màn hình Quản lý phòng làm việc gồm:</p>
-<p>- Nút Thêm phòng làm việc</p>
-<p>- Ô tìm theo tên phòng, vị trí hoặc chức năng</p>
-<p>- Bộ lọc Tất cả, Hoạt động, Bảo trì</p>
-<p>- Bảng Tên phòng, Mô tả &amp; Vị trí, Trạng thái, Thao tác</p>
-<p>- Biểu tượng Chỉnh sửa, Xóa và đổi trạng thái có chú thích</p>
-<p>- Trạng thái trống khi không có kết quả phù hợp</p></td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>Quản trị viên nhấn Thêm phòng làm việc hoặc biểu tượng Chỉnh sửa, nhập đủ thông tin rồi chọn Thêm mới/Lưu thay đổi</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td></td>
-<td>Hệ thống mở hộp thoại Thêm/Chỉnh sửa gồm Tên phòng, Mô tả &amp; Vị trí, trạng thái Hoạt động/Bảo trì, nút Hủy và nút Thêm mới/Lưu thay đổi.</td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td></td>
-<td>Hệ thống kiểm tra Tên phòng và Mô tả &amp; Vị trí; nếu hợp lệ, hệ thống tiếp nhận dữ liệu để thêm mới hoặc cập nhật.</td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td></td>
-<td>Hệ thống thêm hoặc cập nhật phòng, đóng hộp thoại, làm mới danh sách và hiển thị thông báo thành công.</td>
-</tr>
-</tbody>
-</table>
-
-*e. Các trường hợp khác*
-
-- Tại bước 5, nếu Tên phòng hoặc Mô tả & Vị trí để trống, hệ thống yêu cầu nhập đủ thông tin và không lưu.
-
-- Tại bước 3, nếu quản trị viên nhấn Hủy hoặc biểu tượng X, hệ thống đóng hộp thoại và giữ nguyên dữ liệu phòng.
-
-#### 2.7. Đổi trạng thái/xóa phòng làm việc
-
-*a. Tác nhân chính*
-
-- Quản trị viên
-
-*b. Điều kiện ban đầu*
-
-- Quản trị viên đã đăng nhập và đang ở màn hình Quản lý phòng làm việc
-
-*c. Điều kiện đối với kết quả*
-
-- Trạng thái phòng được chuyển giữa Hoạt động/Bảo trì hoặc phòng đã xác nhận xóa bị loại khỏi danh sách
-
-*d. Kịch bản thành công chính*
-
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>Quản trị viên mở màn hình Quản lý phòng làm việc và tìm đúng phòng cần thao tác</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td><p>Bảng phòng hiển thị:</p>
-<p>- Tên phòng và biểu tượng phòng</p>
-<p>- Mô tả &amp; Vị trí</p>
-<p>- Nhãn Hoạt động hoặc Bảo trì</p>
-<p>- Biểu tượng Chỉnh sửa</p>
-<p>- Biểu tượng Xóa</p>
-<p>- Biểu tượng chuyển Bảo trì/Hoạt động có chú thích</p></td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>Quản trị viên nhấn biểu tượng đổi trạng thái</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td></td>
-<td><p>Hệ thống đổi trạng thái trực tiếp:</p>
-<p>- Hoạt động chuyển thành Bảo trì</p>
-<p>- Bảo trì chuyển thành Hoạt động</p>
-<p>- Nhãn trạng thái được cập nhật</p>
-<p>- Biểu tượng thao tác đổi theo trạng thái mới</p>
-<p>- Danh sách tiếp tục tuân theo bộ lọc đang chọn</p>
-<p>- Không mở hộp xác nhận</p>
-<p>- Dữ liệu phòng được lưu trong danh sách hiện tại</p></td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td>Quản trị viên nhấn biểu tượng Xóa và chọn Xác nhận xóa trong hộp cảnh báo</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td></td>
-<td>Hệ thống loại phòng khỏi danh sách, đóng hộp thoại và hiển thị thông báo đã xóa phòng thành công.</td>
-</tr>
-</tbody>
-</table>
-
-*e. Các trường hợp khác*
-
-- Tại bước 3, thao tác đổi trạng thái được thực hiện trực tiếp, không mở hộp xác nhận; nhãn và biểu tượng được cập nhật ngay.
-
-- Tại bước 5, nếu quản trị viên chọn Hủy trong hộp xác nhận xóa, hệ thống đóng hộp thoại và giữ nguyên phòng.
-
-- Khi bộ lọc hoặc từ khóa không có kết quả, bảng hiển thị “Không tìm thấy phòng làm việc phù hợp”.

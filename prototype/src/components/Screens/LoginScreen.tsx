@@ -4,10 +4,9 @@ import { RegistrationRequest } from "../../types";
 interface LoginScreenProps {
   onLoginSuccess: (email: string) => void;
   onRequestRegister?: (requestData: RegistrationRequest) => void;
-  onForgotPassword?: () => void;
 }
 
-type AuthMode = "login" | "register" | "forgot_email" | "forgot_otp" | "register_success";
+type AuthMode = "login" | "register" | "register_success";
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequestRegister }) => {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -55,13 +54,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
 
   // Countdown timer for register success
   const [countdown, setCountdown] = useState(5);
-
-  // Forgot password state
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotEmailError, setForgotEmailError] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpError, setOtpError] = useState("");
-  const [otpNotice, setOtpNotice] = useState("");
 
   // Format file size helper
   const formatFileSize = (bytes: number): string => {
@@ -236,46 +228,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     }, 600);
   };
 
-  // Submit Forgot Email
-  const handleForgotEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotEmailError("");
-    if (!forgotEmail) {
-      setForgotEmailError("Vui lòng nhập trường này!");
-      return;
-    }
-    if (forgotEmail.toLowerCase() === "notfound@vienkhcn.vn") {
-      setForgotEmailError("Email không tồn tại trong hệ thống!");
-      return;
-    }
-
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setMode("forgot_otp");
-    }, 600);
-  };
-
-  // Submit Forgot OTP
-  const handleOtpSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setOtpError("");
-    if (!otpCode) {
-      setOtpError("Vui lòng nhập trường này!");
-      return;
-    }
-    if (otpCode !== "123456" && otpCode.length < 6) {
-      setOtpError("Số bạn đã nhập không khớp với mã. Vui lòng thử lại!");
-      return;
-    }
-
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      onLoginSuccess(forgotEmail || "nhapemail@vienkhcn.vn");
-    }, 600);
-  };
-
   return (
     <div className="bg-[#faf9fd] text-[#1a1b1e] min-h-screen flex items-center justify-center font-['Inter',sans-serif] p-4 sm:p-6">
       <main
@@ -344,19 +296,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <span className="material-symbols-outlined text-[20px]">
                       {showLoginPassword ? "visibility" : "visibility_off"}
                     </span>
-                  </button>
-                </div>
-                <div className="flex justify-end pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("forgot_email");
-                      setForgotEmail("");
-                      setForgotEmailError("");
-                    }}
-                    className="text-xs font-semibold text-[#002046] hover:underline cursor-pointer"
-                  >
-                    Quên mật khẩu?
                   </button>
                 </div>
               </div>
@@ -920,118 +859,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
           </div>
         )}
 
-        {/* MODE: FORGOT EMAIL */}
-        {mode === "forgot_email" && (
-          <div>
-            <h1 className="text-xl font-bold text-[#002046] text-center mb-5">Quên mật khẩu</h1>
-
-            <form onSubmit={handleForgotEmailSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-[#1a1b1e] block mb-1">
-                  Nhập email nhận mã
-                </label>
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="nhapemail@vienkhcn.vn"
-                  className={`w-full px-3 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[40px] ${
-                    forgotEmailError ? "border-[#DC2626]" : "border-[#c4c6cf]"
-                  }`}
-                />
-                {forgotEmailError && (
-                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{forgotEmailError}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-[#1b365d] hover:bg-[#002046] text-white font-semibold text-sm py-2 px-4 rounded-lg h-[42px] transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {isProcessing ? "Đang gửi..." : "Nhận mã"}
-              </button>
-
-              <div className="text-center pt-3 border-t border-[#E2E8F0]">
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className="text-xs text-[#44474e] hover:text-[#002046] font-semibold cursor-pointer"
-                >
-                  Quay lại đăng nhập
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* MODE: FORGOT OTP */}
-        {mode === "forgot_otp" && (
-          <div>
-            <h1 className="text-xl font-bold text-[#002046] text-center mb-2">
-              Xác nhận tài khoản
-            </h1>
-            <p className="text-xs text-[#44474e] text-center mb-5">
-              Chúng tôi đã gửi mã đến email của bạn. Hãy nhập mã đó để xác nhận tài khoản.
-            </p>
-
-            <form onSubmit={handleOtpSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-[#1a1b1e] block mb-1">Nhập mã</label>
-                <input
-                  type="text"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="Nhập mã 6 chữ số (ví dụ: 123456)"
-                  className={`w-full px-3 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[40px] tracking-widest text-center font-mono ${
-                    otpError ? "border-[#DC2626]" : "border-[#c4c6cf]"
-                  }`}
-                />
-                {otpError && (
-                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{otpError}</p>
-                )}
-              </div>
-
-              {otpNotice && (
-                <p className="text-[11px] text-[#002046] bg-[#f4f3f7] p-2 rounded text-center">
-                  {otpNotice}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-[#1b365d] hover:bg-[#002046] text-white font-semibold text-sm py-2 px-4 rounded-lg h-[42px] transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {isProcessing ? "Đang xác nhận..." : "Tiếp tục"}
-              </button>
-
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOtpNotice(
-                      "Vui lòng đợi vài phút để nhận mã gồm 6 chữ số trước khi yêu cầu mã khác.",
-                    )
-                  }
-                  className="text-xs text-[#002046] font-semibold hover:underline cursor-pointer"
-                >
-                  Không nhận được mã?
-                </button>
-              </div>
-
-              <div className="text-center pt-3 border-t border-[#E2E8F0]">
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className="text-xs text-[#44474e] hover:text-[#002046] font-semibold cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
       </main>
 
       {/* Lightbox Preview Modal for CCCD Photos */}
