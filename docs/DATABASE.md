@@ -171,12 +171,11 @@ erDiagram
 | `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)` và `(registrationId, shiftId)` |
 
-## 3. Thông báo và audit
+## 3. Thông báo
 
 ```mermaid
 erDiagram
     ACCOUNT ||--o{ NOTIFICATION : "nhận"
-    ACCOUNT o|--o{ AUDIT_LOG : "thực hiện"
 
     NOTIFICATION {
         string id PK
@@ -190,16 +189,6 @@ erDiagram
         datetime createdAt
     }
 
-    AUDIT_LOG {
-        int id PK
-        string actorAccountId FK
-        string action
-        string targetType
-        string targetId
-        string requestId
-        string metadataJson
-        datetime createdAt
-    }
 ```
 
 ## 4. Index
@@ -215,4 +204,3 @@ erDiagram
 | `SHIFT` | unique `(workDate, period)`; `(workDate, status)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)`; unique `(registrationId, shiftId)`; `(accountId, status)`; `(registrationId, status)` |
 | `NOTIFICATION` | `(accountId, readAt, createdAt DESC)` |
-| `AUDIT_LOG` | `(actorAccountId, createdAt DESC)`; `(targetType, targetId, createdAt DESC)`; unique nullable `requestId + action + targetType + targetId` khi cần chống ghi lặp |

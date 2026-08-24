@@ -67,7 +67,7 @@ sequenceDiagram
             API->>C: PATCH /api/v1/accounts/{accountId}
             C->>S: updateAccountForAdmin(accountId, payload)
         end
-        S->>DB: Transaction cập nhật profile và audit
+        S->>DB: Transaction cập nhật profile
         DB-->>S: Account DTO mới
         S-->>C: Kết quả
         C-->>API: 200 + data

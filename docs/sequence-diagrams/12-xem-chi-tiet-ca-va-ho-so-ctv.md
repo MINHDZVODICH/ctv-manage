@@ -51,7 +51,7 @@ sequenceDiagram
         H->>API: updateAccountNotes(accountId, notes)
         API->>AC: PATCH /api/v1/accounts/{accountId}/notes
         AC->>S: updateNotes(accountId, notes, adminId)
-        S->>DB: Cập nhật ghi chú và audit log
+        S->>DB: Cập nhật ghi chú
         DB-->>S: Notes DTO
         S-->>AC: Kết quả
         AC-->>API: 200 + data

@@ -678,7 +678,7 @@ Hệ thống gồm có 2 tác nhân chính:
 <tr class="odd">
 <td>5</td>
 <td></td>
-<td>Nếu hợp lệ, luồng tự đổi hiển thị “Đổi mật khẩu thành công!”. Luồng Admin đặt lại lưu mật khẩu mặc định, đánh dấu CTV phải đổi mật khẩu khi đăng nhập, ghi nhật ký vào Ghi chú và hiển thị thông báo kèm mật khẩu mới.</td>
+<td>Nếu hợp lệ, luồng tự đổi hiển thị “Đổi mật khẩu thành công!”. Luồng Admin đặt lại lưu mật khẩu mặc định, đánh dấu CTV phải đổi mật khẩu khi đăng nhập và hiển thị thông báo kèm mật khẩu mới.</td>
 </tr>
 <tr class="even">
 <td>6</td>

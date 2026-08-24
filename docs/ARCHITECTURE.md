@@ -6,69 +6,68 @@
 flowchart LR
     User[Admin / CTV]
 
-    subgraph Frontend[FRONTEND]
+    subgraph Frontend[CLIENT APPLICATION]
         App[App Shell]
-        Features[Feature Modules]
-        Client[Shared API Client]
+        FeatureUI[Feature UI]
+        FeatureLogic[Feature Logic]
+        APIAccess[API Access]
 
-        App --> Features
-        Features --> Client
+        App --> FeatureUI --> FeatureLogic --> APIAccess
     end
 
-    subgraph Backend[BACKEND]
-        Middleware[Middleware]
-        Controller[Feature Controllers]
-        Service[Feature Services]
-        Data[Prisma và File Storage]
+    subgraph Backend[SERVER APPLICATION]
+        Pipeline[Request Pipeline]
+        Controller[Module Controller]
+        Service[Module Service]
+        Persistence[Persistence and File Access]
 
-        Middleware --> Controller --> Service --> Data
+        Pipeline --> Controller --> Service --> Persistence
     end
 
     User --> App
-    Client -->|REST JSON + session cookie| Middleware
-    Data --> DB[(SQLite)]
-    Data --> Files[(Private Local File Storage)]
+    APIAccess -->|HTTP API| Pipeline
+    Persistence --> DataStore[(Business Data Store)]
+    Persistence --> FileStore[(Private File Store)]
 ```
 
-Luồng xử lý bắt buộc:
+Hệ thống là một modular monolith gồm ứng dụng phía người dùng và ứng dụng phía server. Mỗi feature sở hữu giao diện, điều phối nghiệp vụ và endpoint tương ứng; các chi tiết công nghệ được ánh xạ riêng tại mục Tech stack.
+
+Luồng phụ thuộc chính:
 
 ```text
 User
-  -> React Screen/Modal
-  -> feature hook
-  -> shared API Client
-  -> Express middleware
-  -> route/controller
-  -> feature service
-  -> Prisma hoặc file storage
-  -> SQLite hoặc local filesystem
+  -> App Shell
+  -> Feature UI
+  -> Feature Logic
+  -> API Access
+  -> Request Pipeline
+  -> Feature Controller
+  -> Feature Service
+  -> Persistence / File Access
 ```
 
 ## 2. Kiến trúc Frontend
 
 ```mermaid
 flowchart TB
-    Main[main.tsx]
-    Settings[SystemSettingsProvider]
-    App[App.tsx<br/>App Shell]
-    Sidebar[Sidebar]
-    Navigation[ViewTab Navigation]
-    Overlay[Global Overlays]
-    Screen[Feature Screen hoặc Modal]
-    Hook[Feature Hook]
-    APIClient[shared/api/client.ts]
-    Shared[Shared UI và Utilities]
-    ScheduleStorage[scheduleStorage<br/>chỉ dùng khi chuyển tiếp]
-    LocalStorage[(Browser localStorage)]
+    Entry[Application Entry]
+    Settings[Application Settings]
+    Shell[App Shell]
+    Navigation[Navigation]
+    GlobalUI[Global UI and Overlays]
+    FeatureUI[Feature UI]
+    FeatureLogic[Feature Logic]
+    APIAccess[API Access]
+    Shared[Shared UI and Utilities]
+    Transition[Transitional Local Adapter]
+    Backend[Backend API]
 
-    Main --> Settings --> App
-    App --> Sidebar
-    App --> Navigation --> Screen
-    App --> Overlay
-    Screen --> Hook --> APIClient
-    Screen --> Shared
-    Hook -. riêng feature lịch .-> ScheduleStorage --> LocalStorage
-    APIClient -->|HTTPS / JSON| REST[Express REST API]
+    Entry --> Settings --> Shell
+    Shell --> Navigation --> FeatureUI
+    Shell --> GlobalUI
+    FeatureUI --> FeatureLogic --> APIAccess --> Backend
+    FeatureUI --> Shared
+    FeatureLogic -. feature lịch trong giai đoạn chuyển tiếp .-> Transition
 ```
 
 ### Các feature
@@ -115,23 +114,22 @@ app/frontend/src/
 
 ```mermaid
 flowchart TB
-    Request[HTTPS Request]
+    Request[Client Request]
+    Pipeline[Request Pipeline]
+    Controller[Module Controller]
+    Service[Module Service]
+    DataAccess[Persistence and File Access]
+    DataStore[(Business Data Store)]
+    FileStore[(Private File Store)]
+    ErrorHandler[Central Error Mapping]
+    Response[Client Response]
 
-    Middleware[Security, Session, Rate Limit, Request ID]
-    Controller[Feature Route + Controller + Zod Schema]
-    Service[Feature Service<br/>Business Rules + Authorization + Transaction]
-    Prisma[Shared Prisma Client]
-    Storage[Shared File Storage]
-    Audit[Pino Audit Log]
-    ErrorHandler[Central Error Handler]
-
-    Request --> Middleware --> Controller --> Service
-    Service --> Prisma --> DB[(SQLite)]
-    Service --> Storage --> Files[(Private Upload Directory)]
-    Service --> Audit
-    Controller --> Response[JSON Response]
-    Service -. throws typed error .-> Controller
-    Controller -. next error .-> ErrorHandler --> Response
+    Request --> Pipeline --> Controller --> Service --> DataAccess
+    DataAccess --> DataStore
+    DataAccess --> FileStore
+    Controller --> Response
+    Pipeline -. rejected request .-> ErrorHandler
+    Controller -. application error .-> ErrorHandler --> Response
 ```
 
 ### Các module

@@ -159,7 +159,7 @@ Status request:
 }
 ```
 
-Vô hiệu hóa phải revoke session và hủy assignments tương lai trong cùng transaction. `DELETE` là soft delete idempotent; lịch sử và audit được giữ.
+Vô hiệu hóa phải revoke session và hủy assignments tương lai trong cùng transaction. `DELETE` là soft delete idempotent; lịch sử làm việc được giữ.
 
 ### 4.3. Đổi và đặt lại mật khẩu
 

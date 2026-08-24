@@ -40,7 +40,6 @@ sequenceDiagram
         opt Chuyển sang DISABLED
             S->>DB: Thu hồi session và hủy assignment tương lai
         end
-        S->>DB: Ghi audit log
         DB-->>S: Account DTO mới
         S-->>C: Kết quả
         C-->>API: 200 + data
@@ -51,7 +50,6 @@ sequenceDiagram
         API->>C: DELETE /api/v1/accounts/{accountId}
         C->>S: softDelete(accountId)
         S->>DB: Transaction đặt deletedAt, revoke session và giữ lịch sử
-        S->>DB: Ghi audit log
         DB-->>S: Hoàn tất
         S-->>C: Thành công
         C-->>API: 204 No Content
@@ -72,5 +70,5 @@ sequenceDiagram
 ## Chú thích
 
 - Frontend giữ nguyên từ khóa, bộ lọc và trang khi làm mới danh sách; query thực tế chỉ gửi các tham số có giá trị.
-- Xóa là soft delete idempotent để giữ lịch sử lịch làm việc và audit.
+- Xóa là soft delete idempotent để giữ lịch sử lịch làm việc.
 - Nếu `version` không còn khớp, API trả `409 VERSION_CONFLICT`; UI phải tải lại dòng dữ liệu.

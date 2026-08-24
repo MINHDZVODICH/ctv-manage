@@ -36,7 +36,7 @@ sequenceDiagram
         H-->>UI: Hiển thị lỗi
     else Hợp lệ
         S->>S: Hash mật khẩu mới
-        S->>DB: Transaction cập nhật hash, audit và thu hồi session khác
+        S->>DB: Transaction cập nhật hash và thu hồi session khác
         DB-->>S: Đã cập nhật
         S-->>C: Thành công
         C-->>API: 200 + changedAt
@@ -80,7 +80,7 @@ sequenceDiagram
         H-->>UI: Hiển thị lỗi
     else Hợp lệ
         S->>S: Hash mật khẩu mới
-        S->>DB: Transaction cập nhật hash, cờ đổi mật khẩu, audit
+        S->>DB: Transaction cập nhật hash và cờ đổi mật khẩu
         S->>DB: Thu hồi mọi session của tài khoản đích
         DB-->>S: Đã cập nhật
         S-->>C: resetAt và sessionsRevoked

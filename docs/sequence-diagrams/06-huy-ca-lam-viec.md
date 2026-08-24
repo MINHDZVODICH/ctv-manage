@@ -43,7 +43,7 @@ sequenceDiagram
         C->>S: cancelSeries(currentUserId, filters)
     end
 
-    S->>DB: Transaction hủy assignment phù hợp và ghi audit
+    S->>DB: Transaction hủy assignment phù hợp
     DB-->>S: affectedCount
     S-->>C: Kết quả hủy
     C-->>API: 200 + affectedCount

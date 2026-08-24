@@ -43,14 +43,14 @@ sequenceDiagram
         S-->>C: REGISTRATION_ALREADY_REVIEWED
         C-->>API: 409 + error
     else Từ chối
-        S->>DB: Cập nhật REJECTED, lý do, reviewer và audit log
+        S->>DB: Cập nhật REJECTED, lý do và reviewer
         DB-->>S: Hồ sơ đã cập nhật
         S-->>C: Kết quả từ chối
         C-->>API: 200 + RegistrationRequest DTO
     else Phê duyệt
         S->>DB: Tạo account từ hồ sơ và passwordHash
         S->>DB: Liên kết file, xóa passwordHash khỏi request
-        S->>DB: Cập nhật APPROVED, notification và audit log
+        S->>DB: Cập nhật APPROVED và notification
         DB-->>S: accountId và hồ sơ đã duyệt
         S->>FS: Kiểm tra file đính kèm còn khả dụng
         S-->>C: Kết quả phê duyệt
@@ -66,4 +66,4 @@ sequenceDiagram
 
 - Toàn bộ cập nhật khi phê duyệt nằm trong một transaction để không tạo tài khoản nửa chừng.
 - Service kiểm tra `expectedStatus=PENDING`; hai Admin xử lý cùng hồ sơ thì chỉ một yêu cầu thành công.
-- API không trả `passwordHash`, đường dẫn vật lý của file hoặc dữ liệu nhạy cảm trong audit log.
+- API không trả `passwordHash` hoặc đường dẫn vật lý của file.
