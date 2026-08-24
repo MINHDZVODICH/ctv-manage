@@ -5,6 +5,7 @@ import { describe, test } from 'vitest';
 import { ApiError } from '../src/shared/api-error.js';
 import { AuthService } from '../src/modules/auth/auth.service.js';
 import { requireCsrf } from '../src/middleware/csrf.middleware.js';
+import { createRateLimitMiddleware } from '../src/middleware/rate-limit.middleware.js';
 
 const activeAccount: Account = {
   id: 'acc_admin',
@@ -82,6 +83,20 @@ test('requireCsrf cannot silently authorize a request without an authenticated s
   assert.equal(forwardedError.code, 'AUTHENTICATION_REQUIRED');
 });
 
+test('rate limiter bounds unrelated keys by evicting the oldest key', () => {
+  const limiter = createRateLimitMiddleware({
+    max: 1,
+    maxKeys: 2,
+    windowMs: 60_000,
+    key: (request) => String(request.query.key),
+  });
+
+  assert.equal(invokeLimiter(limiter, 'first'), undefined);
+  assert.equal(invokeLimiter(limiter, 'second'), undefined);
+  assert.equal(invokeLimiter(limiter, 'third'), undefined);
+  assert.equal(invokeLimiter(limiter, 'first'), undefined);
+});
+
 function isApiError(statusCode: number, code: string): (error: unknown) => boolean {
   return (error) => error instanceof ApiError && error.statusCode === statusCode && error.code === code;
 }
@@ -92,4 +107,14 @@ function fakePrisma(account: Account | null): PrismaClient {
       findUnique: async () => account,
     },
   } as unknown as PrismaClient;
+}
+
+function invokeLimiter(middleware: ReturnType<typeof createRateLimitMiddleware>, key: string): unknown {
+  let forwardedError: unknown;
+  middleware(
+    { query: { key } } as unknown as Request,
+    { setHeader: () => undefined } as unknown as Response,
+    ((error?: unknown) => { forwardedError = error; }) as NextFunction,
+  );
+  return forwardedError;
 }

@@ -10,9 +10,12 @@ interface RequestOptions {
   csrf?: boolean;
 }
 
+type UnauthorizedListener = () => void;
+
 class ApiClient {
   private csrfToken?: string;
   private csrfRequest?: Promise<string>;
+  private readonly unauthorizedListeners = new Set<UnauthorizedListener>();
 
   get<T>(path: string): Promise<T> {
     return this.request<T>(path, { method: 'GET' });
@@ -35,6 +38,13 @@ class ApiClient {
     this.csrfRequest = undefined;
   }
 
+  onUnauthorized(listener: UnauthorizedListener): () => void {
+    this.unauthorizedListeners.add(listener);
+    return () => {
+      this.unauthorizedListeners.delete(listener);
+    };
+  }
+
   private async request<T>(path: string, options: RequestOptions): Promise<T> {
     const method = (options.method ?? 'GET').toUpperCase();
     const isPublicLogin = method === 'POST' && path === '/auth/sessions';
@@ -53,7 +63,10 @@ class ApiClient {
     if (response.status === 204) return undefined as T;
     const payload = await parseJson(response);
     if (!response.ok) {
-      if (response.status === 401) this.clearSessionCache();
+      if (response.status === 401) {
+        this.clearSessionCache();
+        for (const listener of this.unauthorizedListeners) listener();
+      }
       const envelope = payload as ApiErrorEnvelope;
       throw new ApiClientError(response.status, envelope.error ?? {
         code: 'UNEXPECTED_RESPONSE',

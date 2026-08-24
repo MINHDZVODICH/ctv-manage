@@ -114,6 +114,25 @@ describe.sequential('authentication API', () => {
     assert.equal(response.body.error.code, 'UNSUPPORTED_MEDIA_TYPE');
   });
 
+  test('login rejects a missing Origin header', async () => {
+    const response = await request(createApp())
+      .post('/api/v1/auth/sessions')
+      .send(validCredentials);
+
+    assert.equal(response.status, 403);
+    assert.equal(response.body.error.code, 'ORIGIN_NOT_ALLOWED');
+  });
+
+  test('login rejects an Origin outside the allowlist', async () => {
+    const response = await request(createApp())
+      .post('/api/v1/auth/sessions')
+      .set('Origin', 'https://attacker.example')
+      .send(validCredentials);
+
+    assert.equal(response.status, 403);
+    assert.equal(response.body.error.code, 'ORIGIN_NOT_ALLOWED');
+  });
+
   test('login rate limit is keyed by IP and normalized email', async () => {
     const app = createApp();
     let response!: request.Response;

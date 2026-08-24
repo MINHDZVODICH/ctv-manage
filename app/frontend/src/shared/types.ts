@@ -4,6 +4,7 @@ export type AppView = 'accounts' | 'requests' | 'my-schedule' | 'summary-schedul
 
 export interface NavigationItem {
   id: AppView;
+  icon: string;
   label: string;
   roles: UserRole[];
 }

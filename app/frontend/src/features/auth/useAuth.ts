@@ -17,6 +17,8 @@ interface AuthContextValue {
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
+  notice: string | null;
+  clearNotice: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -28,6 +30,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => apiClient.onUnauthorized(() => {
+    setUser(null);
+    setError(null);
+    setNotice(null);
+  }), []);
 
   useEffect(() => {
     let active = true;
@@ -52,9 +61,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const login = useCallback(async (email: string, password: string) => {
     setIsSubmitting(true);
     setError(null);
+    setNotice(null);
     try {
       const session = await apiClient.post<SessionData>('/auth/sessions', { email, password });
       setUser(session.user);
+      setNotice(`Đăng nhập thành công với ${email}`);
     } catch (reason) {
       setError(messageFor(reason));
       throw reason;
@@ -66,10 +77,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = useCallback(async () => {
     setIsSubmitting(true);
     setError(null);
+    setNotice(null);
     try {
       await apiClient.delete('/auth/sessions/current');
       apiClient.clearSessionCache();
       setUser(null);
+      setNotice('Đã đăng xuất khỏi hệ thống');
     } catch (reason) {
       setError(messageFor(reason));
       throw reason;
@@ -78,14 +91,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const clearNotice = useCallback(() => setNotice(null), []);
+
   const value = useMemo(() => ({
     user,
     isLoading,
     isSubmitting,
     error,
+    notice,
+    clearNotice,
     login,
     logout,
-  }), [user, isLoading, isSubmitting, error, login, logout]);
+  }), [user, isLoading, isSubmitting, error, notice, clearNotice, login, logout]);
 
   return createElement(AuthContext.Provider, { value }, children);
 }

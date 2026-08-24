@@ -122,6 +122,28 @@ button:disabled {
   box-shadow: 0 0 0 3px rgb(27 54 93 / 12%);
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 68px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #1b365d;
+  background: #eef2f7;
+  font-size: 12px;
+  font-weight: 750;
+}
+
 .primary-action,
 .logout-action {
   border: 0;
@@ -149,6 +171,20 @@ button:disabled {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.desktop-sidebar,
+.content-column {
+  min-width: 0;
+}
+
+.mobile-topbar {
+  display: none;
 }
 
 .sidebar {
@@ -158,6 +194,7 @@ button:disabled {
   padding: 18px 14px;
   border-right: 1px solid #e2e8f0;
   background: #f4f3f7;
+  transition: padding 180ms ease;
 }
 
 .sidebar-brand,
@@ -170,6 +207,25 @@ button:disabled {
 .sidebar-brand {
   padding: 0 4px 20px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-brand-copy,
+.account-copy,
+.nav-label {
+  min-width: 0;
+}
+
+.collapse-action {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 7px;
+  color: #1b365d;
+  background: #e2e8f0;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .sidebar-brand strong,
@@ -203,6 +259,9 @@ button:disabled {
 
 .nav-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 12px 13px;
   border: 0;
   border-radius: 9px;
@@ -211,6 +270,22 @@ button:disabled {
   text-align: left;
   font-size: 14px;
   font-weight: 700;
+}
+
+.nav-icon {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgb(27 54 93 / 9%);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.nav-item.active .nav-icon {
+  background: rgb(255 255 255 / 16%);
 }
 
 .nav-item:hover {
@@ -223,11 +298,57 @@ button:disabled {
 }
 
 .sidebar-footer {
+  position: relative;
   display: grid;
   gap: 14px;
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid #e2e8f0;
+}
+
+.account-trigger {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] {
+  background: #e9e7eb;
+}
+
+.account-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid #d8dee8;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 15%);
+}
+
+.account-menu button {
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #334155;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-menu button:hover {
+  background: #f1f5f9;
 }
 
 .avatar {
@@ -245,6 +366,112 @@ button:disabled {
   background: #fff1f2;
 }
 
+.sidebar.collapsed {
+  padding-inline: 10px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar.collapsed .sidebar-brand-copy,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .account-copy {
+  display: none;
+}
+
+.sidebar.collapsed .collapse-action {
+  position: absolute;
+  top: 62px;
+  margin: 0;
+}
+
+.sidebar.collapsed .nav-item,
+.sidebar.collapsed .account-summary {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar.collapsed .logout-action {
+  padding-inline: 4px;
+  font-size: 11px;
+}
+
+.sidebar.collapsed .account-trigger {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar.collapsed .account-menu {
+  width: 210px;
+  right: auto;
+  left: 52px;
+  bottom: 0;
+}
+
+.success-notice {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 13px 15px;
+  border: 1px solid #a7f3d0;
+  border-radius: 11px;
+  color: #065f46;
+  background: #ecfdf5;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 14%);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.success-notice button,
+.settings-dialog header button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 20px;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 48%);
+}
+
+.settings-dialog {
+  width: min(100%, 520px);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 25%);
+}
+
+.settings-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-dialog h2 {
+  margin: 0;
+  color: #1b365d;
+}
+
+.settings-dialog p:last-child {
+  color: #64748b;
+  line-height: 1.55;
+}
+
 .workspace {
   padding: clamp(28px, 5vw, 64px);
 }
@@ -257,16 +484,72 @@ button:disabled {
 
 @media (max-width: 760px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
 
-  .sidebar {
-    min-height: auto;
-    border-right: 0;
+  .desktop-sidebar {
+    display: none;
+  }
+
+  .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
     border-bottom: 1px solid #e2e8f0;
+    background: #f4f3f7;
   }
 
-  .sidebar-footer {
-    margin-top: 18px;
+  .mobile-topbar button,
+  .mobile-drawer-close {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 9px;
+    color: #1b365d;
+    background: #e2e8f0;
+    font-size: 20px;
+  }
+
+  .mobile-topbar strong {
+    color: #1b365d;
+    font-size: 14px;
+  }
+
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    background: rgb(15 23 42 / 48%);
+  }
+
+  .mobile-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(86vw, 300px);
+    background: #f4f3f7;
+    box-shadow: 12px 0 35px rgb(15 23 42 / 20%);
+  }
+
+  .mobile-drawer > .sidebar {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  .mobile-drawer-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+  }
+
+  .workspace {
+    padding: 24px 18px;
   }
 }

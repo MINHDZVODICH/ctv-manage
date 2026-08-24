@@ -17,3 +17,12 @@ export const originMiddleware: RequestHandler = (request, _response, next) => {
 
   next();
 };
+
+export const requireAllowedOrigin: RequestHandler = (request, _response, next) => {
+  const origin = request.headers.origin;
+  if (!origin || !config.allowedOrigins.includes(origin)) {
+    next(new ApiError(403, 'ORIGIN_NOT_ALLOWED', 'Origin is not allowed.'));
+    return;
+  }
+  next();
+};

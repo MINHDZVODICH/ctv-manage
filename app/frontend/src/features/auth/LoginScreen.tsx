@@ -5,6 +5,7 @@ export function LoginScreen() {
   const { error, isSubmitting, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -34,14 +35,24 @@ export function LoginScreen() {
             required
           />
           <label htmlFor="login-password">Mật khẩu</label>
-          <input
-            id="login-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
+          <div className="password-field">
+            <input
+              id="login-password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              onClick={() => setShowPassword((visible) => !visible)}
+            >
+              {showPassword ? 'Ẩn' : 'Hiện'}
+            </button>
+          </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-action" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}

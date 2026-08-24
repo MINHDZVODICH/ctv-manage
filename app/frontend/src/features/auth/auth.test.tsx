@@ -73,6 +73,25 @@ describe('useAuth', () => {
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ credentials: 'include', method: 'POST' });
     expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('X-CSRF-Token');
   });
+
+  it('replaces authenticated UI with login when any feature request receives 401', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ data: adminSession }))
+      .mockResolvedValueOnce(errorResponse(401, 'AUTHENTICATION_REQUIRED'));
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+    expect(await screen.findByText('Quản trị viên — ADMIN')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'expire feature request' }));
+
+    expect(await screen.findByRole('button', { name: 'login' })).toBeInTheDocument();
+  });
 });
 
 function AuthProbe() {
@@ -81,7 +100,14 @@ function AuthProbe() {
   if (!user) {
     return <button onClick={() => void login('admin@example.vn', 'Secret123')}>login</button>;
   }
-  return <p>{user.displayName} — {user.role}</p>;
+  return (
+    <>
+      <p>{user.displayName} — {user.role}</p>
+      <button onClick={() => void apiClient.get('/notifications').catch(() => undefined)}>
+        expire feature request
+      </button>
+    </>
+  );
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

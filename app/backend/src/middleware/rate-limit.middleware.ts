@@ -3,8 +3,10 @@ import { ApiError } from '../shared/api-error.js';
 
 interface RateLimitOptions {
   max: number;
+  maxKeys?: number;
   windowMs: number;
   key: (request: Request) => string;
+  now?: () => number;
 }
 
 interface RateLimitEntry {
@@ -14,11 +16,20 @@ interface RateLimitEntry {
 
 export function createRateLimitMiddleware(options: RateLimitOptions): RequestHandler {
   const entries = new Map<string, RateLimitEntry>();
+  const maxKeys = Math.max(1, options.maxKeys ?? 10_000);
 
   return (request, response, next) => {
-    const now = Date.now();
+    const now = options.now?.() ?? Date.now();
+    for (const [storedKey, storedEntry] of entries) {
+      if (storedEntry.resetsAt <= now) entries.delete(storedKey);
+    }
+
     const key = options.key(request);
     const previous = entries.get(key);
+    if (!previous && entries.size >= maxKeys) {
+      const oldestKey = entries.keys().next().value as string | undefined;
+      if (oldestKey !== undefined) entries.delete(oldestKey);
+    }
     const entry = !previous || previous.resetsAt <= now
       ? { count: 1, resetsAt: now + options.windowMs }
       : { count: previous.count + 1, resetsAt: previous.resetsAt };
