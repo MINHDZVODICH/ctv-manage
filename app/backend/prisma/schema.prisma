@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountRole {
+  ADMIN
+  CTV
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FileAssetState {
+  STAGED
+  ACTIVE
+  QUARANTINED
+  DELETED
+}
+
+enum FileCategory {
+  AVATAR
+  CCCD_FRONT
+  CCCD_BACK
+  CV
+}
+
+enum ShiftPeriod {
+  MORNING
+  AFTERNOON
+}
+
+enum ScheduleRegistrationStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum ShiftAssignmentStatus {
+  ACTIVE
+  CANCELLED
+}
+
+model Account {
+  id                     String   @id @default(cuid())
+  email                  String   @unique
+  passwordHash           String
+  role                   AccountRole
+  status                 AccountStatus @default(ACTIVE)
+  mustChangePassword     Boolean  @default(true)
+  displayName            String
+  phone                  String?
+  ctvCode                String?  @unique
+  dateOfBirth            DateTime?
+  gender                 String?
+  address                String?
+  adminNotes             String?
+  joinedAt               DateTime?
+  lastLoginAt            DateTime?
+  passwordChangedAt      DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  deletedAt              DateTime?
+  sessions               Session[]
+  accountFiles           AccountFile[]
+  scheduleRegistrations  ScheduleRegistration[]
+  shiftAssignments       ShiftAssignment[]
+  notifications          Notification[]
+  reviewedRequests       RegistrationRequest[] @relation("ReviewedRequests")
+  approvedRequests       RegistrationRequest[] @relation("ApprovedAccounts")
+
+  @@index([status, deletedAt])
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  accountId   String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  account     Account  @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, revokedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model RegistrationRequest {
+  id                String                    @id @default(cuid())
+  email             String
+  passwordHash      String
+  displayName       String
+  phone             String?
+  dateOfBirth       DateTime?
+  gender            String?
+  address           String?
+  status            RegistrationRequestStatus @default(PENDING)
+  rejectionReason   String?
+  reviewedById      String?
+  approvedAccountId String?                   @unique
+  submittedAt       DateTime                  @default(now())
+  reviewedAt        DateTime?
+  updatedAt         DateTime                  @updatedAt
+  reviewedBy        Account?                  @relation("ReviewedRequests", fields: [reviewedById], references: [id])
+  approvedAccount   Account?                  @relation("ApprovedAccounts", fields: [approvedAccountId], references: [id])
+  files             RegistrationRequestFile[]
+
+  @@index([status, submittedAt])
+  @@index([email])
+  @@index([reviewedById, reviewedAt])
+}
+
+model FileAsset {
+  id                   String                    @id @default(cuid())
+  storageKey           String                    @unique
+  originalName         String
+  mimeType             String
+  sizeBytes            Int
+  sha256               String
+  state                FileAssetState            @default(STAGED)
+  createdAt            DateTime                  @default(now())
+  deletedAt            DateTime?
+  registrationFiles    RegistrationRequestFile[]
+  accountFiles         AccountFile[]
+
+  @@index([state, createdAt])
+  @@index([sha256])
+}
+
+model RegistrationRequestFile {
+  requestId String
+  fileId    String
+  category  FileCategory
+  request   RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  file      FileAsset           @relation(fields: [fileId], references: [id])
+
+  @@id([requestId, fileId])
+}
+
+model AccountFile {
+  accountId  String
+  fileId     String
+  category   FileCategory
+  createdAt  DateTime @default(now())
+  deletedAt  DateTime?
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  file       FileAsset @relation(fields: [fileId], references: [id])
+
+  @@id([accountId, fileId])
+  @@index([accountId, category, deletedAt])
+}
+
+model ScheduleRegistration {
+  id          String                     @id @default(cuid())
+  accountId   String
+  startDate   DateTime
+  endDate     DateTime
+  timeZone    String
+  roomCode    String
+  workContent String
+  version     Int                        @default(1)
+  status      ScheduleRegistrationStatus @default(ACTIVE)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  cancelledAt DateTime?
+  account     Account                    @relation(fields: [accountId], references: [id])
+  patternSlots SchedulePatternSlot[]
+  assignments ShiftAssignment[]
+
+  @@index([accountId, status, startDate, endDate])
+}
+
+model SchedulePatternSlot {
+  registrationId String
+  weekday        Int
+  period         ShiftPeriod
+  registration   ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@id([registrationId, weekday, period])
+}
+
+model Shift {
+  id          String      @id @default(cuid())
+  workDate    DateTime
+  period      ShiftPeriod
+  status      ShiftStatus @default(OPEN)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  assignments ShiftAssignment[]
+
+  @@unique([workDate, period])
+  @@index([workDate, status])
+}
+
+model ShiftAssignment {
+  id                 String                @id @default(cuid())
+  shiftId            String
+  accountId          String
+  registrationId     String
+  roomCode           String
+  workContent        String
+  status             ShiftAssignmentStatus @default(ACTIVE)
+  assignedAt         DateTime              @default(now())
+  cancelledAt        DateTime?
+  cancellationReason String?
+  updatedAt          DateTime              @updatedAt
+  shift              Shift                 @relation(fields: [shiftId], references: [id])
+  account            Account               @relation(fields: [accountId], references: [id])
+  registration       ScheduleRegistration  @relation(fields: [registrationId], references: [id])
+
+  @@unique([shiftId, accountId])
+  @@unique([registrationId, shiftId])
+  @@index([accountId, status])
+  @@index([registrationId, status])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  accountId  String
+  type       String
+  title      String
+  message    String
+  sourceType String?
+  sourceId   String?
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, readAt, createdAt])
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  requestHash    String
+  responseStatus Int?
+  responseBody   String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([expiresAt])
+}
