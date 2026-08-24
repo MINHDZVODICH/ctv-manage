@@ -21,6 +21,7 @@ const activeAccount: Account = {
   gender: null,
   address: null,
   adminNotes: null,
+  version: 1,
   joinedAt: null,
   lastLoginAt: null,
   passwordChangedAt: null,

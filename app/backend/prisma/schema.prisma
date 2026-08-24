@@ -85,6 +85,7 @@ model Account {
   gender                 String?
   address                String?
   adminNotes             String?
+  version                Int      @default(1)
   joinedAt               DateTime?
   lastLoginAt            DateTime?
   passwordChangedAt      DateTime?

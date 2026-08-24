@@ -22,8 +22,30 @@ class ApiClient {
     return this.request<T>(path, { method: 'GET' });
   }
 
+  async getPage<T>(path: string): Promise<{ data: T[]; meta: { page: number; pageSize: number; total: number } }> {
+    const response = await fetch(`${API_ROOT}${path}`, {
+      method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
+    });
+    const payload = await parseJson(response) as ApiErrorEnvelope | { data: T[]; meta: { page: number; pageSize: number; total: number } };
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.clearSessionCache();
+        for (const listener of this.unauthorizedListeners) listener();
+      }
+      const envelope = payload as ApiErrorEnvelope;
+      throw new ApiClientError(response.status, envelope.error ?? {
+        code: 'UNEXPECTED_RESPONSE', message: 'Máy chủ trả về phản hồi không hợp lệ.',
+      });
+    }
+    return payload as { data: T[]; meta: { page: number; pageSize: number; total: number } };
+  }
+
   post<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, { method: 'POST', body });
+  }
+
+  postIdempotent<T>(path: string, body: unknown, idempotencyKey: string): Promise<T> {
+    return this.request<T>(path, { method: 'POST', body, idempotencyKey });
   }
 
   postMultipart<T>(path: string, body: FormData, idempotencyKey: string): Promise<T> {
@@ -32,6 +54,14 @@ class ApiClient {
 
   patch<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, { method: 'PATCH', body });
+  }
+
+  put<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, { method: 'PUT', body });
+  }
+
+  putMultipart<T>(path: string, body: FormData): Promise<T> {
+    return this.request<T>(path, { method: 'PUT', body });
   }
 
   delete(path: string): Promise<void> {

@@ -10,6 +10,8 @@ import { logger } from './shared/logger.js';
 import { createAuthRouter } from './modules/auth/index.js';
 import { createRegistrationRequestsRouter } from './modules/registration-requests/index.js';
 import { FileStorage } from './shared/file-storage.js';
+import { AccountsService, createAccountsRouter, createUsersRouter } from './modules/accounts/index.js';
+import { createFilesRouter } from './modules/files/index.js';
 
 export interface AppDependencies {
   logger?: Logger;
@@ -19,6 +21,8 @@ export interface AppDependencies {
 
 export function createApp(deps: AppDependencies = {}): Express {
   const app = express();
+  const fileStorage = deps.fileStorage ?? new FileStorage();
+  const accountsService = new AccountsService(undefined, fileStorage, deps.now);
 
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
@@ -39,7 +43,10 @@ export function createApp(deps: AppDependencies = {}): Express {
     response.status(200).json({ data: { status: 'ok' } });
   });
   app.use('/api/v1/auth', createAuthRouter());
-  app.use('/api/v1/registration-requests', createRegistrationRequestsRouter(deps.fileStorage));
+  app.use('/api/v1/registration-requests', createRegistrationRequestsRouter(fileStorage));
+  app.use('/api/v1/accounts', createAccountsRouter(accountsService));
+  app.use('/api/v1/users', createUsersRouter(accountsService));
+  app.use('/api/v1/files', createFilesRouter(accountsService));
   app.use('/api/v1', notFoundMiddleware);
   app.use(errorMiddleware);
 

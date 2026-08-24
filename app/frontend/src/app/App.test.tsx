@@ -86,6 +86,7 @@ it('clears authenticated UI only after logout succeeds', async () => {
   const logout = deferred<Response>();
   const fetchMock = vi.fn()
     .mockResolvedValueOnce(jsonResponse({ data: adminSession }))
+    .mockResolvedValueOnce(jsonResponse({ data: [], meta: { page: 1, pageSize: 5, total: 0 } }))
     .mockResolvedValueOnce(jsonResponse({ data: { csrfToken: 'csrf-123' } }))
     .mockImplementationOnce(() => logout.promise);
   vi.stubGlobal('fetch', fetchMock);

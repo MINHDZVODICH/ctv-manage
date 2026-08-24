@@ -5,6 +5,8 @@ import type { AppView } from '../shared/types';
 import { Sidebar } from './Sidebar';
 import { RegistrationScreen } from '../features/registration-requests/RegistrationScreen';
 import { RequestsScreen } from '../features/registration-requests/RequestsScreen';
+import { AccountListScreen } from '../features/accounts/AccountListScreen';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
 
 const viewTitles: Record<AppView, string> = {
   accounts: 'Quản lý tài khoản',
@@ -67,7 +69,7 @@ function AppContent() {
           <strong>Hệ thống Quản lý CTV</strong>
         </header>
         <main className="workspace">
-          {currentView === 'requests' ? <RequestsScreen /> : (
+          {currentView === 'requests' ? <RequestsScreen /> : currentView === 'accounts' && user.role === 'ADMIN' ? <AccountListScreen /> : currentView === 'profile' ? <ProfileScreen /> : (
             <>
               <p className="eyebrow">Không gian làm việc</p>
               <h1>{viewTitles[currentView]}</h1>
