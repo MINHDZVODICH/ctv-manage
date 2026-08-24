@@ -7,6 +7,7 @@ import { originMiddleware } from './middleware/origin.middleware.js';
 import { requestIdMiddleware } from './middleware/request-id.middleware.js';
 import { config } from './config.js';
 import { logger } from './shared/logger.js';
+import { createAuthRouter } from './modules/auth/index.js';
 
 export interface AppDependencies {
   logger?: Logger;
@@ -23,7 +24,7 @@ export function createApp(deps: AppDependencies = {}): Express {
     origin: config.allowedOrigins,
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-CSRF-Token'],
     optionsSuccessStatus: 204,
   }));
   app.use(pinoHttp<Request, Response>({
@@ -34,6 +35,7 @@ export function createApp(deps: AppDependencies = {}): Express {
   app.get('/api/v1/health', (_request, response) => {
     response.status(200).json({ data: { status: 'ok' } });
   });
+  app.use('/api/v1/auth', createAuthRouter());
   app.use('/api/v1', notFoundMiddleware);
   app.use(errorMiddleware);
 
