@@ -10,6 +10,9 @@ import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { ScheduleScreen } from '../features/schedules/ScheduleScreen';
 import { SummaryScheduleScreen } from '../features/schedules/SummaryScheduleScreen';
 import { NotificationsProvider } from '../features/notifications/useNotifications';
+import { LoadingState } from '../shared/ui/LoadingState';
+import { Modal } from '../shared/ui/Modal';
+import { Toast } from '../shared/ui/Toast';
 
 const viewTitles: Record<AppView, string> = {
   accounts: 'Quản lý tài khoản',
@@ -40,13 +43,13 @@ function AppContent() {
   }, [user]);
 
   if (isLoading) {
-    return <main className="session-loading" aria-live="polite">Đang tải phiên làm việc...</main>;
+    return <main className="session-loading"><LoadingState label="Đang tải phiên làm việc..." /></main>;
   }
   if (!user) {
     if (isRegistering) return <RegistrationScreen onBackToLogin={() => setRegistering(false)} />;
     return (
       <>
-        {notice && <SuccessNotice message={notice} onClose={clearNotice} />}
+        {notice && <Toast message={notice} onClose={clearNotice} />}
         <LoginScreen onRegister={() => setRegistering(true)} />
       </>
     );
@@ -112,10 +115,10 @@ function AppContent() {
           </div>
         </>
       )}
-      {notice && <SuccessNotice message={notice} onClose={clearNotice} />}
+      {notice && <Toast message={notice} onClose={clearNotice} />}
       {isSettingsOpen && (
-        <div className="dialog-backdrop">
-          <section className="settings-dialog" role="dialog" aria-modal="true" aria-label="Cài đặt hệ thống">
+        <Modal className="settings-dialog" title="Cài đặt hệ thống" onClose={() => setSettingsOpen(false)}>
+          <section>
             <header>
               <div>
                 <p className="eyebrow">Tùy chọn cá nhân</p>
@@ -125,18 +128,9 @@ function AppContent() {
             </header>
             <p>Các tùy chọn hiển thị và tài khoản sẽ được bổ sung trong vertical slice tương ứng.</p>
           </section>
-        </div>
+        </Modal>
       )}
     </div>
     </NotificationsProvider>
-  );
-}
-
-function SuccessNotice({ message, onClose }: { message: string; onClose: () => void }) {
-  return (
-    <div className="success-notice" role="status">
-      <span>{message}</span>
-      <button type="button" aria-label="Đóng thông báo" onClick={onClose}>×</button>
-    </div>
   );
 }

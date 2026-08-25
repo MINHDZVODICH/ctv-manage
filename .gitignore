@@ -23,6 +23,9 @@ app/backend/prisma/*.db
 app/backend/prisma/*.db-journal
 app/backend/prisma/*.db-wal
 app/backend/prisma/*.db-shm
+app/backend/.e2e-private-storage/
+app/frontend/playwright-report/
+app/frontend/test-results/
 
 # Uploads
 app/backend/uploads/*

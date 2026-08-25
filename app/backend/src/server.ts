@@ -11,7 +11,10 @@ async function start(): Promise<void> {
   const fileStorage = new FileStorage();
   await new RegistrationRequestsService(prisma, fileStorage).reconcileIncomplete();
   await new AccountsService(prisma, fileStorage).reconcileIncompleteFileReplacements();
-  const app = createApp({ fileStorage });
+  const now = process.env.E2E_TEST === '1' && config.NODE_ENV === 'test'
+    ? () => new Date('2026-08-25T10:00:00.000Z')
+    : undefined;
+  const app = createApp({ fileStorage, now });
   app.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Backend listening');
   });
