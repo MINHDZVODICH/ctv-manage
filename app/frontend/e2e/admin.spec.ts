@@ -12,7 +12,8 @@ test('Admin approves a registration and sees the account', async ({ page }, test
   await expect(page.getByText('Hồ sơ E2E')).toBeVisible();
 });
 
-test('Admin reaches account, summary, profile and notification interactions', async ({ page }) => {
+test('Admin reaches account, summary, profile and notification interactions', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'mobile coverage is captured by the responsive visual suite');
   await loginAsAdmin(page);
   await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toBeVisible();
   await page.getByRole('button', { name: 'Lịch làm việc tổng hợp' }).click();
