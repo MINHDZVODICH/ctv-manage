@@ -195,10 +195,15 @@ export class ScheduleService {
       }, { maxWait: 10_000, timeout: 20_000 });
     } catch (error) {
       if (input.version === null && isConcurrentRegistrationCreationConflict(error)) {
-        const current = await this.client.scheduleRegistration.findFirst({
-          where: { accountId, status: 'ACTIVE' }, select: { version: true }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        });
-        throw versionConflict(current?.version ?? null);
+        let current: { version: number } | null;
+        try {
+          current = await this.client.scheduleRegistration.findFirst({
+            where: { accountId, status: 'ACTIVE' }, select: { version: true }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          });
+        } catch {
+          throw error;
+        }
+        if (current) throw versionConflict(current.version);
       }
       throw error;
     }

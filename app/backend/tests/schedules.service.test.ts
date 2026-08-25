@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { describe, test } from 'vitest';
-import { expandPattern } from '../src/modules/schedules/schedule.service.js';
+import { expandPattern, ScheduleService } from '../src/modules/schedules/schedule.service.js';
 
 describe('expandPattern', () => {
   test('expands only selected weekdays and periods in Asia/Bangkok', () => {
@@ -41,3 +42,33 @@ describe('expandPattern', () => {
     }), /weekday/i);
   });
 });
+
+describe('schedule creation concurrency errors', () => {
+  for (const error of [
+    new Prisma.PrismaClientKnownRequestError('unrelated unique failure', { code: 'P2002', clientVersion: 'test' }),
+    new Prisma.PrismaClientKnownRequestError('transaction expired', { code: 'P2028', clientVersion: 'test' }),
+    new Error('database is locked'),
+  ]) {
+    test(`propagates ${'code' in error ? error.code : error.message} when no competing active registration exists`, async () => {
+      const service = new ScheduleService(failingClient(error));
+      await assert.rejects(
+        service.upsertRegistration('ctv-no-winner', registrationInput()),
+        (caught) => caught === error,
+      );
+    });
+  }
+});
+
+function registrationInput() {
+  return {
+    startDate: '2026-08-24', endDate: '2026-08-31', timeZone: 'Asia/Bangkok' as const,
+    roomCode: 'ROOM_1' as const, workContent: 'Hỗ trợ', slots: [{ weekday: 1, period: 'MORNING' as const }], version: null,
+  };
+}
+
+function failingClient(error: Error): PrismaClient {
+  return {
+    $transaction: async () => { throw error; },
+    scheduleRegistration: { findFirst: async () => null },
+  } as unknown as PrismaClient;
+}

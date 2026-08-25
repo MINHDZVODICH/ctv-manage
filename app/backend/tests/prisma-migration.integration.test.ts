@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, describe, test } from 'vitest';
 import { RegistrationRequestsService } from '../src/modules/registration-requests/registration-requests.service.js';
+import { ScheduleService } from '../src/modules/schedules/schedule.service.js';
 import { FileStorage } from '../src/shared/file-storage.js';
 
 const baseline = '20260825000000_parent_schema_baseline';
@@ -39,6 +40,18 @@ describe.sequential('Prisma deployment migrations', () => {
         { id: 'schedule-legacy-new', status: 'ACTIVE' },
         { id: 'schedule-legacy-old', status: 'CANCELLED' },
       ]);
+      const assignments = await client.$queryRawUnsafe<Array<{ registrationId: string; status: string; cancellationReason: string | null }>>(
+        'SELECT "registrationId", "status", "cancellationReason" FROM "ShiftAssignment" WHERE "accountId" = ? ORDER BY "registrationId"',
+        'account-business-row',
+      );
+      assert.deepEqual(assignments, [
+        { registrationId: 'schedule-legacy-new', status: 'ACTIVE', cancellationReason: null },
+        { registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'REGISTRATION_DEDUPLICATED' },
+      ]);
+      const visibleAssignments = await new ScheduleService(client, () => new Date('2026-08-24T03:00:00.000Z')).listMyShifts(
+        'account-business-row', { from: '2026-08-24', to: '2026-08-31' },
+      );
+      assert.deepEqual(visibleAssignments.map((assignment) => assignment.registrationId), ['schedule-legacy-new']);
       assert.equal(await client.idempotencyRecord.count(), 0);
       await client.idempotencyRecord.create({
         data: {
@@ -98,6 +111,16 @@ async function createLegacyDatabase(client: PrismaClient): Promise<void> {
     'INSERT INTO "ScheduleRegistration" ("id", "accountId", "startDate", "endDate", "timeZone", "roomCode", "workContent", "version", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     'schedule-legacy-old', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_1', 'Old schedule', 1, 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
     'schedule-legacy-new', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_2', 'New schedule', 2, 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
+  );
+  await client.$executeRawUnsafe(
+    'INSERT INTO "Shift" ("id", "workDate", "period", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
+    'shift-legacy-old', Date.UTC(2026, 7, 24), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'shift-legacy-new', Date.UTC(2026, 7, 25), 'MORNING', 'OPEN', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
+  );
+  await client.$executeRawUnsafe(
+    'INSERT INTO "ShiftAssignment" ("id", "shiftId", "accountId", "registrationId", "roomCode", "workContent", "status", "assignedAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'assignment-legacy-old', 'shift-legacy-old', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'assignment-legacy-new', 'shift-legacy-new', 'account-business-row', 'schedule-legacy-new', 'ROOM_2', 'New assignment', 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
   );
 }
 
