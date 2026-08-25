@@ -8,6 +8,14 @@ SET
   "cancelledAt" = COALESCE("cancelledAt", CURRENT_TIMESTAMP),
   "cancellationReason" = 'REGISTRATION_DEDUPLICATED'
 WHERE "status" = 'ACTIVE'
+  AND "shiftId" IN (
+    SELECT "id"
+    FROM "Shift"
+    WHERE CASE
+      WHEN typeof("workDate") IN ('integer', 'real') THEN date("workDate" / 1000, 'unixepoch')
+      ELSE date("workDate")
+    END >= date('now', '+7 hours')
+  )
   AND "registrationId" IN (
     SELECT "older"."id"
     FROM "ScheduleRegistration" AS "older"

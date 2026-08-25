@@ -94,6 +94,9 @@ describe.sequential('CTV schedule API', () => {
     const responses = [first, second];
     assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
     const winner = responses.find((response) => response.status === 200)!;
+    const loser = responses.find((response) => response.status === 409)!;
+    assert.equal(loser.body.error.code, 'VERSION_CONFLICT');
+    assert.equal(loser.body.error.details.currentVersion, 1);
     const winnerPayload = winner === first ? firstPayload : secondPayload;
 
     const active = await prisma.scheduleRegistration.findMany({

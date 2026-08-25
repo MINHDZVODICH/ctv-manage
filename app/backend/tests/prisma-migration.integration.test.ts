@@ -40,18 +40,19 @@ describe.sequential('Prisma deployment migrations', () => {
         { id: 'schedule-legacy-new', status: 'ACTIVE' },
         { id: 'schedule-legacy-old', status: 'CANCELLED' },
       ]);
-      const assignments = await client.$queryRawUnsafe<Array<{ registrationId: string; status: string; cancellationReason: string | null }>>(
-        'SELECT "registrationId", "status", "cancellationReason" FROM "ShiftAssignment" WHERE "accountId" = ? ORDER BY "registrationId"',
+      const assignments = await client.$queryRawUnsafe<Array<{ id: string; registrationId: string; status: string; cancellationReason: string | null }>>(
+        'SELECT "id", "registrationId", "status", "cancellationReason" FROM "ShiftAssignment" WHERE "accountId" = ? ORDER BY "id"',
         'account-business-row',
       );
       assert.deepEqual(assignments, [
-        { registrationId: 'schedule-legacy-new', status: 'ACTIVE', cancellationReason: null },
-        { registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'REGISTRATION_DEDUPLICATED' },
+        { id: 'assignment-legacy-new', registrationId: 'schedule-legacy-new', status: 'ACTIVE', cancellationReason: null },
+        { id: 'assignment-legacy-old-future', registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'REGISTRATION_DEDUPLICATED' },
+        { id: 'assignment-legacy-old-past', registrationId: 'schedule-legacy-old', status: 'ACTIVE', cancellationReason: null },
       ]);
       const visibleAssignments = await new ScheduleService(client, () => new Date('2026-08-24T03:00:00.000Z')).listMyShifts(
         'account-business-row', { from: '2026-08-24', to: '2026-08-31' },
       );
-      assert.deepEqual(visibleAssignments.map((assignment) => assignment.registrationId), ['schedule-legacy-new']);
+      assert.deepEqual(visibleAssignments.map((assignment) => assignment.registrationId), ['schedule-legacy-old', 'schedule-legacy-new']);
       assert.equal(await client.idempotencyRecord.count(), 0);
       await client.idempotencyRecord.create({
         data: {
@@ -113,13 +114,15 @@ async function createLegacyDatabase(client: PrismaClient): Promise<void> {
     'schedule-legacy-new', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_2', 'New schedule', 2, 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
   );
   await client.$executeRawUnsafe(
-    'INSERT INTO "Shift" ("id", "workDate", "period", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
-    'shift-legacy-old', Date.UTC(2026, 7, 24), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'INSERT INTO "Shift" ("id", "workDate", "period", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
+    'shift-legacy-old-past', Date.UTC(2026, 7, 24), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'shift-legacy-old-future', Date.UTC(2026, 7, 26), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
     'shift-legacy-new', Date.UTC(2026, 7, 25), 'MORNING', 'OPEN', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
   );
   await client.$executeRawUnsafe(
-    'INSERT INTO "ShiftAssignment" ("id", "shiftId", "accountId", "registrationId", "roomCode", "workContent", "status", "assignedAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    'assignment-legacy-old', 'shift-legacy-old', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'INSERT INTO "ShiftAssignment" ("id", "shiftId", "accountId", "registrationId", "roomCode", "workContent", "status", "assignedAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'assignment-legacy-old-past', 'shift-legacy-old-past', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old past assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'assignment-legacy-old-future', 'shift-legacy-old-future', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old future assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
     'assignment-legacy-new', 'shift-legacy-new', 'account-business-row', 'schedule-legacy-new', 'ROOM_2', 'New assignment', 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
   );
 }
