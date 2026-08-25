@@ -8,6 +8,7 @@ import { RequestsScreen } from '../features/registration-requests/RequestsScreen
 import { AccountListScreen } from '../features/accounts/AccountListScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { ScheduleScreen } from '../features/schedules/ScheduleScreen';
+import { SummaryScheduleScreen } from '../features/schedules/SummaryScheduleScreen';
 
 const viewTitles: Record<AppView, string> = {
   accounts: 'Quản lý tài khoản',
@@ -70,7 +71,7 @@ function AppContent() {
           <strong>Hệ thống Quản lý CTV</strong>
         </header>
         <main className="workspace">
-          {currentView === 'requests' ? <RequestsScreen /> : currentView === 'accounts' && user.role === 'ADMIN' ? <AccountListScreen /> : currentView === 'profile' ? <ProfileScreen /> : currentView === 'my-schedule' && user.role === 'CTV' ? <ScheduleScreen /> : (
+          {currentView === 'requests' ? <RequestsScreen /> : currentView === 'accounts' && user.role === 'ADMIN' ? <AccountListScreen /> : currentView === 'profile' ? <ProfileScreen /> : currentView === 'my-schedule' && user.role === 'CTV' ? <ScheduleScreen /> : currentView === 'summary-schedule' && user.role === 'ADMIN' ? <SummaryScheduleScreen /> : (
             <>
               <p className="eyebrow">Không gian làm việc</p>
               <h1>{viewTitles[currentView]}</h1>

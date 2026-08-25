@@ -50,6 +50,14 @@ export function toCoWorkerDto(assignment: ShiftAssignment & { account: Pick<Acco
   };
 }
 
+export function toAdminRosterAssignmentDto(assignment: ShiftAssignment & { account: Pick<Account, 'id' | 'displayName'> }) {
+  return {
+    ...toCoWorkerDto(assignment),
+    workContent: assignment.workContent,
+    status: assignment.status,
+  };
+}
+
 export function toYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

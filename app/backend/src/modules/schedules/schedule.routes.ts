@@ -14,6 +14,7 @@ export function createScheduleRouter(service: ScheduleService): Router {
   router.get('/users/me/schedule-registration', ...ctvRead, controller.currentRegistration);
   router.put('/users/me/schedule-registration', ...ctvMutation, controller.saveRegistration);
   router.get('/users/me/shifts', ...ctvRead, controller.myShifts);
+  router.get('/schedule-summary', requireSession, requireRole('ADMIN'), controller.monthlySummary);
   router.get('/shifts/:shiftId', requireSession, requireRole('CTV', 'ADMIN'), controller.shiftDetail);
   router.delete('/users/me/shift-assignments/:assignmentId', ...ctvMutation, controller.cancelOne);
   router.delete('/users/me/schedule-registrations/:registrationId/assignments', ...ctvMutation, controller.cancelSeries);

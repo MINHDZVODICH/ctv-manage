@@ -6,6 +6,7 @@ import {
   assignmentIdParamsSchema,
   cancelSeriesQuerySchema,
   myShiftsQuerySchema,
+  scheduleSummaryQuerySchema,
   registrationIdParamsSchema,
   scheduleRegistrationSchema,
   shiftIdParamsSchema,
@@ -34,6 +35,11 @@ export class ScheduleController {
         actor(response).id, myShiftsQuerySchema.parse(request.query),
       ) });
     } catch (error) { next(validationError(error)); }
+  };
+
+  monthlySummary = async (request: Request, response: Response, next: NextFunction) => {
+    try { response.status(200).json({ data: await this.service.getMonthlySummary(scheduleSummaryQuerySchema.parse(request.query)) }); }
+    catch (error) { next(validationError(error)); }
   };
 
   shiftDetail = async (request: Request, response: Response, next: NextFunction) => {

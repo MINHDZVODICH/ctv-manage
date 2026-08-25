@@ -2,6 +2,7 @@ import type { AuthUser } from '../shared/api/contracts';
 import type { AppView, NavigationItem } from '../shared/types';
 import { useSystemSettings } from '../shared/context/SystemSettingsContext';
 import { useState } from 'react';
+import { NotificationsPopover } from '../features/notifications/NotificationsPopover';
 
 const navigation: NavigationItem[] = [
   { id: 'accounts', icon: 'TK', label: 'Quản lý tài khoản', roles: ['ADMIN'] },
@@ -72,6 +73,7 @@ export function Sidebar({
       </nav>
 
       <footer className="sidebar-footer">
+        <NotificationsPopover />
         {isAccountMenuOpen && (
           <div className="account-menu" role="menu" aria-label="Tùy chọn tài khoản">
             <button type="button" role="menuitem" onClick={() => {

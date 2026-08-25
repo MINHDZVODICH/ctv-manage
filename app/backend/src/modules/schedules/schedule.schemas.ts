@@ -43,6 +43,10 @@ export const myShiftsQuerySchema = z.object({
   }
 });
 
+export const scheduleSummaryQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+}).strict();
+
 export const cancelSeriesQuerySchema = z.object({
   weekday: z.coerce.number().int().min(1).max(5),
   period,
@@ -51,6 +55,7 @@ export const cancelSeriesQuerySchema = z.object({
 
 export type ScheduleRegistrationInput = z.infer<typeof scheduleRegistrationSchema>;
 export type MyShiftsQuery = z.infer<typeof myShiftsQuerySchema>;
+export type ScheduleSummaryQuery = z.infer<typeof scheduleSummaryQuerySchema>;
 export type CancelSeriesQuery = z.infer<typeof cancelSeriesQuerySchema>;
 
 function daysBetween(startDate: string, endDate: string): number {

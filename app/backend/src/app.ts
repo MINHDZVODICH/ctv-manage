@@ -13,12 +13,14 @@ import { FileStorage } from './shared/file-storage.js';
 import { AccountsService, createAccountsRouter, createUsersRouter } from './modules/accounts/index.js';
 import { createFilesRouter } from './modules/files/index.js';
 import { createScheduleRouter, ScheduleService } from './modules/schedules/index.js';
+import { createNotificationsRouter, NotificationsService } from './modules/notifications/index.js';
 
 export interface AppDependencies {
   logger?: Logger;
   now?: () => Date;
   fileStorage?: FileStorage;
   scheduleService?: ScheduleService;
+  notificationsService?: NotificationsService;
 }
 
 export function createApp(deps: AppDependencies = {}): Express {
@@ -26,6 +28,7 @@ export function createApp(deps: AppDependencies = {}): Express {
   const fileStorage = deps.fileStorage ?? new FileStorage();
   const accountsService = new AccountsService(undefined, fileStorage, deps.now);
   const scheduleService = deps.scheduleService ?? new ScheduleService(undefined, deps.now);
+  const notificationsService = deps.notificationsService ?? new NotificationsService(undefined, deps.now);
 
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
@@ -51,6 +54,7 @@ export function createApp(deps: AppDependencies = {}): Express {
   app.use('/api/v1/users', createUsersRouter(accountsService));
   app.use('/api/v1/files', createFilesRouter(accountsService));
   app.use('/api/v1', createScheduleRouter(scheduleService));
+  app.use('/api/v1', createNotificationsRouter(notificationsService));
   app.use('/api/v1', notFoundMiddleware);
   app.use(errorMiddleware);
 

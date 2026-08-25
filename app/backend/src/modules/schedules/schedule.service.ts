@@ -6,8 +6,8 @@ import {
 } from '@prisma/client';
 import { ApiError } from '../../shared/api-error.js';
 import { prisma } from '../../shared/prisma.js';
-import { toCoWorkerDto, toMyShiftDto, toScheduleRegistrationDto, toYmd } from './schedule.dto.js';
-import type { CancelSeriesQuery, MyShiftsQuery, ScheduleRegistrationInput } from './schedule.schemas.js';
+import { toAdminRosterAssignmentDto, toCoWorkerDto, toMyShiftDto, toScheduleRegistrationDto, toYmd } from './schedule.dto.js';
+import type { CancelSeriesQuery, MyShiftsQuery, ScheduleRegistrationInput, ScheduleSummaryQuery } from './schedule.schemas.js';
 
 const SUPPORTED_TIME_ZONE = 'Asia/Bangkok';
 
@@ -224,6 +224,33 @@ export class ScheduleService {
     return assignments.map((assignment) => toMyShiftDto(assignment, today));
   }
 
+  async getMonthlySummary(query: ScheduleSummaryQuery) {
+    const { from, to } = monthRange(query.month);
+    const assignments = await this.client.shiftAssignment.findMany({
+      where: { status: 'ACTIVE', shift: { workDate: { gte: from, lt: to } } },
+      include: { shift: true, account: { select: { id: true, displayName: true } } },
+      orderBy: [{ shift: { workDate: 'asc' } }, { shift: { period: 'asc' } }, { account: { displayName: 'asc' } }],
+    });
+    const grouped = new Map<string, { shiftId: string; period: 'MORNING' | 'AFTERNOON'; count: number }[]>();
+    for (const assignment of assignments) {
+      const date = toYmd(assignment.shift.workDate);
+      const slots = grouped.get(date) ?? [];
+      const found = slots.find((slot) => slot.shiftId === assignment.shiftId);
+      if (found) found.count += 1;
+      else slots.push({ shiftId: assignment.shiftId, period: assignment.shift.period, count: 1 });
+      grouped.set(date, slots);
+    }
+    const today = bangkokDate(this.now());
+    return {
+      month: query.month,
+      today: assignments.filter((assignment) => toYmd(assignment.shift.workDate) === today).map((assignment) => ({
+        shiftId: assignment.shiftId, accountId: assignment.accountId, displayName: assignment.account.displayName,
+        period: assignment.shift.period, roomCode: assignment.roomCode,
+      })),
+      days: [...grouped.entries()].map(([date, slots]) => ({ date, slots })),
+    };
+  }
+
   async getShift(actor: ScheduleActor, shiftId: string) {
     const shift = await this.client.shift.findUnique({
       where: { id: shiftId },
@@ -261,7 +288,7 @@ export class ScheduleService {
         : [] as const,
       coWorkers: activeAssignments
         .filter((assignment) => actor.role === 'ADMIN' || assignment.accountId !== actor.id)
-        .map(toCoWorkerDto),
+        .map((assignment) => actor.role === 'ADMIN' ? toAdminRosterAssignmentDto(assignment) : toCoWorkerDto(assignment)),
     };
   }
 
@@ -337,6 +364,11 @@ function resolveRange(query: MyShiftsQuery): { from: string; to: string } {
     return { from: `${query.month}-01`, to: toYmd(last) };
   }
   return { from: query.from!, to: query.to! };
+}
+
+function monthRange(month: string): { from: Date; to: Date } {
+  const [year, number] = month.split('-').map(Number);
+  return { from: new Date(Date.UTC(year, number - 1, 1)), to: new Date(Date.UTC(year, number, 1)) };
 }
 
 function versionConflict(currentVersion: number | null) {
