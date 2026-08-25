@@ -3,6 +3,7 @@ import { apiClient } from '../../shared/api/client';
 import { messageFor } from '../accounts/useAccounts';
 
 export interface NotificationItem { id: string; type: string; title: string; message: string; read: boolean; createdAt: string }
+interface NotificationQuery { read: boolean; page: number; pageSize: number }
 
 interface NotificationsContextValue {
   items: NotificationItem[];
@@ -15,7 +16,7 @@ interface NotificationsContextValue {
   error: string | null;
   load: (read: boolean, requestedPage?: number) => Promise<void>;
   selectReadFilter: (read: boolean) => Promise<void>;
-  setRead: (notification: NotificationItem, read: boolean, currentPage: number) => Promise<void>;
+  setRead: (notification: NotificationItem) => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
@@ -70,42 +71,48 @@ export function useNotifications(): NotificationsContextValue {
 function useNotificationController() {
   const [items, setItems] = useState<NotificationItem[]>([]); const [total, setTotal] = useState(0); const [unreadTotal, setUnreadTotal] = useState(0); const [isLoading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1); const [readFilter, setReadFilter] = useState(false); const pageSize = 20;
-  const listGeneration = useRef(0); const unreadGeneration = useRef(0);
-  const invalidate = useCallback(() => { listGeneration.current += 1; unreadGeneration.current += 1; }, []);
+  const listGeneration = useRef(0); const unreadGeneration = useRef(0); const lifecycleEpoch = useRef(0);
+  const latestQuery = useRef<NotificationQuery>({ read: false, page: 1, pageSize });
+  const invalidate = useCallback(() => { lifecycleEpoch.current += 1; listGeneration.current += 1; unreadGeneration.current += 1; }, []);
   const load = useCallback(async (read: boolean, requestedPage = 1) => {
+    const lifecycle = lifecycleEpoch.current;
     const generation = ++listGeneration.current;
     const unreadRequest = read ? undefined : ++unreadGeneration.current;
+    latestQuery.current = { read, page: requestedPage, pageSize };
     setLoading(true); setError(null);
     try {
       let response = await apiClient.getPage<NotificationItem>(`/notifications?read=${read}&page=${requestedPage}&pageSize=${pageSize}`);
       const lastPage = Math.max(1, Math.ceil(response.meta.total / pageSize));
       if (requestedPage > lastPage) response = await apiClient.getPage<NotificationItem>(`/notifications?read=${read}&page=${lastPage}&pageSize=${pageSize}`);
-      if (listGeneration.current !== generation) return;
+      if (lifecycleEpoch.current !== lifecycle || listGeneration.current !== generation) return;
       setItems(response.data); setTotal(response.meta.total); setPage(response.meta.page);
+      latestQuery.current = { read, page: response.meta.page, pageSize };
       if (unreadRequest === unreadGeneration.current) setUnreadTotal(response.meta.total);
     } catch (reason) {
-      if (listGeneration.current === generation) setError(messageFor(reason));
+      if (lifecycleEpoch.current === lifecycle && listGeneration.current === generation) setError(messageFor(reason));
     } finally {
-      if (listGeneration.current === generation) setLoading(false);
+      if (lifecycleEpoch.current === lifecycle && listGeneration.current === generation) setLoading(false);
     }
   }, []);
   const loadUnreadCount = useCallback(async () => {
+    const lifecycle = lifecycleEpoch.current;
     const generation = ++unreadGeneration.current;
     try {
       const response = await apiClient.getPage<NotificationItem>('/notifications?read=false&page=1&pageSize=1');
-      if (unreadGeneration.current === generation) setUnreadTotal(response.meta.total);
+      if (lifecycleEpoch.current === lifecycle && unreadGeneration.current === generation) setUnreadTotal(response.meta.total);
     } catch { /* the popover shows the detailed error when opened */ }
   }, []);
   const selectReadFilter = useCallback(async (read: boolean) => { setReadFilter(read); await load(read, 1); }, [load]);
-  const setRead = useCallback(async (notification: NotificationItem, read: boolean, currentPage: number) => {
-    const generation = ++listGeneration.current;
-    setLoading(false); setError(null);
+  const setRead = useCallback(async (notification: NotificationItem) => {
+    const lifecycle = lifecycleEpoch.current;
+    setError(null);
     try {
       await apiClient.patch<NotificationItem>(`/notifications/${notification.id}`, { read: !notification.read });
-      if (listGeneration.current !== generation) return;
-      await Promise.all([load(read, currentPage), loadUnreadCount()]);
+      if (lifecycleEpoch.current !== lifecycle) return;
+      const query = latestQuery.current;
+      await Promise.all([load(query.read, query.page), loadUnreadCount()]);
     } catch (reason) {
-      if (listGeneration.current === generation) setError(messageFor(reason));
+      if (lifecycleEpoch.current === lifecycle) setError(messageFor(reason));
     }
   }, [load, loadUnreadCount]);
   return { items, total, unreadTotal, readFilter, page, pageSize, isLoading, error, load, loadUnreadCount, selectReadFilter, setRead, invalidate };

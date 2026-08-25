@@ -156,6 +156,85 @@ describe('NotificationsPopover', () => {
     expect(screen.getByRole('button', { name: /1 chưa đọc/i })).toBeVisible();
     expect(screen.queryByRole('button', { name: /2 chưa đọc/i })).not.toBeInTheDocument();
   });
+
+  it('refreshes the latest selected query when a pending mutation succeeds after navigation', async () => {
+    const patchResponse = deferred<Response>(); let readPageTwoRequests = 0; let unreadCountRequests = 0;
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=1') { unreadCountRequests += 1; return Promise.resolve(json({ data: [], meta: { page: 1, pageSize: 1, total: unreadCountRequests === 1 ? 1 : 0 } })); }
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=20') return Promise.resolve(json({ data: [notice('a', 'Thay đổi sau')], meta: { page: 1, pageSize: 20, total: 1 } }));
+      if (url === '/api/v1/notifications?read=true&page=1&pageSize=20') return Promise.resolve(json({ data: Array.from({ length: 20 }, (_, index) => ({ ...notice(`read-${index}`, `Đã đọc ${index}`), read: true })), meta: { page: 1, pageSize: 20, total: 21 } }));
+      if (url === '/api/v1/notifications?read=true&page=2&pageSize=20') {
+        readPageTwoRequests += 1;
+        return Promise.resolve(json({ data: [{ ...notice(readPageTwoRequests === 1 ? 'before' : 'after', readPageTwoRequests === 1 ? 'Trước cập nhật' : 'Sau cập nhật'), read: true }], meta: { page: 2, pageSize: 20, total: 21 } }));
+      }
+      if (url === '/api/v1/auth/csrf-token') return Promise.resolve(json({ data: { csrfToken: 'csrf' } }));
+      if (url === '/api/v1/notifications/a' && init?.method === 'PATCH') return patchResponse.promise;
+      return Promise.resolve(json({}, 404));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    renderPopover();
+
+    await user.click(screen.getByRole('button', { name: /thông báo/i }));
+    await user.click(await screen.findByRole('button', { name: /thay đổi sau/i }));
+    await user.selectOptions(screen.getByLabelText(/lọc thông báo/i), 'true');
+    await user.click(await screen.findByRole('button', { name: /trang sau/i }));
+    expect(await screen.findByText('Trước cập nhật')).toBeVisible();
+
+    patchResponse.resolve(json({ data: { ...notice('a', 'Thay đổi sau'), read: true } }));
+    expect(await screen.findByText('Sau cập nhật')).toBeVisible();
+    expect(screen.getByLabelText(/lọc thông báo/i)).toHaveValue('true');
+    expect(screen.getByText('Trang 2/2')).toBeVisible();
+    expect(readPageTwoRequests).toBe(2);
+  });
+
+  it('reports a pending mutation error without replacing a newer query result', async () => {
+    const patchResponse = deferred<Response>();
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=1') return Promise.resolve(json({ data: [], meta: { page: 1, pageSize: 1, total: 1 } }));
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=20') return Promise.resolve(json({ data: [notice('a', 'Lỗi muộn')], meta: { page: 1, pageSize: 20, total: 1 } }));
+      if (url === '/api/v1/notifications?read=true&page=1&pageSize=20') return Promise.resolve(json({ data: [{ ...notice('newer', 'Kết quả mới'), read: true }], meta: { page: 1, pageSize: 20, total: 1 } }));
+      if (url === '/api/v1/auth/csrf-token') return Promise.resolve(json({ data: { csrfToken: 'csrf' } }));
+      if (url === '/api/v1/notifications/a' && init?.method === 'PATCH') return patchResponse.promise;
+      return Promise.resolve(json({}, 404));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    renderPopover();
+
+    await user.click(screen.getByRole('button', { name: /thông báo/i }));
+    await user.click(await screen.findByRole('button', { name: /lỗi muộn/i }));
+    await user.selectOptions(screen.getByLabelText(/lọc thông báo/i), 'true');
+    expect(await screen.findByText('Kết quả mới')).toBeVisible();
+
+    patchResponse.resolve(json({ error: { code: 'SERVER_ERROR', message: 'Không thể cập nhật muộn.' } }, 500));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/không thể cập nhật muộn/i);
+    expect(screen.getByText('Kết quả mới')).toBeVisible();
+    expect(screen.getByLabelText(/lọc thông báo/i)).toHaveValue('true');
+  });
+
+  it('does not refresh a new account after a previous account mutation completes', async () => {
+    const patchResponse = deferred<Response>(); let listRequests = 0; let countRequests = 0;
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=1') { countRequests += 1; return Promise.resolve(json({ data: [], meta: { page: 1, pageSize: 1, total: 1 } })); }
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=20') { listRequests += 1; return Promise.resolve(json({ data: [notice('a', 'Tài khoản cũ')], meta: { page: 1, pageSize: 20, total: 1 } })); }
+      if (url === '/api/v1/auth/csrf-token') return Promise.resolve(json({ data: { csrfToken: 'csrf' } }));
+      if (url === '/api/v1/notifications/a' && init?.method === 'PATCH') return patchResponse.promise;
+      return Promise.resolve(json({}, 404));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    const view = render(<NotificationsProvider accountId="account-a"><NotificationsPopover /></NotificationsProvider>);
+    await user.click(await screen.findByRole('button', { name: /thông báo/i }));
+    await user.click(await screen.findByRole('button', { name: /tài khoản cũ/i }));
+    view.rerender(<NotificationsProvider accountId="account-b"><NotificationsPopover /></NotificationsProvider>);
+    await screen.findByRole('button', { name: /1 chưa đọc/i });
+
+    patchResponse.resolve(json({ data: { ...notice('a', 'Tài khoản cũ'), read: true } }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(listRequests).toBe(1);
+    expect(countRequests).toBe(2);
+  });
 });
 function notice(id: string, title: string) { return { id, type: 'REGISTRATION_APPROVED', title, message: 'Nội dung', read: false, createdAt: '2026-08-24T00:00:00.000Z' }; }
 function json(body: unknown, status = 200): Response { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
