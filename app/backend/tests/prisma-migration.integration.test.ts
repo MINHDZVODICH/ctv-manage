@@ -18,15 +18,8 @@ describe.sequential('Prisma deployment migrations', () => {
   });
 
   test('upgrades the 5172cf0 schema without losing business rows or replaying legacy idempotency', async () => {
-    const root = await temporaryRoot();
-    const databaseUrl = sqliteUrl(join(root, 'legacy.db'));
-    const client = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    const { client, dates, root } = await deployLegacyDatabaseAtStableBusinessDate();
     try {
-      await createLegacyDatabase(client);
-
-      runPrisma(['migrate', 'resolve', '--applied', baseline], databaseUrl);
-      runPrisma(['migrate', 'deploy'], databaseUrl);
-
       const accounts = await client.$queryRawUnsafe<Array<{ email: string }>>(
         'SELECT "email" FROM "Account" WHERE "id" = ?',
         'account-business-row',
@@ -46,11 +39,17 @@ describe.sequential('Prisma deployment migrations', () => {
       );
       assert.deepEqual(assignments, [
         { id: 'assignment-legacy-new', registrationId: 'schedule-legacy-new', status: 'ACTIVE', cancellationReason: null },
+        { id: 'assignment-legacy-old-already-cancelled', registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'CTV_CANCELLED_ONE' },
         { id: 'assignment-legacy-old-future', registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'REGISTRATION_DEDUPLICATED' },
         { id: 'assignment-legacy-old-past', registrationId: 'schedule-legacy-old', status: 'ACTIVE', cancellationReason: null },
+        { id: 'assignment-legacy-old-today', registrationId: 'schedule-legacy-old', status: 'CANCELLED', cancellationReason: 'REGISTRATION_DEDUPLICATED' },
       ]);
-      const visibleAssignments = await new ScheduleService(client, () => new Date('2026-08-24T03:00:00.000Z')).listMyShifts(
-        'account-business-row', { from: '2026-08-24', to: '2026-08-31' },
+      const alreadyCancelled = await client.shiftAssignment.findUniqueOrThrow({
+        where: { id: 'assignment-legacy-old-already-cancelled' },
+      });
+      assert.equal(alreadyCancelled.cancelledAt?.getTime(), dates.alreadyCancelledAt.getTime());
+      const visibleAssignments = await new ScheduleService(client, () => dates.now).listMyShifts(
+        'account-business-row', { from: dates.past, to: dates.future },
       );
       assert.deepEqual(visibleAssignments.map((assignment) => assignment.registrationId), ['schedule-legacy-old', 'schedule-legacy-new']);
       assert.equal(await client.idempotencyRecord.count(), 0);
@@ -60,7 +59,7 @@ describe.sequential('Prisma deployment migrations', () => {
           fingerprintHash: 'f'.repeat(64),
           keyHash: 'a'.repeat(64),
           requestHash: 'b'.repeat(64),
-          expiresAt: new Date('2026-08-26T00:00:00Z'),
+          expiresAt: new Date(`${dates.future}T00:00:00.000Z`),
         },
       });
       await new RegistrationRequestsService(client, new FileStorage(join(root, 'files'))).reconcileIncomplete();
@@ -92,7 +91,7 @@ describe.sequential('Prisma deployment migrations', () => {
   });
 });
 
-async function createLegacyDatabase(client: PrismaClient): Promise<void> {
+async function createLegacyDatabase(client: PrismaClient, dates: BusinessDates): Promise<void> {
   const baselineSql = await readFile(
     new URL('../prisma/migrations/20260825000000_parent_schema_baseline/migration.sql', import.meta.url),
     'utf8',
@@ -110,21 +109,82 @@ async function createLegacyDatabase(client: PrismaClient): Promise<void> {
   );
   await client.$executeRawUnsafe(
     'INSERT INTO "ScheduleRegistration" ("id", "accountId", "startDate", "endDate", "timeZone", "roomCode", "workContent", "version", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    'schedule-legacy-old', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_1', 'Old schedule', 1, 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
-    'schedule-legacy-new', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_2', 'New schedule', 2, 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
+    'schedule-legacy-old', 'account-business-row', dateEpoch(dates.past), dateEpoch(dates.future), 'Asia/Bangkok', 'ROOM_1', 'Old schedule', 1, 'ACTIVE', dateEpoch(dates.past), dateEpoch(dates.past),
+    'schedule-legacy-new', 'account-business-row', dateEpoch(dates.past), dateEpoch(dates.future), 'Asia/Bangkok', 'ROOM_2', 'New schedule', 2, 'ACTIVE', dateEpoch(dates.today), dateEpoch(dates.today),
   );
   await client.$executeRawUnsafe(
-    'INSERT INTO "Shift" ("id", "workDate", "period", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
-    'shift-legacy-old-past', Date.UTC(2026, 7, 24), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
-    'shift-legacy-old-future', Date.UTC(2026, 7, 26), 'MORNING', 'OPEN', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
-    'shift-legacy-new', Date.UTC(2026, 7, 25), 'MORNING', 'OPEN', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
+    'INSERT INTO "Shift" ("id", "workDate", "period", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
+    'shift-legacy-old-past', dateEpoch(dates.past), 'MORNING', 'OPEN', dateEpoch(dates.past), dateEpoch(dates.past),
+    'shift-legacy-old-today', dateEpoch(dates.today), 'MORNING', 'OPEN', dateEpoch(dates.past), dateEpoch(dates.past),
+    'shift-legacy-old-future', dateEpoch(dates.future), 'MORNING', 'OPEN', dateEpoch(dates.past), dateEpoch(dates.past),
+    'shift-legacy-old-already-cancelled', dateEpoch(dates.future), 'AFTERNOON', 'OPEN', dateEpoch(dates.past), dateEpoch(dates.past),
+    'shift-legacy-new', dateEpoch(dates.today), 'AFTERNOON', 'OPEN', dateEpoch(dates.today), dateEpoch(dates.today),
   );
   await client.$executeRawUnsafe(
-    'INSERT INTO "ShiftAssignment" ("id", "shiftId", "accountId", "registrationId", "roomCode", "workContent", "status", "assignedAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    'assignment-legacy-old-past', 'shift-legacy-old-past', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old past assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
-    'assignment-legacy-old-future', 'shift-legacy-old-future', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old future assignment', 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
-    'assignment-legacy-new', 'shift-legacy-new', 'account-business-row', 'schedule-legacy-new', 'ROOM_2', 'New assignment', 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
+    'INSERT INTO "ShiftAssignment" ("id", "shiftId", "accountId", "registrationId", "roomCode", "workContent", "status", "assignedAt", "cancelledAt", "cancellationReason", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'assignment-legacy-old-past', 'shift-legacy-old-past', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old past assignment', 'ACTIVE', dateEpoch(dates.past), null, null, dateEpoch(dates.past),
+    'assignment-legacy-old-today', 'shift-legacy-old-today', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old today assignment', 'ACTIVE', dateEpoch(dates.past), null, null, dateEpoch(dates.past),
+    'assignment-legacy-old-future', 'shift-legacy-old-future', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Old future assignment', 'ACTIVE', dateEpoch(dates.past), null, null, dateEpoch(dates.past),
+    'assignment-legacy-old-already-cancelled', 'shift-legacy-old-already-cancelled', 'account-business-row', 'schedule-legacy-old', 'ROOM_1', 'Already cancelled assignment', 'CANCELLED', dateEpoch(dates.past), dates.alreadyCancelledAt.getTime(), 'CTV_CANCELLED_ONE', dateEpoch(dates.past),
+    'assignment-legacy-new', 'shift-legacy-new', 'account-business-row', 'schedule-legacy-new', 'ROOM_2', 'New assignment', 'ACTIVE', dateEpoch(dates.today), null, null, dateEpoch(dates.today),
   );
+}
+
+type BusinessDates = {
+  past: string;
+  today: string;
+  future: string;
+  now: Date;
+  alreadyCancelledAt: Date;
+};
+
+async function deployLegacyDatabaseAtStableBusinessDate(): Promise<{ client: PrismaClient; dates: BusinessDates; root: string }> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const root = await temporaryRoot();
+    const databaseUrl = sqliteUrl(join(root, 'legacy.db'));
+    const client = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    try {
+      const today = await sqliteBangkokBusinessDate(client);
+      const dates = businessDates(today);
+      await createLegacyDatabase(client, dates);
+
+      runPrisma(['migrate', 'resolve', '--applied', baseline], databaseUrl);
+      runPrisma(['migrate', 'deploy'], databaseUrl);
+
+      if (await sqliteBangkokBusinessDate(client) === today) return { client, dates, root };
+    } catch (error) {
+      await client.$disconnect();
+      throw error;
+    }
+    await client.$disconnect();
+  }
+  throw new Error('Bangkok business date rolled over during migration deployment; retry the migration test.');
+}
+
+async function sqliteBangkokBusinessDate(client: PrismaClient): Promise<string> {
+  const rows = await client.$queryRawUnsafe<Array<{ businessDate: string }>>("SELECT date('now', '+7 hours') AS businessDate");
+  return rows[0]!.businessDate;
+}
+
+function businessDates(today: string): BusinessDates {
+  const past = addDays(today, -1);
+  return {
+    past,
+    today,
+    future: addDays(today, 1),
+    now: new Date(`${today}T03:00:00.000Z`),
+    alreadyCancelledAt: new Date(`${past}T01:02:03.000Z`),
+  };
+}
+
+function addDays(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function dateEpoch(value: string): number {
+  return Date.parse(`${value}T00:00:00.000Z`);
 }
 
 function runPrisma(args: string[], databaseUrl: string): void {
