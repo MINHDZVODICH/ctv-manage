@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NotificationsPopover } from './NotificationsPopover';
+import { NotificationsProvider } from './useNotifications';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -14,7 +15,7 @@ describe('NotificationsPopover', () => {
       return Promise.resolve(json({}, 404));
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<NotificationsPopover />);
+    renderPopover();
     expect(await screen.findByRole('button', { name: /2 chưa đọc/i })).toBeVisible();
     expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/notifications?read=false&page=1&pageSize=1')).toHaveLength(1);
   });
@@ -28,7 +29,7 @@ describe('NotificationsPopover', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
-    render(<NotificationsPopover />);
+    renderPopover();
     await user.click(screen.getByRole('button', { name: /thông báo/i }));
     await user.click(await screen.findByRole('button', { name: /không thể cập nhật/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/không thể cập nhật thông báo/i);
@@ -43,7 +44,7 @@ describe('NotificationsPopover', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
-    render(<NotificationsPopover />);
+    renderPopover();
     await user.click(screen.getByRole('button', { name: /thông báo/i }));
     await user.click(await screen.findByRole('button', { name: /hồ sơ đã được duyệt/i }));
     const patch = fetchMock.mock.calls.find(([url, init]) => url === '/api/v1/notifications/a' && init?.method === 'PATCH');
@@ -61,7 +62,7 @@ describe('NotificationsPopover', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
-    render(<NotificationsPopover />);
+    renderPopover();
     await user.click(screen.getByRole('button', { name: /thông báo/i }));
     await user.selectOptions(await screen.findByLabelText(/lọc thông báo/i), 'true');
     await user.click(await screen.findByRole('button', { name: /đã đọc/i }));
@@ -78,7 +79,7 @@ describe('NotificationsPopover', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
-    render(<NotificationsPopover />);
+    renderPopover();
     await user.click(screen.getByRole('button', { name: /thông báo/i }));
     await user.click(await screen.findByRole('button', { name: /trang sau/i }));
     expect(await screen.findByText('N20')).toBeVisible();
@@ -87,3 +88,4 @@ describe('NotificationsPopover', () => {
 });
 function notice(id: string, title: string) { return { id, type: 'REGISTRATION_APPROVED', title, message: 'Nội dung', read: false, createdAt: '2026-08-24T00:00:00.000Z' }; }
 function json(body: unknown, status = 200): Response { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }
+function renderPopover() { return render(<NotificationsProvider accountId="account-test"><NotificationsPopover /></NotificationsProvider>); }

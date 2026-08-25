@@ -9,6 +9,7 @@ import { AccountListScreen } from '../features/accounts/AccountListScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { ScheduleScreen } from '../features/schedules/ScheduleScreen';
 import { SummaryScheduleScreen } from '../features/schedules/SummaryScheduleScreen';
+import { NotificationsProvider } from '../features/notifications/useNotifications';
 
 const viewTitles: Record<AppView, string> = {
   accounts: 'Quản lý tài khoản',
@@ -52,6 +53,7 @@ function AppContent() {
   }
 
   return (
+    <NotificationsProvider key={user.id} accountId={user.id}>
     <div className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
       <div className="desktop-sidebar">
         <Sidebar
@@ -126,6 +128,7 @@ function AppContent() {
         </div>
       )}
     </div>
+    </NotificationsProvider>
   );
 }
 
