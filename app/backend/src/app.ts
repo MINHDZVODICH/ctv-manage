@@ -12,6 +12,7 @@ import { createRegistrationRequestsRouter } from './modules/registration-request
 import { FileStorage } from './shared/file-storage.js';
 import { AccountsService, createAccountsRouter, createUsersRouter } from './modules/accounts/index.js';
 import { createFilesRouter } from './modules/files/index.js';
+import { createScheduleRouter, ScheduleService } from './modules/schedules/index.js';
 
 export interface AppDependencies {
   logger?: Logger;
@@ -23,6 +24,7 @@ export function createApp(deps: AppDependencies = {}): Express {
   const app = express();
   const fileStorage = deps.fileStorage ?? new FileStorage();
   const accountsService = new AccountsService(undefined, fileStorage, deps.now);
+  const scheduleService = new ScheduleService(undefined, deps.now);
 
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);
@@ -47,6 +49,7 @@ export function createApp(deps: AppDependencies = {}): Express {
   app.use('/api/v1/accounts', createAccountsRouter(accountsService));
   app.use('/api/v1/users', createUsersRouter(accountsService));
   app.use('/api/v1/files', createFilesRouter(accountsService));
+  app.use('/api/v1', createScheduleRouter(scheduleService));
   app.use('/api/v1', notFoundMiddleware);
   app.use(errorMiddleware);
 

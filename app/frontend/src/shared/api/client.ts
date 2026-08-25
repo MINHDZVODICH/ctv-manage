@@ -64,8 +64,8 @@ class ApiClient {
     return this.request<T>(path, { method: 'PUT', body });
   }
 
-  delete(path: string): Promise<void> {
-    return this.request<void>(path, { method: 'DELETE' });
+  delete<T = void>(path: string): Promise<T> {
+    return this.request<T>(path, { method: 'DELETE' });
   }
 
   clearSessionCache(): void {
