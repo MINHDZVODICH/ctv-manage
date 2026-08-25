@@ -8,6 +8,17 @@ import { NotificationsPopover } from './NotificationsPopover';
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('NotificationsPopover', () => {
+  it('loads the closed bell unread count once after authenticated UI mounts without polling', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=1') return Promise.resolve(json({ data: [notice('a', 'Một thông báo')], meta: { page: 1, pageSize: 1, total: 2 } }));
+      return Promise.resolve(json({}, 404));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<NotificationsPopover />);
+    expect(await screen.findByRole('button', { name: /2 chưa đọc/i })).toBeVisible();
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/notifications?read=false&page=1&pageSize=1')).toHaveLength(1);
+  });
+
   it('reports a selected mutation error and keeps notification state retryable', async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       if (url === '/api/v1/notifications?read=false&page=1&pageSize=20') return Promise.resolve(json({ data: [notice('a', 'Không thể cập nhật')], meta: { page: 1, pageSize: 20, total: 1 } }));
@@ -57,6 +68,21 @@ describe('NotificationsPopover', () => {
     const patch = fetchMock.mock.calls.find(([url, init]) => url === '/api/v1/notifications/a' && init?.method === 'PATCH');
     expect(JSON.parse(patch?.[1]?.body as string)).toEqual({ read: false });
     expect(fetchMock.mock.calls.some(([url]) => url === '/api/v1/notifications/b')).toBe(false);
+  });
+
+  it('loads the next page while preserving the selected read filter', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/v1/notifications?read=false&page=1&pageSize=20') return Promise.resolve(json({ data: Array.from({ length: 20 }, (_, index) => notice(`n-${index}`, `N${index}`)), meta: { page: 1, pageSize: 20, total: 21 } }));
+      if (url === '/api/v1/notifications?read=false&page=2&pageSize=20') return Promise.resolve(json({ data: [notice('n-20', 'N20')], meta: { page: 2, pageSize: 20, total: 21 } }));
+      return Promise.resolve(json({}, 404));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<NotificationsPopover />);
+    await user.click(screen.getByRole('button', { name: /thông báo/i }));
+    await user.click(await screen.findByRole('button', { name: /trang sau/i }));
+    expect(await screen.findByText('N20')).toBeVisible();
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/v1/notifications?read=false&page=2&pageSize=20')).toBe(true);
   });
 });
 function notice(id: string, title: string) { return { id, type: 'REGISTRATION_APPROVED', title, message: 'Nội dung', read: false, createdAt: '2026-08-24T00:00:00.000Z' }; }

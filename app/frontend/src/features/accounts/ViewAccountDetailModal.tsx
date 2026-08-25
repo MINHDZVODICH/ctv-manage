@@ -12,6 +12,7 @@ interface Props {
   onEditProfile: () => void;
   onReplaceFile: (category: FileCategory, file: File) => void;
   onDeleteFile: (category: FileCategory) => void;
+  readOnly?: boolean;
 }
 
 const labels: Record<FileCategory, string> = {
@@ -19,7 +20,7 @@ const labels: Record<FileCategory, string> = {
 };
 
 export function ViewAccountDetailModal(props: Props) {
-  const { account, isLoading, error, isSaving, onClose, onSaveNotes, onResetPassword, onEditProfile, onReplaceFile, onDeleteFile } = props;
+  const { account, isLoading, error, isSaving, onClose, onSaveNotes, onResetPassword, onEditProfile, onReplaceFile, onDeleteFile, readOnly = false } = props;
   const [notes, setNotes] = useState('');
   useEffect(() => setNotes(account?.adminNotes ?? ''), [account?.id, account?.adminNotes]);
 
@@ -48,12 +49,12 @@ export function ViewAccountDetailModal(props: Props) {
           <section className="profile-files"><h3>Hồ sơ đính kèm</h3>
             {(['AVATAR', 'CCCD_FRONT', 'CCCD_BACK', 'CV'] as FileCategory[]).map((category) => {
               const file = account.files.find((entry) => entry.category === category);
-              return <article key={category}><div><strong>{labels[category]}</strong>{file ? <a href={`/api/v1/files/${file.id}/content`} target="_blank" rel="noreferrer">{file.originalName} · {formatBytes(file.sizeBytes)}</a> : <span>Chưa có tệp</span>}</div><div><label className="file-action">Thay đổi<input type="file" aria-label={`Thay đổi ${labels[category]}`} accept={category === 'CV' ? '.pdf,.doc,.docx' : 'image/jpeg,image/png,image/webp'} onChange={replace(category)} /></label>{file && <button type="button" className="danger-link" onClick={() => onDeleteFile(category)}>Xóa</button>}</div></article>;
+              return <article key={category}><div><strong>{labels[category]}</strong>{file ? <a href={`/api/v1/files/${file.id}/content`} target="_blank" rel="noreferrer">{file.originalName} · {formatBytes(file.sizeBytes)}</a> : <span>Chưa có tệp</span>}</div>{!readOnly && <div><label className="file-action">Thay đổi<input type="file" aria-label={`Thay đổi ${labels[category]}`} accept={category === 'CV' ? '.pdf,.doc,.docx' : 'image/jpeg,image/png,image/webp'} onChange={replace(category)} /></label>{file && <button type="button" className="danger-link" onClick={() => onDeleteFile(category)}>Xóa</button>}</div>}</article>;
             })}
           </section>
-          <label className="notes-field">Ghi chú nội bộ<textarea value={notes} maxLength={4000} onChange={(event) => setNotes(event.target.value)} /></label>
+          {!readOnly && <label className="notes-field">Ghi chú nội bộ<textarea value={notes} maxLength={4000} onChange={(event) => setNotes(event.target.value)} /></label>}
         </div>}
-        <footer><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onResetPassword}>Đặt lại mật khẩu</button><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onEditProfile}>Chỉnh sửa thông tin</button><button type="button" className="primary-action" disabled={!account || isSaving} onClick={() => onSaveNotes(notes)}>{isSaving ? 'Đang lưu...' : 'Lưu ghi chú'}</button></footer>
+        {!readOnly && <footer><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onResetPassword}>Đặt lại mật khẩu</button><button type="button" className="secondary-action" disabled={!account || isSaving} onClick={onEditProfile}>Chỉnh sửa thông tin</button><button type="button" className="primary-action" disabled={!account || isSaving} onClick={() => onSaveNotes(notes)}>{isSaving ? 'Đang lưu...' : 'Lưu ghi chú'}</button></footer>}
       </section>
     </div>
   );

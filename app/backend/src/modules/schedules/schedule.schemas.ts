@@ -44,7 +44,7 @@ export const myShiftsQuerySchema = z.object({
 });
 
 export const scheduleSummaryQuerySchema = z.object({
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  month: z.string().regex(/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/),
 }).strict();
 
 export const cancelSeriesQuerySchema = z.object({

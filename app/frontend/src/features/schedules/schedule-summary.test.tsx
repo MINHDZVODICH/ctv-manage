@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SummaryScheduleScreen } from './SummaryScheduleScreen';
+import { calendarDays, SummaryScheduleScreen } from './SummaryScheduleScreen';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -21,6 +21,7 @@ describe('SummaryScheduleScreen', () => {
     await user.click(await screen.findByRole('button', { name: /2 cộng tác viên/i }));
     await user.click(await screen.findByRole('button', { name: /nguyễn văn a/i }));
     expect(await screen.findByRole('heading', { name: /nguyễn văn a/i })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /đặt lại mật khẩu/i })).not.toBeInTheDocument();
   });
 
   it('moves across year boundaries with calendar month arithmetic and requests the selected month', async () => {
@@ -31,6 +32,10 @@ describe('SummaryScheduleScreen', () => {
     await user.click(await screen.findByRole('button', { name: /tháng trước/i }));
     expect(await screen.findByText('Tháng 12, 2025')).toBeVisible();
     expect(fetchMock.mock.calls.some(([url]) => url === '/api/v1/schedule-summary?month=2025-12')).toBe(true);
+  });
+
+  it('starts a Saturday month at the following Monday without a blank calendar row', () => {
+    expect(calendarDays('2026-08').slice(0, 5)).toEqual(['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07']);
   });
 });
 

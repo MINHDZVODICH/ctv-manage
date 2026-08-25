@@ -77,18 +77,21 @@ it('renders only CTV navigation when the current session role is CTV', async () 
   render(<App />);
 
   expect(await screen.findByRole('button', { name: /lịch làm việc của tôi/i })).toBeVisible();
-  expect(screen.getByRole('heading', { name: /lịch làm việc của tôi/i })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: /lịch làm việc của tôi/i })).toBeVisible();
   expect(screen.queryByRole('button', { name: /quản lý tài khoản/i })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /duyệt hồ sơ/i })).not.toBeInTheDocument();
 });
 
 it('clears authenticated UI only after logout succeeds', async () => {
   const logout = deferred<Response>();
-  const fetchMock = vi.fn()
-    .mockResolvedValueOnce(jsonResponse({ data: adminSession }))
-    .mockResolvedValueOnce(jsonResponse({ data: [], meta: { page: 1, pageSize: 5, total: 0 } }))
-    .mockResolvedValueOnce(jsonResponse({ data: { csrfToken: 'csrf-123' } }))
-    .mockImplementationOnce(() => logout.promise);
+  const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+    if (url === '/api/v1/auth/sessions/current' && init?.method === 'DELETE') return logout.promise;
+    if (url === '/api/v1/auth/sessions/current') return Promise.resolve(jsonResponse({ data: adminSession }));
+    if (url === '/api/v1/notifications?read=false&page=1&pageSize=1') return Promise.resolve(jsonResponse({ data: [], meta: { page: 1, pageSize: 1, total: 0 } }));
+    if (url.startsWith('/api/v1/accounts?')) return Promise.resolve(jsonResponse({ data: [], meta: { page: 1, pageSize: 5, total: 0 } }));
+    if (url === '/api/v1/auth/csrf-token') return Promise.resolve(jsonResponse({ data: { csrfToken: 'csrf-123' } }));
+    return Promise.resolve(errorResponse(404, 'NOT_FOUND'));
+  });
   vi.stubGlobal('fetch', fetchMock);
   const user = userEvent.setup();
 

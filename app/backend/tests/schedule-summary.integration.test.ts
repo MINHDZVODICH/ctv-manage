@@ -60,6 +60,8 @@ describe.sequential('Admin schedule summary API', () => {
     assert.equal(invalid.status, 422);
     const missing = await request(app).get('/api/v1/schedule-summary').set('Cookie', admin.cookie);
     assert.equal(missing.status, 422);
+    const zeroYear = await request(app).get('/api/v1/schedule-summary?month=0000-01').set('Cookie', admin.cookie);
+    assert.equal(zeroYear.status, 422);
     const forbidden = await request(app).get('/api/v1/schedule-summary?month=2026-08').set('Cookie', ctvOne.cookie);
     assert.equal(forbidden.status, 403);
   });
