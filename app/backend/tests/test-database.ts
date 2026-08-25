@@ -30,5 +30,11 @@ export async function resetTestDatabase(client: PrismaClient): Promise<void> {
     }
   }
 
+  // Prisma's datamodel cannot express SQLite partial indexes. Keep isolated
+  // test databases aligned with the checked-in deployment migration.
+  await client.$executeRawUnsafe(
+    'CREATE UNIQUE INDEX IF NOT EXISTS "ScheduleRegistration_one_active_per_account" ON "ScheduleRegistration"("accountId") WHERE "status" = \'ACTIVE\'',
+  );
+
   await client.$executeRawUnsafe('PRAGMA foreign_keys=ON');
 }

@@ -41,6 +41,27 @@ test('schema rejects a room code outside the fixed room set', async () => {
   }));
 });
 
+test('database allows historical schedule registrations but permits only one active registration per CTV', async () => {
+  const account = await prisma.account.create({ data: {
+    email: 'schedule-invariant@example.test', passwordHash: 'hash', role: 'CTV', displayName: 'CTV Schedule',
+  } });
+  const registration = {
+    accountId: account.id,
+    startDate: new Date('2026-08-24'),
+    endDate: new Date('2026-08-31'),
+    timeZone: 'Asia/Bangkok',
+    roomCode: 'ROOM_1' as const,
+    workContent: 'Hỗ trợ',
+  };
+  const first = await prisma.scheduleRegistration.create({ data: registration });
+  await assert.rejects(() => prisma.scheduleRegistration.create({ data: { ...registration, roomCode: 'ROOM_2' } }));
+  await prisma.scheduleRegistration.update({ where: { id: first.id }, data: { status: 'CANCELLED' } });
+  const replacement = await prisma.scheduleRegistration.create({ data: { ...registration, roomCode: 'ROOM_2' } });
+  assert.equal(await prisma.scheduleRegistration.count({ where: { accountId: account.id, status: 'ACTIVE' } }), 1);
+  assert.equal(await prisma.scheduleRegistration.count({ where: { accountId: account.id } }), 2);
+  assert.equal(replacement.status, 'ACTIVE');
+});
+
 test('idempotency keys are isolated by scope and fingerprint with hash-only storage', async () => {
   const columns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info("IdempotencyRecord")');
   const names = columns.map(({ name }) => name);

@@ -31,6 +31,14 @@ describe.sequential('Prisma deployment migrations', () => {
         'account-business-row',
       );
       assert.deepEqual(accounts, [{ email: 'preserved@example.vn' }]);
+      const registrations = await client.$queryRawUnsafe<Array<{ id: string; status: string }>>(
+        'SELECT "id", "status" FROM "ScheduleRegistration" WHERE "accountId" = ? ORDER BY "id"',
+        'account-business-row',
+      );
+      assert.deepEqual(registrations, [
+        { id: 'schedule-legacy-new', status: 'ACTIVE' },
+        { id: 'schedule-legacy-old', status: 'CANCELLED' },
+      ]);
       assert.equal(await client.idempotencyRecord.count(), 0);
       await client.idempotencyRecord.create({
         data: {
@@ -62,6 +70,8 @@ describe.sequential('Prisma deployment migrations', () => {
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('Account', 'RegistrationRequest', 'FileAsset', 'IdempotencyRecord') ORDER BY name",
       );
       assert.deepEqual(tables.map(({ name }) => name), ['Account', 'FileAsset', 'IdempotencyRecord', 'RegistrationRequest']);
+      const indexes = await client.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA index_list("ScheduleRegistration")');
+      assert.ok(indexes.some(({ name }) => name === 'ScheduleRegistration_one_active_per_account'));
     } finally {
       await client.$disconnect();
     }
@@ -83,6 +93,11 @@ async function createLegacyDatabase(client: PrismaClient): Promise<void> {
   await client.$executeRawUnsafe(
     'INSERT INTO "IdempotencyRecord" ("id", "key", "requestHash", "responseStatus", "responseBody", "expiresAt") VALUES (?, ?, ?, ?, ?, ?)',
     'legacy-idempotency', 'legacy-key-hash', 'legacy-request-hash', 201, '{"data":{"id":"unsafe-replay"}}', Date.now() - 1,
+  );
+  await client.$executeRawUnsafe(
+    'INSERT INTO "ScheduleRegistration" ("id", "accountId", "startDate", "endDate", "timeZone", "roomCode", "workContent", "version", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'schedule-legacy-old', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_1', 'Old schedule', 1, 'ACTIVE', Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 1),
+    'schedule-legacy-new', 'account-business-row', Date.UTC(2026, 7, 24), Date.UTC(2026, 7, 31), 'Asia/Bangkok', 'ROOM_2', 'New schedule', 2, 'ACTIVE', Date.UTC(2026, 7, 2), Date.UTC(2026, 7, 2),
   );
 }
 

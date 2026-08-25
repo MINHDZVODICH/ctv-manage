@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { AccountRole, AccountStatus } from '@prisma/client';
+import { AccountRole, AccountStatus, PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, test } from 'vitest';
 import request, { type Response } from 'supertest';
 import { createApp } from '../src/app.js';
 import { config } from '../src/config.js';
 import { deriveCsrfToken } from '../src/shared/security.js';
 import { prisma } from '../src/shared/prisma.js';
+import { ScheduleService } from '../src/modules/schedules/schedule.service.js';
 import { resetTestDatabase } from './test-database.js';
 
 const origin = 'http://localhost:5173';
@@ -64,6 +65,59 @@ describe.sequential('CTV schedule API', () => {
     assert.equal(await prisma.shiftAssignment.count(), 4);
     const shift = await prisma.shift.findFirstOrThrow({ include: { assignments: true } });
     assert.equal(shift.assignments.length, 2);
+  });
+
+  test('serializes concurrent first registrations into one winner and a version conflict loser', async () => {
+    const firstPayload = registrationPayload(null, 'ROOM_1');
+    const secondPayload = {
+      ...registrationPayload(null, 'ROOM_2'),
+      workContent: 'Hỗ trợ tiếp nhận hồ sơ',
+      slots: [{ weekday: 1, period: 'MORNING' }, { weekday: 3, period: 'AFTERNOON' }],
+    };
+    const firstClient = new PrismaClient({ datasources: { db: { url: config.DATABASE_URL } } });
+    const secondClient = new PrismaClient({ datasources: { db: { url: config.DATABASE_URL } } });
+    await prepareConcurrentClient(firstClient);
+    await prepareConcurrentClient(secondClient);
+    const firstApp = createApp({ now, scheduleService: new ScheduleService(firstClient, now) });
+    const secondApp = createApp({ now, scheduleService: new ScheduleService(secondClient, now) });
+    let first: Response;
+    let second: Response;
+    try {
+      [first, second] = await Promise.all([
+        putRegistration(firstApp, ctv, firstPayload),
+        putRegistration(secondApp, ctv, secondPayload),
+      ]);
+    } finally {
+      await firstClient.$disconnect();
+      await secondClient.$disconnect();
+    }
+    const responses = [first, second];
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    const winner = responses.find((response) => response.status === 200)!;
+    const winnerPayload = winner === first ? firstPayload : secondPayload;
+
+    const active = await prisma.scheduleRegistration.findMany({
+      where: { accountId: ctv.accountId, status: 'ACTIVE' }, include: { patternSlots: true },
+    });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].roomCode, winnerPayload.roomCode);
+    assert.equal(active[0].workContent, winnerPayload.workContent);
+    assert.deepEqual(active[0].patternSlots.map((slot) => `${slot.weekday}:${slot.period}`).sort(), winnerPayload.slots.map((slot) => `${slot.weekday}:${slot.period}`).sort());
+
+    const assignments = await prisma.shiftAssignment.findMany({ where: { accountId: ctv.accountId } });
+    assert.equal(assignments.length, winnerPayload.slots.length * 2);
+    const orphanedShifts = await prisma.shift.findMany({ where: { assignments: { none: {} } } });
+    assert.equal(orphanedShifts.length, 0);
+
+    const app = createApp({ now });
+    const current = await request(app).get('/api/v1/users/me/schedule-registration').set('Cookie', ctv.cookie);
+    assert.equal(current.status, 200);
+    assert.equal(current.body.data.version, 1);
+    const retry = await putRegistration(app, ctv, { ...winnerPayload, version: current.body.data.version });
+    assert.equal(retry.status, 200);
+    assert.equal(retry.body.data.version, 2);
+    const staleCreate = await putRegistration(app, ctv, winnerPayload);
+    assert.equal(staleCreate.status, 409);
   });
 
   test('rejects a stale version without changing registration or assignments', async () => {
@@ -294,4 +348,11 @@ async function snapshot(accountId: string) {
     where: { accountId }, include: { shift: true }, orderBy: { id: 'asc' },
   });
   return JSON.parse(JSON.stringify({ registration, assignments }));
+}
+
+async function prepareConcurrentClient(client: PrismaClient): Promise<void> {
+  await client.$connect();
+  await client.$executeRawUnsafe('PRAGMA foreign_keys=ON');
+  await client.$queryRawUnsafe('PRAGMA journal_mode=WAL');
+  await client.$queryRawUnsafe('PRAGMA busy_timeout=5000');
 }

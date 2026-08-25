@@ -18,13 +18,14 @@ export interface AppDependencies {
   logger?: Logger;
   now?: () => Date;
   fileStorage?: FileStorage;
+  scheduleService?: ScheduleService;
 }
 
 export function createApp(deps: AppDependencies = {}): Express {
   const app = express();
   const fileStorage = deps.fileStorage ?? new FileStorage();
   const accountsService = new AccountsService(undefined, fileStorage, deps.now);
-  const scheduleService = new ScheduleService(undefined, deps.now);
+  const scheduleService = deps.scheduleService ?? new ScheduleService(undefined, deps.now);
 
   app.disable('x-powered-by');
   app.use(requestIdMiddleware);

@@ -1,4 +1,5 @@
 import {
+  Prisma,
   type AccountRole,
   type PrismaClient,
   type ShiftPeriod,
@@ -73,7 +74,8 @@ export class ScheduleService {
     const occurrences = expandPattern(input);
     const today = bangkokDate(this.now());
 
-    return this.client.$transaction(async (transaction) => {
+    try {
+      return await this.client.$transaction(async (transaction) => {
       const current = await transaction.scheduleRegistration.findFirst({
         where: { accountId, status: 'ACTIVE' },
         include: { patternSlots: true },
@@ -189,8 +191,17 @@ export class ScheduleService {
       const saved = await transaction.scheduleRegistration.findUniqueOrThrow({
         where: { id: registrationId }, include: { patternSlots: true },
       });
-      return toScheduleRegistrationDto(saved);
-    }, { maxWait: 10_000, timeout: 20_000 });
+        return toScheduleRegistrationDto(saved);
+      }, { maxWait: 10_000, timeout: 20_000 });
+    } catch (error) {
+      if (input.version === null && isConcurrentRegistrationCreationConflict(error)) {
+        const current = await this.client.scheduleRegistration.findFirst({
+          where: { accountId, status: 'ACTIVE' }, select: { version: true }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        });
+        throw versionConflict(current?.version ?? null);
+      }
+      throw error;
+    }
   }
 
   async listMyShifts(accountId: string, query: MyShiftsQuery) {
@@ -329,4 +340,11 @@ function versionConflict(currentVersion: number | null) {
 
 function notFound() {
   return new ApiError(404, 'RESOURCE_NOT_FOUND', 'Schedule resource was not found.');
+}
+
+function isConcurrentRegistrationCreationConflict(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === 'P2002' || error.code === 'P2034' || error.code === 'P2028';
+  }
+  return error instanceof Error && /database (?:is )?(?:locked|busy)/i.test(error.message);
 }
