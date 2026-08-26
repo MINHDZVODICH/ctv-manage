@@ -1,6 +1,45 @@
 import React, { useState } from "react";
 import { UserAccount } from "../../types";
-import { formatPhoneNumber } from "../../utils/formatters";
+
+const PASSWORD_GROUPS = [
+  "ABCDEFGHJKLMNPQRSTUVWXYZ",
+  "abcdefghijkmnopqrstuvwxyz",
+  "23456789",
+  "!@#$%",
+] as const;
+
+const secureRandomIndex = (maxExclusive: number) => {
+  const values = new Uint32Array(1);
+  const range = 0x1_0000_0000;
+  const limit = range - (range % maxExclusive);
+  let value = limit;
+
+  while (value >= limit) {
+    crypto.getRandomValues(values);
+    value = values[0];
+  }
+
+  return value % maxExclusive;
+};
+
+const generateRandomPassword = (length = 12) => {
+  const allCharacters = PASSWORD_GROUPS.join("");
+  const characters = PASSWORD_GROUPS.map(
+    (group) => group[secureRandomIndex(group.length)],
+  );
+
+  while (characters.length < length) {
+    characters.push(allCharacters[secureRandomIndex(allCharacters.length)]);
+  }
+
+  for (let index = characters.length - 1; index > 0; index -= 1) {
+    const swapIndex = secureRandomIndex(index + 1);
+    [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+  }
+
+  return characters.join("");
+};
+
 
 interface ResetPasswordModalProps {
   account: UserAccount | null;
@@ -13,7 +52,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
   onClose,
   onConfirmReset,
 }) => {
-  const [password, setPassword] = useState("CTV@123456");
+  const [password, setPassword] = useState(generateRandomPassword);
   const [copied, setCopied] = useState(false);
 
   if (!account) return null;
@@ -50,13 +89,14 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1b365d] dark:text-white leading-tight">
-                Đặt lại mật khẩu Cộng tác viên
+                Đặt lại mật khẩu
               </h3>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Đóng"
             className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -82,32 +122,51 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 {account.name}
               </div>
               <div className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
-                {account.email} • {formatPhoneNumber(account.phone)}
+                {account.email}
               </div>
             </div>
           </div>
 
           {/* 2. Password Generator Field */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              Mật khẩu mặc định mới <span className="text-red-500">*</span>:
+            <label
+              htmlFor="generated-reset-password"
+              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Mật khẩu mới được tạo tự động <span className="text-red-500">*</span>:
             </label>
 
             <div className="relative">
               <input
+                id="generated-reset-password"
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nhập mật khẩu mới..."
-                className="w-full text-sm font-mono font-bold tracking-wider pl-3.5 pr-12 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-[#1a1b1e] text-slate-800 dark:text-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none"
+                autoComplete="new-password"
+                spellCheck={false}
+                className="w-full text-sm font-mono font-bold tracking-wider pl-3.5 pr-20 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-[#1a1b1e] text-slate-800 dark:text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none"
                 required
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPassword(generateRandomPassword());
+                    setCopied(false);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
+                  title="Tạo mật khẩu khác"
+                  aria-label="Tạo mật khẩu khác"
+                >
+                  <span className="material-symbols-outlined text-[18px]">refresh</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleCopy}
                   className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
                   title="Sao chép mật khẩu"
+                  aria-label="Sao chép mật khẩu"
                 >
                   <span className="material-symbols-outlined text-[18px]">
                     {copied ? "check" : "content_copy"}
@@ -129,7 +188,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             <button
               type="submit"
               disabled={!password.trim()}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+              className="px-6 py-2.5 bg-accent hover:opacity-90 active:opacity-80 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-opacity shadow-xs cursor-pointer disabled:cursor-not-allowed"
             >
               Xác nhận
             </button>

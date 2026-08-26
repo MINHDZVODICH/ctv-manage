@@ -48,14 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-9 h-9 rounded-lg bg-accent text-white flex items-center justify-center shadow-xs shrink-0 border border-white/20">
               <span className="material-symbols-outlined text-[20px]">badge</span>
             </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff] leading-tight tracking-tight whitespace-nowrap">
-                {t("system_name")}
-              </h1>
-              <p className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] truncate">
-                {isAdmin ? t("admin_view") : t("ctv_view")}
-              </p>
-            </div>
+            <h1 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff] leading-tight tracking-tight whitespace-nowrap truncate">
+              {t("system_name")}
+            </h1>
           </div>
         )}
 

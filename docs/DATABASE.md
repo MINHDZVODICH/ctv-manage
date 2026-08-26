@@ -112,6 +112,7 @@ erDiagram
     SCHEDULE_REGISTRATION ||--o{ SHIFT_ASSIGNMENT : "sinh phân công"
     ACCOUNT ||--o{ SHIFT_ASSIGNMENT : "được phân công"
     SHIFT ||--o{ SHIFT_ASSIGNMENT : "có CTV"
+    ACCOUNT ||--o{ WORK_HISTORY : "có lịch sử"
 
     SCHEDULE_REGISTRATION {
         string id PK
@@ -153,6 +154,17 @@ erDiagram
         string cancellationReason
         datetime updatedAt
     }
+
+    WORK_HISTORY {
+        string id PK
+        string accountId FK
+        date workDate
+        string period
+        string roomCode
+        string status
+        string sourceAssignmentId UK
+        datetime recordedAt
+    }
 ```
 
 ### Mã giá trị và constraint
@@ -165,11 +177,17 @@ erDiagram
 | `timeZone` | IANA time zone; phiên bản hiện tại dùng `Asia/Bangkok` |
 | `SCHEDULE_REGISTRATION.status` | `ACTIVE`, `CANCELLED`, `EXPIRED` |
 | `SHIFT_ASSIGNMENT.status` | `ACTIVE`, `CANCELLED` |
+| `WORK_HISTORY.status` | `COMPLETED` |
 | `SCHEDULE_REGISTRATION` | `endDate >= startDate`, `version >= 1` |
-| `SCHEDULE_REGISTRATION` | Tối đa một bản ghi `ACTIVE` cho mỗi `accountId` |
+| `SCHEDULE_REGISTRATION` | Service chỉ duy trì tối đa một bản ghi `ACTIVE` cho mỗi `accountId` (quy tắc ứng dụng, không phải unique index của SQLite) |
 | `SCHEDULE_PATTERN_SLOT` | unique `(registrationId, weekday, period)` |
 | `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)` và `(registrationId, shiftId)` |
+| `WORK_HISTORY` | unique `(accountId, workDate, period)`; `sourceAssignmentId` unique khi có giá trị và là mã truy vết mềm, không phải khóa ngoại |
+
+`SCHEDULE_REGISTRATION` và `SCHEDULE_PATTERN_SLOT` lưu mẫu lịch trình của từng CTV. Khi tạo hoặc cập nhật mẫu, service chiếu mẫu này thành các `SHIFT` và `SHIFT_ASSIGNMENT` cho 31 ngày tính từ ngày bắt đầu (ngày bắt đầu cộng 30 ngày). API lịch tuần của CTV và `GET /api/v1/schedule-summary` của Admin đọc các assignment `ACTIVE`; vì vậy Lịch tuần tổng hợp là phép tổng hợp lịch trình đã được materialize của tất cả CTV, không phải dữ liệu hardcode ở Frontend.
+
+`WORK_HISTORY` là ảnh chụp độc lập của các assignment `ACTIVE` có `workDate` nhỏ hơn ngày hiện tại theo `Asia/Bangkok`. `syncWorkHistory()` chạy khi backend khởi động, mỗi giờ, trước khi cập nhật mẫu lịch và trước mỗi truy vấn lịch sử. Upsert theo `(accountId, workDate, period)` làm thao tác này idempotent; các lần sửa lịch tương lai không đổi hoặc xóa lịch sử đã chốt. Hai API lịch sử (`GET /api/v1/users/me/work-history` và `GET /api/v1/work-history`) chỉ đọc bảng này.
 
 ## 3. Index
 
@@ -177,10 +195,12 @@ erDiagram
 |---|---|
 | `ACCOUNT` | unique `email`; unique nullable `ctvCode`; `(status, deletedAt)` |
 | `SESSION` | unique `tokenHash`; `(accountId, revokedAt, expiresAt)`; `expiresAt` |
-| `REGISTRATION_REQUEST` | unique `(email)` khi `status = PENDING`; `(status, submittedAt DESC)`; `email`; `(reviewedById, reviewedAt)` |
+| `REGISTRATION_REQUEST` | `(status, submittedAt DESC)`; `email`; `(reviewedById, reviewedAt)` |
 | `REGISTRATION_REQUEST_FILE` | unique `(requestId, category)` |
 | `FILE_ASSET` | unique `storageKey`; `(state, createdAt)`; `sha256` |
-| `ACCOUNT_FILE` | unique `(accountId, category)` khi `deletedAt IS NULL`; `(accountId, category, deletedAt)` |
-| `SCHEDULE_REGISTRATION` | unique `(accountId)` khi `status = ACTIVE`; `(accountId, status, startDate, endDate)` |
+| `ACCOUNT_FILE` | primary key `(accountId, fileId)`; `(accountId, category, deletedAt)` |
+| `SCHEDULE_REGISTRATION` | `(accountId, status, startDate, endDate)` |
+| `SCHEDULE_PATTERN_SLOT` | primary key `(registrationId, weekday, period)` |
 | `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)`; unique `(registrationId, shiftId)`; `(accountId, status)`; `(registrationId, status)` |
+| `WORK_HISTORY` | unique `(accountId, workDate, period)`; unique nullable `sourceAssignmentId`; `(accountId, workDate)`; `(workDate, period)` |

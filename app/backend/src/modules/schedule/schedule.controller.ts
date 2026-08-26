@@ -44,6 +44,7 @@ const summaryQuerySchema = z
     month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    accountId: z.string().min(1).optional(),
   })
   .refine(
     (d) => !!(d.month || (d.from && d.to)),
@@ -53,6 +54,11 @@ const summaryQuerySchema = z
     (d) => !(d.month && (d.from || d.to)),
     { message: 'Use either month or from/to, not both', path: ['month'] },
   );
+
+const workHistoryQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  accountId: z.string().min(1).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -110,6 +116,17 @@ export async function getMyShifts(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function getMyWorkHistory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const q = workHistoryQuerySchema.pick({ month: true }).parse(req.query);
+    const data = await service.getWorkHistory({ month: q.month, accountId: user.id });
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function getShiftById(req: Request, res: Response, next: NextFunction) {
   try {
     const user = (req as any).user;
@@ -149,6 +166,16 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
   try {
     const q = summaryQuerySchema.parse(req.query);
     const data = await service.getScheduleSummary(q as any);
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getWorkHistory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = workHistoryQuerySchema.parse(req.query);
+    const data = await service.getWorkHistory(q);
     res.json({ data });
   } catch (e) {
     next(e);

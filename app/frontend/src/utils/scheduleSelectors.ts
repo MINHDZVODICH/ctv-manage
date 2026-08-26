@@ -1,4 +1,5 @@
 import type { AssignedCTV, ShiftSlot, UserAccount } from "../types";
+import { formatRoomLabel } from "./rooms";
 
 export function getAssignedCTVsForDate(
   shifts: ShiftSlot[],
@@ -23,7 +24,7 @@ export function getAssignedCTVsForDate(
         if (!uniqueCTVs.has(key)) {
           uniqueCTVs.set(key, {
             ...ctv,
-            room: ctv.room || shift.room,
+            room: formatRoomLabel(ctv.room || shift.room),
             taskContent: ctv.taskContent || shift.workContent,
           });
         }

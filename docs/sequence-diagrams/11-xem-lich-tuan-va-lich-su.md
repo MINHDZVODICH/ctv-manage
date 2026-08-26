@@ -6,8 +6,7 @@ Nguồn nghiệp vụ: Use case 2.2 trong [USE-CASE.md](../USE-CASE.md).
 sequenceDiagram
     actor U as CTV
     box LỚP FRONTEND
-        participant UI as Lịch làm việc của tôi
-        participant H as Schedule Feature Hook
+        participant UI as App + CTVScheduleWorkspace
         participant API as Shared API Client
     end
     box LỚP BACKEND
@@ -19,41 +18,48 @@ sequenceDiagram
     end
 
     U->>UI: Mở lịch cá nhân
-    UI->>H: loadWeek(weekStart)
-    H->>H: Tính from/to theo Asia/Bangkok
-    H->>API: getMyShifts(from, to)
-    API->>C: GET /api/v1/users/me/shifts?from={from}&to={to}
-    C->>S: listMyShifts(currentUserId, range)
-    S->>DB: Join ACTIVE assignment và SHIFT trong [from, to]
+    UI->>API: GET /api/v1/users/me/schedule-registration
+    API->>C: Xác thực CTV
+    C->>S: getMyRegistration(currentUserId)
+    S->>DB: Đọc registration ACTIVE + patternSlots
+    DB-->>S: Registration hiện hành hoặc null
+    S-->>C: Registration DTO
+    C-->>API: 200 + data
+    API-->>UI: Khôi phục mẫu tuần và buồng
+    UI->>API: GET /api/v1/users/me/shifts
+    API->>C: Xác thực CTV
+    C->>S: listMyShifts(currentUserId, {})
+    S->>DB: Join ACTIVE assignment và SHIFT của CTV
     DB-->>S: Shift DTOs
     S-->>C: Danh sách ca
     C-->>API: 200 + data
-    API-->>H: Lịch tuần
-    H-->>UI: Render Thứ 2 đến Thứ 6
+    API-->>UI: Lưu lịch hiện hành và render Thứ 2 đến Thứ 6
 
     alt CTV chuyển tuần
         U->>UI: Chọn tuần trước hoặc sau
-        UI->>H: loadWeek(newWeekStart)
-        H->>API: getMyShifts(newFrom, newTo)
-        API->>C: GET /api/v1/users/me/shifts?from={from}&to={to}
+        UI->>UI: Đổi calendarDate và lọc lịch hiện hành đã tải
     else CTV mở lịch sử theo tháng
-        U->>UI: Chọn Lịch sử và tháng
-        UI->>H: loadMonth(month)
-        H->>API: getMyShifts(month)
-        API->>C: GET /api/v1/users/me/shifts?month={month}
+        U->>UI: Chọn Lịch sử làm việc
+        UI->>API: GET /api/v1/users/me/work-history?month={month}
+        API->>C: Xác thực CTV; lấy accountId từ session
+        C->>S: getWorkHistory({month, accountId: currentUserId})
+        S->>S: syncWorkHistory(todayInBangkok)
+        S->>DB: Upsert assignment ACTIVE đã qua vào WORK_HISTORY
+        S->>DB: Đọc WORK_HISTORY của currentUserId trong tháng
+        DB-->>S: History rows
+        S-->>C: {month, cells}
+        C-->>API: 200 + data
+        API-->>UI: Lưu historyShifts và render lưới tháng
+    else CTV chuyển tháng lịch sử
+        U->>UI: Chọn tháng trước hoặc sau
+        UI->>API: GET /api/v1/users/me/work-history?month={tháng mới}
     end
-    C->>S: listMyShifts(currentUserId, filters)
-    S->>DB: Chạy cùng truy vấn với range mới
-    DB-->>S: Shift DTOs
-    S-->>C: Danh sách ca
-    C-->>API: 200 + data
-    API-->>H: Dữ liệu giai đoạn mới
-    H-->>UI: Cập nhật tiêu đề và lưới
     UI-->>U: Hiển thị lịch đã chọn
 ```
 
 ## Chú thích
 
-- Chế độ tuần và lịch sử tháng chỉ là hai cách lọc cùng endpoint và cùng dữ liệu assignment.
-- Truy vấn lọc `SHIFT_ASSIGNMENT.accountId=currentUserId`, `SHIFT_ASSIGNMENT.status=ACTIVE` và `SHIFT.workDate` trong khoảng; kết quả sắp theo `workDate, period`.
-- API dùng ngày `YYYY-MM-DD`, tháng `YYYY-MM`; Feature Hook chịu trách nhiệm tính khoảng ngày theo múi giờ cấu hình.
+- Lịch tuần và lịch sử là hai nguồn riêng: tuần đọc `SHIFT_ASSIGNMENT.status=ACTIVE`; lịch sử đọc ảnh chụp bất biến trong `WORK_HISTORY`.
+- Endpoint `/users/me/work-history` luôn lấy `accountId` từ session, nên CTV không thể xem lịch sử của tài khoản khác bằng query string.
+- Lưới lịch sử chỉ gắn ca cho ngày quá khứ; hôm nay và tương lai để trống vì chưa được chốt vào `WORK_HISTORY`.
+- Frontend gọi Shared API Client trực tiếp trong `App` và `CTVScheduleWorkspace`; app hiện không có `Schedule Feature Hook` riêng.

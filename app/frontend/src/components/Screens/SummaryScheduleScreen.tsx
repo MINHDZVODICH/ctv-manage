@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ShiftSlot, UserAccount, AssignedCTV } from "../../types";
 import { getAssignedCTVsForDate } from "../../utils/scheduleSelectors";
+import { formatRoomLabel } from "../../utils/rooms";
 import { summaryToSlots, ApiSummaryCell } from "../../shared/mappers";
 import * as api from "../../shared/api";
 
@@ -16,6 +17,7 @@ interface SummaryScheduleScreenProps {
 type SummaryView = "week" | "history";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const APP_TIME_ZONE = "Asia/Bangkok";
 
 const WEEKDAYS = [
   { index: 0, label: "Thứ 2" },
@@ -42,6 +44,16 @@ const toISODate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const formatShortDate = (d: Date) =>
   `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+const getCurrentCalendarDate = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
+};
 
 export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   shifts: initialShifts,
@@ -49,29 +61,37 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   onViewAccountDetail,
   onShowToast,
 }) => {
-  const today = startOfDay(new Date());
+  const today = startOfDay(getCurrentCalendarDate());
   const todayISO = toISODate(today);
 
   const [view, setView] = useState<SummaryView>("week");
   const [calendarDate, setCalendarDate] = useState(today);
-  const [shifts, setShifts] = useState<ShiftSlot[]>(initialShifts);
+  const [scheduleShifts, setScheduleShifts] = useState<ShiftSlot[]>(initialShifts);
+  const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
 
   // Sync when parent reloads (e.g. after admin toggles status)
   useEffect(() => {
-    if (initialShifts && initialShifts.length > 0) {
-      setShifts(initialShifts);
-    }
+    setScheduleShifts(initialShifts);
   }, [initialShifts]);
 
-  // Fetch summary for current month when history view navigates
-  const fetchMonth = useCallback(async (date: Date) => {
+  const fetchMonth = useCallback(async (date: Date, source: SummaryView) => {
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    setIsLoadingMonth(true);
     try {
-      const res: any = await api.apiGet(`/api/v1/schedule-summary?month=${month}`);
+      const endpoint =
+        source === "history"
+          ? `/api/v1/work-history?month=${month}`
+          : `/api/v1/schedule-summary?month=${month}`;
+      const res: any = await api.apiGet(endpoint);
       const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
       const slots = summaryToSlots(cells);
+      if (source === "history") {
+        setHistoryShifts(slots);
+        return;
+      }
       // Merge: replace slots for this month, keep other months' slots
-      setShifts((prev) => {
+      setScheduleShifts((prev) => {
         const other = prev.filter((s) => {
           if (!s.workDate) return true;
           return !s.workDate.startsWith(month);
@@ -86,13 +106,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       });
     } catch {
       // silent - keep existing shifts
+    } finally {
+      setIsLoadingMonth(false);
     }
   }, []);
 
   useEffect(() => {
-    // Only fetch when in history view or initial week area not covered
-    fetchMonth(calendarDate);
-  }, [calendarDate, fetchMonth]);
+    fetchMonth(calendarDate, view);
+  }, [calendarDate, fetchMonth, view]);
 
   const [selectedShiftDetail, setSelectedShiftDetail] = useState<{
     dayName: string;
@@ -102,8 +123,11 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     ctvList: Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }>;
   } | null>(null);
 
+  const visibleShifts = view === "history" ? historyShifts : scheduleShifts;
   const getAssignedCTVs = (workDate: string, type: "morning" | "afternoon") =>
-    getAssignedCTVsForDate(shifts, accounts, workDate, type);
+    getAssignedCTVsForDate(visibleShifts, accounts, workDate, type);
+  const getScheduledCTVs = (workDate: string, type: "morning" | "afternoon") =>
+    getAssignedCTVsForDate(scheduleShifts, accounts, workDate, type);
 
   // ---- week derived ----
   const weekStart = startOfWeek(calendarDate);
@@ -132,16 +156,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
 
   // ---- today CTV list (shared card) ----
   const getTodayCTVList = () => {
-    const todayObj = new Date();
-    const dow = (todayObj.getDay() + 6) % 7;
+    const dow = (today.getDay() + 6) % 7;
     const dayNamesList = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
     const dayNameStr = dayNamesList[dow] || "Thứ 2";
-    const dateStr = `${String(todayObj.getDate()).padStart(2, "0")}/${String(todayObj.getMonth() + 1).padStart(2, "0")}/${todayObj.getFullYear()}`;
-    const dateISO = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
-    const dayLabel = `Hôm nay (${dayNameStr} - ${dateStr})`;
+    const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
+    const dayLabel = `${dayNameStr} - ${dateStr}`;
     const isWeekday = dow >= 0 && dow <= 4;
-    const morningList = isWeekday ? getAssignedCTVs(dateISO, "morning") : [];
-    const afternoonList = isWeekday ? getAssignedCTVs(dateISO, "afternoon") : [];
+    const morningList = isWeekday ? getScheduledCTVs(todayISO, "morning") : [];
+    const afternoonList = isWeekday ? getScheduledCTVs(todayISO, "afternoon") : [];
     type Item = { ctv: AssignedCTV; shifts: ("Ca Sáng" | "Ca Chiều")[] };
     const map = new Map<string, Item>();
     morningList.forEach((ctv) => map.set(ctv.id, { ctv, shifts: ["Ca Sáng"] }));
@@ -171,7 +193,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     const raw = getAssignedCTVs(workDate, shiftName === "Ca Sáng" ? "morning" : "afternoon");
     const enriched = raw.map((ctv) => ({
       ...ctv,
-      roomDisplay: ctv.room || "Chưa cập nhật",
+      roomDisplay: formatRoomLabel(ctv.room) || "Chưa cập nhật",
       taskDisplay: ctv.taskContent || "Chưa cập nhật",
     }));
     setSelectedShiftDetail({
@@ -332,6 +354,12 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Lịch sử tổng hợp</h3>
               </div>
+              {isLoadingMonth && (
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <span>Đang tải...</span>
+                </div>
+              )}
               <div className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" aria-label="Chuyển tháng">
                 <button type="button" onClick={() => changeMonth(-1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng trước">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
@@ -440,7 +468,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         <tr className="bg-slate-50 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           <th className="py-3.5 px-4">Họ tên CTV</th>
                           <th className="py-3.5 px-4">Số điện thoại</th>
-                          <th className="py-3.5 px-4">Phòng làm việc</th>
+                          <th className="py-3.5 px-4">Buồng làm việc</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">

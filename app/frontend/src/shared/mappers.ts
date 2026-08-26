@@ -7,6 +7,7 @@ import type {
   AccountStatus,
   RequestStatus,
 } from '../types';
+import { formatRoomLabel } from '../utils/rooms';
 
 // ---------------------------------------------------------------------------
 // Backend DTO shapes (mirrors backend controllers)
@@ -259,7 +260,7 @@ export function myShiftsToSlots(
       phone: currentUser.phone,
       cctvCode: currentUser.cctvCode,
       status: 'Đã duyệt',
-      room: s.roomCode ?? undefined,
+      room: formatRoomLabel(s.roomCode),
     };
 
     slots.push({
@@ -273,7 +274,7 @@ export function myShiftsToSlots(
       allowRegister: true,
       assignedCTVs: [me],
       workDate,
-      room: s.roomCode ?? undefined,
+      room: formatRoomLabel(s.roomCode),
       registrationId: s.registrationId ?? registration?.id,
       registrationStartDate: registration?.startDate,
       registrationEndDate: registration?.endDate,
@@ -311,7 +312,7 @@ export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
         name: a.displayName,
         phone: a.phone ?? undefined,
         status: 'Đã duyệt' as const,
-        room: a.roomCode ?? undefined,
+        room: formatRoomLabel(a.roomCode),
       })),
       workDate: cell.workDate,
     };

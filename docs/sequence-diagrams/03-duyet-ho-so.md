@@ -7,7 +7,7 @@ sequenceDiagram
     actor A as Admin
     box LỚP FRONTEND
         participant UI as Màn hình yêu cầu đăng ký
-        participant H as Registration Feature Hook
+        participant H as App registration actions
         participant API as Shared API Client
     end
     box LỚP BACKEND

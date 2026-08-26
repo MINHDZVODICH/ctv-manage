@@ -97,6 +97,56 @@ export async function expireOldRegistrations(accountId?: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Work history snapshots
+// ---------------------------------------------------------------------------
+
+/**
+ * Copies completed calendar days from mutable shift assignments into the
+ * immutable WorkHistory table. The compound key makes repeated daily runs safe.
+ */
+export async function syncWorkHistory(upToExclusiveYmd = todayInBangkok()) {
+  if (!isValidYmd(upToExclusiveYmd)) {
+    throw Errors.badRequest('INVALID_HISTORY_CUTOFF', 'History cutoff must be YYYY-MM-DD');
+  }
+
+  const cutoff = parseYmdToUtcDate(upToExclusiveYmd);
+  const completedAssignments = await prisma.shiftAssignment.findMany({
+    where: {
+      status: 'ACTIVE',
+      shift: { workDate: { lt: cutoff } },
+    },
+    include: { shift: true },
+  });
+
+  if (completedAssignments.length === 0) return { processedCount: 0 };
+
+  await prisma.$transaction(
+    completedAssignments.map((assignment) =>
+      prisma.workHistory.upsert({
+        where: {
+          accountId_workDate_period: {
+            accountId: assignment.accountId,
+            workDate: assignment.shift.workDate,
+            period: assignment.shift.period,
+          },
+        },
+        update: {},
+        create: {
+          accountId: assignment.accountId,
+          workDate: assignment.shift.workDate,
+          period: assignment.shift.period,
+          roomCode: assignment.roomCode,
+          status: 'COMPLETED',
+          sourceAssignmentId: assignment.id,
+        },
+      }),
+    ),
+  );
+
+  return { processedCount: completedAssignments.length };
+}
+
+// ---------------------------------------------------------------------------
 // getMyRegistration
 // ---------------------------------------------------------------------------
 
@@ -154,6 +204,8 @@ function dedupeSlots(slots: { weekday: number; period: string }[]) {
  */
 export async function upsertRegistration(accountId: string, input: UpsertRegistrationInput) {
   validateUpsertInput(input);
+  // Freeze all completed days before changing the mutable weekly schedule.
+  await syncWorkHistory();
   const slots = dedupeSlots(input.slots);
 
   await expireOldRegistrations(accountId);
@@ -611,10 +663,82 @@ export async function cancelSeries(
 }
 
 // ---------------------------------------------------------------------------
+// Work history queries (CTV + admin)
+// ---------------------------------------------------------------------------
+
+export async function getWorkHistory(params: { month: string; accountId?: string }) {
+  if (!/^\d{4}-\d{2}$/.test(params.month)) {
+    throw Errors.badRequest('INVALID_MONTH', 'month must be YYYY-MM');
+  }
+
+  await syncWorkHistory();
+  const range = monthRangeToUtcDates(params.month);
+  const rows = await prisma.workHistory.findMany({
+    where: {
+      workDate: { gte: range.from, lte: range.to },
+      ...(params.accountId ? { accountId: params.accountId } : {}),
+    },
+    include: { account: true },
+    orderBy: [{ workDate: 'asc' }, { period: 'asc' }, { accountId: 'asc' }],
+  });
+
+  const grouped = new Map<
+    string,
+    {
+      shiftId: string;
+      workDate: string;
+      period: string;
+      count: number;
+      shiftAssignments: Array<{
+        id: string;
+        accountId: string;
+        displayName: string;
+        phone: string | null;
+        roomCode: string;
+        status: string;
+      }>;
+    }
+  >();
+
+  for (const row of rows) {
+    const workDate = formatUtcDateToYmd(row.workDate);
+    const key = `${workDate}:${row.period}`;
+    let cell = grouped.get(key);
+    if (!cell) {
+      cell = {
+        shiftId: `history-${workDate}-${row.period}`,
+        workDate,
+        period: row.period,
+        count: 0,
+        shiftAssignments: [],
+      };
+      grouped.set(key, cell);
+    }
+
+    cell.shiftAssignments.push({
+      id: row.id,
+      accountId: row.accountId,
+      displayName: row.account.displayName,
+      phone: row.account.phone ?? null,
+      roomCode: row.roomCode,
+      status: row.status,
+    });
+    cell.count = cell.shiftAssignments.length;
+  }
+
+  return { month: params.month, cells: [...grouped.values()] };
+}
+
+// ---------------------------------------------------------------------------
 // getScheduleSummary (admin)
 // ---------------------------------------------------------------------------
 
-export type GetScheduleSummaryParams = { month?: string; from?: string; to?: string };
+export type GetScheduleSummaryParams = {
+  month?: string;
+  from?: string;
+  to?: string;
+  accountId?: string;
+};
 
 export async function getScheduleSummary(params: GetScheduleSummaryParams | string) {
   // Backward-compat: if a plain string is passed treat as month
@@ -646,10 +770,22 @@ export async function getScheduleSummary(params: GetScheduleSummaryParams | stri
   }
 
   const shifts = await prisma.shift.findMany({
-    where: { workDate: { gte: from, lte: to } },
+    where: {
+      workDate: { gte: from, lte: to },
+      ...(q.accountId
+        ? {
+            assignments: {
+              some: { accountId: q.accountId, status: 'ACTIVE' },
+            },
+          }
+        : {}),
+    },
     include: {
       assignments: {
-        where: { status: 'ACTIVE' },
+        where: {
+          status: 'ACTIVE',
+          ...(q.accountId ? { accountId: q.accountId } : {}),
+        },
         include: { account: true },
       },
     },

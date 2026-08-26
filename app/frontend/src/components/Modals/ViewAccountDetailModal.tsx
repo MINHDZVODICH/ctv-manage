@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { UserAccount, ShiftSlot } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
-import { ResetPasswordModal } from "./ResetPasswordModal";
+import { formatRoomLabel } from "../../utils/rooms";
+import { ApiSummaryCell, summaryToSlots } from "../../shared/mappers";
+import * as api from "../../shared/api";
 
 interface ViewAccountDetailModalProps {
   account: UserAccount | null;
@@ -26,6 +28,30 @@ const WEEKDAYS = [
   { index: 4, dayName: "Thứ 6", shortName: "T6", dateStr: "10/07" },
 ];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const startOfDay = (date: Date) => {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+};
+const addDays = (date: Date, amount: number) =>
+  new Date(startOfDay(date).getTime() + amount * DAY_MS);
+const startOfWeek = (date: Date) => {
+  const normalized = startOfDay(date);
+  return addDays(normalized, -((normalized.getDay() + 6) % 7));
+};
+const toISODate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const formatShortDate = (date: Date) => {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
+};
+
 export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   account,
   shifts = [],
@@ -42,6 +68,10 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   } | null>(null);
   const [showWorkHistory, setShowWorkHistory] = useState<boolean>(false);
   const [historyDate, setHistoryDate] = useState<Date>(() => new Date());
+  const [accountScheduleShifts, setAccountScheduleShifts] = useState<ShiftSlot[]>([]);
+  const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   const [notesText, setNotesText] = useState(account?.notes || "");
   const [isSavedNotes, setIsSavedNotes] = useState(false);
@@ -53,12 +83,85 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   );
   const [endScheduleReason, setEndScheduleReason] = useState("");
   const [endScheduleError, setEndScheduleError] = useState("");
-  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
 
   useEffect(() => {
     setNotesText(account?.notes || "");
     setIsSavedNotes(false);
   }, [account?.id, account?.notes]);
+
+  useEffect(() => {
+    setShowWorkHistory(false);
+    setHistoryDate(new Date());
+    setHistoryShifts([]);
+    setHistoryError("");
+  }, [account?.id]);
+
+  useEffect(() => {
+    if (!account || account.role === "Admin") {
+      setAccountScheduleShifts([]);
+      return;
+    }
+
+    const belongsToAccount = (shift: ShiftSlot) =>
+      (shift.assignedCTVs || []).some(
+        (ctv) => ctv.id === account.id || ctv.name === account.name,
+      );
+    setAccountScheduleShifts(shifts.filter(belongsToAccount));
+
+    const weekStart = startOfWeek(new Date());
+    const from = toISODate(weekStart);
+    const to = toISODate(addDays(weekStart, 4));
+    let cancelled = false;
+
+    void api
+      .apiGet(
+        `/api/v1/schedule-summary?from=${from}&to=${to}&accountId=${encodeURIComponent(account.id)}`,
+      )
+      .then((response: any) => {
+        if (cancelled) return;
+        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
+        setAccountScheduleShifts(summaryToSlots(cells).filter(belongsToAccount));
+      })
+      .catch(() => {
+        // Keep the parent snapshot when the focused refresh is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [account?.id, account?.name, account?.role, shifts]);
+
+  useEffect(() => {
+    if (!showWorkHistory || !account || account.role === "Admin") return;
+
+    const month = `${historyDate.getFullYear()}-${String(historyDate.getMonth() + 1).padStart(2, "0")}`;
+    let cancelled = false;
+    setIsHistoryLoading(true);
+    setHistoryError("");
+    setHistoryShifts([]);
+
+    void api
+      .apiGet(
+        `/api/v1/work-history?month=${month}&accountId=${encodeURIComponent(account.id)}`,
+      )
+      .then((response: any) => {
+        if (cancelled) return;
+        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
+        setHistoryShifts(summaryToSlots(cells));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHistoryError("Không thể tải lịch sử làm việc. Vui lòng thử lại.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showWorkHistory, account?.id, account?.role, historyDate]);
 
   // Compute registered start date for this CTV
   const userRegisteredStartDateISO = useMemo(() => {
@@ -147,21 +250,9 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     setIsEndScheduleModalOpen(false);
   };
 
-  const toISODate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  const formatShortDate = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `${day}/${month}`;
-  };
-
   const todayISO = toISODate(new Date());
-  const todayWeekdayIndex = (new Date().getDay() + 6) % 7;
+  const currentWeekStart = startOfWeek(new Date());
+  const currentWeekDates = WEEKDAYS.map((day) => addDays(currentWeekStart, day.index));
 
   const changeHistoryMonth = (amount: number) => {
     setHistoryDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -188,8 +279,9 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
   const getHistoryShift = (date: Date, shiftType: "morning" | "afternoon") => {
     const dateISO = toISODate(date);
+    if (dateISO >= todayISO) return undefined;
 
-    return shifts.find(
+    return historyShifts.find(
       (s) =>
         s.workDate === dateISO &&
         s.shiftType === shiftType &&
@@ -229,8 +321,8 @@ Ngày sinh: ${account.dob || "N/A"}
 Giới tính: ${account.gender || "N/A"}
 Địa chỉ: ${account.address || "N/A"}
 
-PHÒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
-- Phòng / Buồng: ${account.room || account.workRoom || "Buồng 1"}
+BUỒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
+- Buồng làm việc: ${assignedWorkRoom}
 
 KỸ NĂNG & CHUYÊN MÔN:
 - ${account.skills && account.skills.length > 0 ? account.skills.join("\n- ") : "Kỹ năng chuyên môn, giao tiếp tốt"}
@@ -254,59 +346,27 @@ LỊCH SỬ HOẠT ĐỘNG:
     }
   };
 
-  // Check if user has explicit registered shifts in the shifts array
-  const userShiftsInArray = shifts.filter((s) =>
-    (s.assignedCTVs || []).some((c) => c.id === account.id || c.name === account.name),
-  );
-
-  const hasExplicitShifts = userShiftsInArray.length > 0;
-
   // Helper to get shift status for a specific day and shift type
-  const getShiftStatus = (dayIndex: number, shiftType: "morning" | "afternoon") => {
-    if (hasExplicitShifts) {
-      const match = shifts.find(
-        (s) =>
-          s.dayIndex === dayIndex &&
-          s.shiftType === shiftType &&
-          (s.assignedCTVs || []).some((c) => c.id === account.id || c.name === account.name),
-      );
-      if (match) {
-        const ctvObj = (match.assignedCTVs || []).find(
-          (c) => c.id === account.id || c.name === account.name,
-        );
-        return ctvObj?.status === "Chờ duyệt" ? "pending" : "working";
-      }
-      return "off";
-    }
+  const getShiftStatus = (workDate: string, shiftType: "morning" | "afternoon") => {
+    const match = accountScheduleShifts.find(
+      (shift) =>
+        shift.workDate === workDate &&
+        shift.shiftType === shiftType &&
+        (shift.assignedCTVs || []).some(
+          (ctv) => ctv.id === account.id || ctv.name === account.name,
+        ),
+    );
+    if (!match) return "off";
 
-    // Default schedule rules if user has no explicitly logged shifts in the array
-    if (account.role === "Admin") {
-      return "off"; // Admins do not register work schedules
-    }
-
-    // Fallback schedule pattern for CTVs based on account ID
-    const charCode = account.id.charCodeAt(account.id.length - 1) || 0;
-    if (shiftType === "morning") {
-      // Mon, Wed, Fri
-      return [0, 2, 4].includes(dayIndex) ? "working" : "off";
-    } else {
-      // Tue, Thu (or Mon, Wed if charCode is odd)
-      return charCode % 2 === 0
-        ? [1, 3].includes(dayIndex)
-          ? "working"
-          : "off"
-        : [0, 2, 4].includes(dayIndex)
-          ? "working"
-          : "off";
-    }
+    const ctv = (match.assignedCTVs || []).find(
+      (item) => item.id === account.id || item.name === account.name,
+    );
+    return ctv?.status === "Chờ duyệt" ? "pending" : "working";
   };
 
   // Determine assigned work room for CTV
   const assignedWorkRoom = (() => {
-    if (account.workRoom) return account.workRoom;
-    if (account.room) return account.room;
-    // Look up in shifts if available
-    const userShift = shifts?.find((s) =>
+    const userShift = accountScheduleShifts.find((s) =>
       s.assignedCTVs?.some(
         (c) =>
           c.id === account.id ||
@@ -314,18 +374,17 @@ LỊCH SỬ HOẠT ĐỘNG:
           (c.cctvCode && c.cctvCode === account.cctvCode),
       ),
     );
-    if (userShift?.room) return userShift.room;
-
-    // Assign consistent default room based on cctvCode or initials
-    const codeNum = parseInt(account.cctvCode?.replace(/\D/g, "") || "1", 10);
-    const roomList = [
-      "Buồng 1",
-      "Buồng 2",
-      "Phòng Kỹ thuật - Buồng 1",
-      "Phòng Điều phối 102",
-      "Buồng 3",
-    ];
-    return roomList[codeNum % roomList.length] || "Buồng 1";
+    const assignedCTV = userShift?.assignedCTVs?.find(
+      (c) =>
+        c.id === account.id ||
+        c.name === account.name ||
+        (c.cctvCode && c.cctvCode === account.cctvCode),
+    );
+    return (
+      formatRoomLabel(
+        assignedCTV?.room || userShift?.room || account.workRoom || account.room,
+      ) || "Chưa cập nhật"
+    );
   })();
 
   return (
@@ -378,17 +437,6 @@ LỊCH SỬ HOẠT ĐỘNG:
                   {account.registerDate || account.joinDate || "15/05/2023"}
                 </span>
               </p>
-              {account.role !== "Admin" && (
-                <button
-                  type="button"
-                  onClick={() => setIsResetPasswordOpen(true)}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
-                  title="Đặt lại mật khẩu mặc định mới cho CTV"
-                >
-                  <span className="material-symbols-outlined text-[16px]">lock_reset</span>
-                  <span>Đặt lại mật khẩu</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -558,7 +606,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                 {/* Work room badge */}
                 {account.role !== "Admin" && (
                   <div
-                    title={`Phòng làm việc: ${assignedWorkRoom}`}
+                    title={`Buồng làm việc: ${assignedWorkRoom}`}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 border border-indigo-200/80 dark:border-indigo-800/80 rounded-lg text-xs font-semibold shadow-2xs"
                   >
                     <span className="material-symbols-outlined text-[15px] text-indigo-600 dark:text-indigo-400">
@@ -598,11 +646,14 @@ LỊCH SỬ HOẠT ĐỘNG:
                 <div className="min-w-[650px] space-y-3">
                   <div className="grid grid-cols-5 gap-3">
                     {WEEKDAYS.map((day) => {
-                      const isToday = day.index === todayWeekdayIndex;
+                      const date = currentWeekDates[day.index];
+                      const dateISO = toISODate(date);
+                      const isToday = dateISO === todayISO;
 
                       return (
                         <div
                           key={day.index}
+                          aria-current={isToday ? "date" : undefined}
                           className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
                             isToday
                               ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
@@ -610,11 +661,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                           }`}
                         >
                           <span>{day.dayName}</span>
-                          {isToday && (
-                            <span className="rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-white">
-                              Hôm nay
-                            </span>
-                          )}
+                          {isToday && <span className="sr-only">Hôm nay</span>}
                         </div>
                       );
                     })}
@@ -622,9 +669,11 @@ LỊCH SỬ HOẠT ĐỘNG:
 
                   <div className="grid grid-cols-5 gap-3">
                     {WEEKDAYS.map((day) => {
-                      const morning = getShiftStatus(day.index, "morning");
-                      const afternoon = getShiftStatus(day.index, "afternoon");
-                      const isToday = day.index === todayWeekdayIndex;
+                      const date = currentWeekDates[day.index];
+                      const dateISO = toISODate(date);
+                      const morning = getShiftStatus(dateISO, "morning");
+                      const afternoon = getShiftStatus(dateISO, "afternoon");
+                      const isToday = dateISO === todayISO;
 
                       return (
                         <div
@@ -955,7 +1004,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                     {account.cctvCode ? `(${account.cctvCode})` : ""}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Phòng làm việc:{" "}
+                    Buồng làm việc:{" "}
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
                       {assignedWorkRoom}
                     </span>
@@ -1038,7 +1087,6 @@ LỊCH SỬ HOẠT ĐỘNG:
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -1057,6 +1105,22 @@ LỊCH SỬ HOẠT ĐỘNG:
                   Lịch sử làm việc
                 </h3>
               </div>
+
+              {isHistoryLoading && (
+                <div
+                  className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span
+                    className="material-symbols-outlined text-[16px] animate-spin"
+                    aria-hidden="true"
+                  >
+                    progress_activity
+                  </span>
+                  <span>Đang tải...</span>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <div
@@ -1094,6 +1158,15 @@ LỊCH SỬ HOẠT ĐỘNG:
                 </button>
               </div>
             </div>
+
+            {historyError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+              >
+                {historyError}
+              </div>
+            )}
 
             {/* Grid calendar */}
             <div className="overflow-y-auto overflow-x-auto flex-1 pr-3 sm:pr-4 pb-2">
@@ -1191,19 +1264,6 @@ LỊCH SỬ HOẠT ĐỘNG:
             </div>
           </div>
         </div>
-      )}
-
-      {/* Reset Password Modal */}
-      {isResetPasswordOpen && account && (
-        <ResetPasswordModal
-          account={account}
-          onClose={() => setIsResetPasswordOpen(false)}
-          onConfirmReset={(id, newPassword, requireChange) => {
-            if (onResetPassword) {
-              onResetPassword(id, newPassword, requireChange);
-            }
-          }}
-        />
       )}
     </div>
   );

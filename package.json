@@ -22,10 +22,10 @@
     "prisma:seed": "npm.cmd run prisma:seed --workspace=app/backend"
   },
   "devDependencies": {
-    "@types/multer": "^2.2.0",
-    "concurrently": "^9.1.2"
+    "@types/multer": "2.2.0",
+    "concurrently": "9.1.2"
   },
   "dependencies": {
-    "multer": "^2.2.0"
+    "multer": "2.2.0"
   }
 }

@@ -12,19 +12,19 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "react": "^19.0.1",
-    "react-dom": "^19.0.1",
-    "react-router-dom": "^7.1.5"
+    "react": "19.0.1",
+    "react-dom": "19.0.1",
+    "react-router-dom": "7.1.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
-    "@tailwindcss/vite": "^4.1.14",
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^5.0.4",
-    "tailwindcss": "^4.1.14",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "@playwright/test": "1.55.1",
+    "@tailwindcss/vite": "4.1.14",
+    "@types/node": "22.14.0",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "@vitejs/plugin-react": "5.0.4",
+    "tailwindcss": "4.1.14",
+    "typescript": "5.8.2",
+    "vite": "6.2.3"
   }
 }

@@ -7,7 +7,7 @@ sequenceDiagram
     actor U as Ứng viên CTV
     box LỚP FRONTEND
         participant UI as Trang đăng ký
-        participant H as Registration Feature Hook
+        participant H as LoginScreen actions
         participant API as Shared API Client
     end
     box LỚP BACKEND

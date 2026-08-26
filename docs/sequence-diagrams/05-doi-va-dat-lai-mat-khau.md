@@ -9,7 +9,7 @@ sequenceDiagram
     actor U as Người dùng
     box LỚP FRONTEND
         participant UI as Hộp thoại đổi mật khẩu
-        participant H as Account Feature Hook
+        participant H as Account actions
         participant API as Shared API Client
     end
     box LỚP BACKEND
@@ -53,7 +53,7 @@ sequenceDiagram
     actor A as Admin
     box LỚP FRONTEND
         participant UI as Hộp thoại đặt lại mật khẩu
-        participant H as Account Feature Hook
+        participant H as Account actions
         participant API as Shared API Client
     end
     box LỚP BACKEND

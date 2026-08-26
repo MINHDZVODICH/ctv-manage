@@ -7,7 +7,7 @@ sequenceDiagram
     actor U as Người dùng
     box LỚP FRONTEND
         participant UI as Trang đăng nhập
-        participant H as Auth Feature Hook
+        participant H as AuthContext
         participant API as Shared API Client
     end
     box LỚP BACKEND

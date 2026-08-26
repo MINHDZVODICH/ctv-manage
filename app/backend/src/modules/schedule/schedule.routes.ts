@@ -10,6 +10,7 @@ myScheduleRouter.use(auth, requireRole('CTV'));
 myScheduleRouter.get('/schedule-registration', ctrl.getMyRegistration);
 myScheduleRouter.put('/schedule-registration', ctrl.putMyRegistration);
 myScheduleRouter.get('/shifts', ctrl.getMyShifts);
+myScheduleRouter.get('/work-history', ctrl.getMyWorkHistory);
 myScheduleRouter.delete('/shift-assignments/:assignmentId', ctrl.deleteAssignment);
 myScheduleRouter.delete('/schedule-registrations/:registrationId/assignments', ctrl.deleteSeries);
 
@@ -22,3 +23,8 @@ shiftRouter.get('/:shiftId', ctrl.getShiftById);
 export const summaryRouter = Router();
 summaryRouter.use(auth, requireRole('ADMIN'));
 summaryRouter.get('/', ctrl.getSummary);
+
+// /api/v1/work-history (admin aggregate or filtered by accountId)
+export const workHistoryRouter = Router();
+workHistoryRouter.use(auth, requireRole('ADMIN'));
+workHistoryRouter.get('/', ctrl.getWorkHistory);

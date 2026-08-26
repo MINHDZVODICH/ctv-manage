@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { UserAccount } from "../../types";
-import { formatPhoneNumber } from "../../utils/formatters";
 
 interface ResetPasswordModalProps {
   account: UserAccount | null;
@@ -50,7 +49,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1b365d] dark:text-white leading-tight">
-                Đặt lại mật khẩu Cộng tác viên
+                Đặt lại mật khẩu
               </h3>
             </div>
           </div>
@@ -82,7 +81,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 {account.name}
               </div>
               <div className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
-                {account.email} • {formatPhoneNumber(account.phone)}
+                {account.email}
               </div>
             </div>
           </div>

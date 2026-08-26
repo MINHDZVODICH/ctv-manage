@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { UserAccount, ShiftSlot } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
-import { ResetPasswordModal } from "./ResetPasswordModal";
 
 interface ViewAccountDetailModalProps {
   account: UserAccount | null;
@@ -53,7 +52,6 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   );
   const [endScheduleReason, setEndScheduleReason] = useState("");
   const [endScheduleError, setEndScheduleError] = useState("");
-  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
 
   useEffect(() => {
     setNotesText(account?.notes || "");
@@ -378,17 +376,6 @@ LỊCH SỬ HOẠT ĐỘNG:
                   {account.registerDate || account.joinDate || "15/05/2023"}
                 </span>
               </p>
-              {account.role !== "Admin" && (
-                <button
-                  type="button"
-                  onClick={() => setIsResetPasswordOpen(true)}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
-                  title="Đặt lại mật khẩu mặc định mới cho CTV"
-                >
-                  <span className="material-symbols-outlined text-[16px]">lock_reset</span>
-                  <span>Đặt lại mật khẩu</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -1191,19 +1178,6 @@ LỊCH SỬ HOẠT ĐỘNG:
             </div>
           </div>
         </div>
-      )}
-
-      {/* Reset Password Modal */}
-      {isResetPasswordOpen && account && (
-        <ResetPasswordModal
-          account={account}
-          onClose={() => setIsResetPasswordOpen(false)}
-          onConfirmReset={(id, newPassword, requireChange) => {
-            if (onResetPassword) {
-              onResetPassword(id, newPassword, requireChange);
-            }
-          }}
-        />
       )}
     </div>
   );

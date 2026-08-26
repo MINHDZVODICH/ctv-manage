@@ -89,5 +89,107 @@ describe('private files and schedule workflows', () => {
     expect(cancelled.status).toBe(200);
     expect(cancelled.body.data.affectedCount).toBe(1);
   });
-});
 
+  test('preserves past work history when a CTV updates future schedule', async () => {
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
+
+    const created = await request(app)
+      .put('/api/v1/users/me/schedule-registration')
+      .set('Cookie', ctvCookie)
+      .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
+    expect(created.status).toBe(200);
+
+    const registrationId = created.body.data.id as string;
+    const pastWorkDate = new Date('2024-01-08T00:00:00.000Z');
+    const pastShift = await prisma.shift.upsert({
+      where: { workDate_period: { workDate: pastWorkDate, period: 'MORNING' } },
+      update: {},
+      create: { workDate: pastWorkDate, period: 'MORNING' },
+    });
+    const pastAssignment = await prisma.shiftAssignment.create({
+      data: {
+        shiftId: pastShift.id,
+        accountId: ctv.id,
+        registrationId,
+        roomCode: 'ROOM_1',
+        status: 'ACTIVE',
+      },
+    });
+
+    const updated = await request(app)
+      .put('/api/v1/users/me/schedule-registration')
+      .set('Cookie', ctvCookie)
+      .send({
+        roomCode: 'ROOM_2',
+        slots: [{ weekday: 2, period: 'AFTERNOON' }],
+        expectedVersion: created.body.data.version,
+      });
+    expect(updated.status).toBe(200);
+
+    const storedPastAssignment = await prisma.shiftAssignment.findUniqueOrThrow({
+      where: { id: pastAssignment.id },
+    });
+    expect(storedPastAssignment.status).toBe('ACTIVE');
+    expect(storedPastAssignment.roomCode).toBe('ROOM_1');
+    expect(storedPastAssignment.cancelledAt).toBeNull();
+
+    const storedHistory = await prisma.workHistory.findUniqueOrThrow({
+      where: {
+        accountId_workDate_period: {
+          accountId: ctv.id,
+          workDate: pastWorkDate,
+          period: 'MORNING',
+        },
+      },
+    });
+    expect(storedHistory.roomCode).toBe('ROOM_1');
+    expect(storedHistory.status).toBe('COMPLETED');
+    expect(storedHistory.sourceAssignmentId).toBe(pastAssignment.id);
+
+    const cannotCancelHistory = await request(app)
+      .delete(`/api/v1/users/me/shift-assignments/${pastAssignment.id}`)
+      .set('Cookie', ctvCookie);
+    expect(cannotCancelHistory.status).toBe(400);
+    expect(cannotCancelHistory.body.error.code).toBe('CANNOT_CANCEL_PAST');
+
+    const ownHistory = await request(app)
+      .get('/api/v1/users/me/work-history?month=2024-01')
+      .set('Cookie', ctvCookie);
+    expect(ownHistory.status).toBe(200);
+    expect(ownHistory.body.data.cells).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workDate: '2024-01-08',
+          period: 'MORNING',
+          shiftAssignments: expect.arrayContaining([
+            expect.objectContaining({
+              id: storedHistory.id,
+              accountId: ctv.id,
+              roomCode: 'ROOM_1',
+              status: 'COMPLETED',
+            }),
+          ]),
+        }),
+      ]),
+    );
+
+    const adminHistory = await request(app)
+      .get(`/api/v1/work-history?month=2024-01&accountId=${ctv.id}`)
+      .set('Cookie', adminCookie);
+    expect(adminHistory.status).toBe(200);
+    expect(adminHistory.body.data.cells).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workDate: '2024-01-08',
+          shiftAssignments: expect.arrayContaining([
+            expect.objectContaining({ id: storedHistory.id, accountId: ctv.id }),
+          ]),
+        }),
+      ]),
+    );
+  });
+});

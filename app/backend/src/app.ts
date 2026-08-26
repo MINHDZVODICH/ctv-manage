@@ -7,7 +7,12 @@ import usersRouter from './modules/users/users.routes.js';
 import accountsRouter from './modules/accounts/accounts.routes.js';
 import registrationRouter from './modules/registration/registration.routes.js';
 import { fileRouter, myFileRouter, accountFileRouter } from './modules/files/files.routes.js';
-import { myScheduleRouter, shiftRouter, summaryRouter } from './modules/schedule/schedule.routes.js';
+import {
+  myScheduleRouter,
+  shiftRouter,
+  summaryRouter,
+  workHistoryRouter,
+} from './modules/schedule/schedule.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -46,6 +51,7 @@ export function createApp() {
   app.use('/api/v1/files', fileRouter);
   app.use('/api/v1/shifts', shiftRouter);
   app.use('/api/v1/schedule-summary', summaryRouter);
+  app.use('/api/v1/work-history', workHistoryRouter);
 
   app.use(errorHandler);
   return app;

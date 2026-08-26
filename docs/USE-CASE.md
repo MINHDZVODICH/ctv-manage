@@ -812,7 +812,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- Mẫu ca Sáng/Chiều theo tuần và buồng làm việc được lưu, sau đó phản ánh trên Lịch tuần và Lịch sử làm việc
+- Mẫu ca Sáng/Chiều theo tuần và buồng làm việc được lưu và phản ánh ngay trên Lịch tuần; Lịch sử làm việc đã chốt không thay đổi
 
 *d. Kịch bản thành công chính*
 
@@ -874,13 +874,13 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 </tr>
 <tr class="even">
 <td>8</td>
-<td>CTV nhấn Đăng ký lịch</td>
+<td>CTV nhấn Đăng ký</td>
 <td></td>
 </tr>
 <tr class="odd">
 <td>9</td>
 <td></td>
-<td>Hệ thống lưu hoặc cập nhật lịch, đóng hộp thoại, hiển thị thông báo thành công và cập nhật Lịch tuần/Lịch sử làm việc.</td>
+<td>Hệ thống lưu hoặc cập nhật lịch, đóng hộp thoại, hiển thị “Đăng ký thành công” và cập nhật ngay Lịch tuần. Lịch sử làm việc không bị tác động.</td>
 </tr>
 </tbody>
 </table>
@@ -905,7 +905,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- Lịch tuần hiện hành hoặc lịch sử theo tháng được hiển thị từ cùng dữ liệu lịch đã đăng ký
+- Lịch tuần hiện hành lấy từ mẫu đăng ký; lịch sử theo tháng lấy từ bảng lịch sử độc lập được chốt hằng ngày
 
 *d. Kịch bản thành công chính*
 
@@ -915,7 +915,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | 2        |                                                      | Hệ thống mặc định hiển thị chế độ Lịch tuần cùng nhãn buồng làm việc hiện tại.                                               |
 | 3        |                                                      | Lưới gồm năm ngày Thứ 2-Thứ 6; ngày hiện tại có nhãn Hôm nay và các ca đã đăng ký hiển thị thẻ tương ứng ở Ca Sáng/Ca Chiều. |
 | 4        | CTV chọn Lịch sử làm việc                            |                                                                                                                              |
-| 5        |                                                      | Hệ thống hiển thị lịch sử theo tháng từ cùng dữ liệu ca, kèm điều khiển chuyển tháng và các ngày Thứ 2-Thứ 6.                |
+| 5        |                                                      | Hệ thống hiển thị lịch sử theo tháng từ dữ liệu đã chốt hằng ngày, kèm điều khiển chuyển tháng và các ngày Thứ 2-Thứ 6.     |
 | 6        | CTV dùng nút chuyển tuần/tháng để xem giai đoạn khác |                                                                                                                              |
 | 7        |                                                      | Hệ thống cập nhật tiêu đề thời gian và các ca thuộc giai đoạn được chọn; ngày không có ca được để trống.                     |
 
@@ -1029,7 +1029,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | 6        | Quản trị viên nhấn Tháng trước/Tháng sau                                       |                                                                                                                              |
 | 7        |                                                                                | Hệ thống cập nhật tháng/năm, các ngày trong lưới và số lượng CTV của từng ca (chỉ quá khứ).                                  |
 | 8        | Quản trị viên nhấn thẻ số lượng CTV của một ca (tuần hoặc lịch sử)            |                                                                                                                              |
-| 9        |                                                                                | Hệ thống mở Chi tiết ca làm việc: tên ca, ngày, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Phòng làm việc.             |
+| 9        |                                                                                | Hệ thống mở Chi tiết ca làm việc: tên ca, ngày, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc.             |
 | 10       | Quản trị viên nhấn Họ tên CTV trong Chi tiết ca                                |                                                                                                                              |
 | 11       |                                                                                | Hệ thống đóng Chi tiết ca và mở Hồ sơ & Lịch trình tài khoản của đúng CTV đó.                                              |
 
@@ -1064,7 +1064,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | **Bước** | **Thao tác của tác nhân**                                                                 | **Phản ứng của hệ thống**                                                                                                        |
 |----------|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | 1        | Quản trị viên nhấn một thẻ Ca Sáng/Ca Chiều có dữ liệu trong lịch tháng                   |                                                                                                                                  |
-| 2        |                                                                                           | Hệ thống mở Chi tiết ca làm việc, hiển thị tên ca, ngày làm việc, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Phòng làm việc. |
+| 2        |                                                                                           | Hệ thống mở Chi tiết ca làm việc, hiển thị tên ca, ngày làm việc, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc. |
 | 3        | Quản trị viên nhấn Họ tên hoặc ảnh đại diện của một CTV                                   |                                                                                                                                  |
 | 4        |                                                                                           | Hệ thống đóng Chi tiết ca và mở cửa sổ Hồ sơ & Lịch trình tài khoản của đúng CTV.                                                |
 | 5        | Quản trị viên dùng biểu tượng Xem/Tải CV, Lịch sử làm việc hoặc nhập Ghi chú rồi nhấn Lưu |                                                                                                                                  |

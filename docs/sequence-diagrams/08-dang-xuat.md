@@ -7,7 +7,7 @@ sequenceDiagram
     actor U as Người dùng
     box LỚP FRONTEND
         participant UI as App Shell
-        participant H as Auth Feature Hook
+        participant H as AuthContext
         participant API as Shared API Client
     end
     box LỚP BACKEND
@@ -39,4 +39,4 @@ sequenceDiagram
 - Endpoint đăng xuất có tính idempotent; session không còn tồn tại vẫn trả `204`.
 - Database giữ bản ghi session và đặt `revokedAt`; tác vụ dọn dẹp có thể xóa các session đã thu hồi hoặc hết hạn sau này.
 - Controller luôn gửi cookie `ctv_session` hết hạn về client, kể cả khi token không có hoặc không còn khớp bản ghi nào.
-- App Shell chỉ điều hướng sau khi Auth Feature Hook đã xóa trạng thái người dùng cục bộ.
+- App Shell chỉ điều hướng sau khi `AuthContext` đã xóa trạng thái người dùng cục bộ.

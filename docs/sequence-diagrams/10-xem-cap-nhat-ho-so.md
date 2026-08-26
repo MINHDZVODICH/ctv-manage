@@ -7,7 +7,7 @@ sequenceDiagram
     actor U as CTV hoặc Admin
     box LỚP FRONTEND
         participant UI as Màn hình hồ sơ
-        participant H as Account Feature Hook
+        participant H as App profile actions
         participant API as Shared API Client
     end
     box LỚP BACKEND

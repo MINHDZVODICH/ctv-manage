@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { UserAccount } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
+import { formatRoomLabel } from "../../utils/rooms";
 
 interface ProfileScreenProps {
   user: UserAccount;
@@ -169,8 +170,8 @@ Ngày sinh: ${user.dob || "N/A"}
 Giới tính: ${user.gender || "N/A"}
 Địa chỉ: ${user.address || "N/A"}
 
-PHÒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
-- Phòng / Buồng: ${user.room || user.workRoom || "Buồng 1"}
+BUỒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
+- Buồng làm việc: ${formatRoomLabel(user.room || user.workRoom) || "Chưa cập nhật"}
 
 KỸ NĂNG & CHUYÊN MÔN:
 - ${user.skills && user.skills.length > 0 ? user.skills.join("\n- ") : "Kỹ năng chuyên môn, giao tiếp tốt"}

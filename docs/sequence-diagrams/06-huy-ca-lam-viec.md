@@ -6,8 +6,7 @@ Nguồn nghiệp vụ: Use case 2.3 trong [USE-CASE.md](../USE-CASE.md).
 sequenceDiagram
     actor U as CTV
     box LỚP FRONTEND
-        participant UI as Lịch cá nhân
-        participant H as Schedule Feature Hook
+        participant UI as CTVScheduleWorkspace
         participant API as Shared API Client
     end
     box LỚP BACKEND
@@ -18,27 +17,28 @@ sequenceDiagram
         participant DB as SQLite qua Prisma
     end
 
-    U->>UI: Chọn một ca
-    UI->>H: loadShiftDetail(shiftId)
-    H->>API: getShift(shiftId)
-    API->>C: GET /api/v1/shifts/{shiftId}
-    C->>S: getShiftForUser(shiftId, currentUserId)
-    S->>DB: Đọc SHIFT và SHIFT_ASSIGNMENT thuộc currentUserId
-    DB-->>S: ShiftDetail DTO
-    S-->>C: Chi tiết và quyền hủy
-    C-->>API: 200 + data
-    API-->>H: Chi tiết ca
-    H-->>UI: Hiển thị hộp thoại
+    U->>UI: Chọn một ca từ state lịch đã tải
+    UI->>UI: Hiển thị hộp thoại chi tiết ca
 
     U->>UI: Xác nhận phạm vi hủy
     alt Chỉ hủy ca đang chọn
-        UI->>H: cancelOne(assignmentId)
-        H->>API: cancelAssignment(assignmentId)
+        UI->>API: GET /api/v1/users/me/shifts
+        API->>C: getMyShifts()
+        C->>S: listMyShifts(currentUserId, {})
+        S->>DB: Tìm assignmentId khớp ca đang chọn
+        DB-->>S: Danh sách assignment ACTIVE
+        S-->>C: Shift DTOs
+        C-->>API: 200 + data
+        UI->>API: DELETE assignmentId
         API->>C: DELETE /api/v1/users/me/shift-assignments/{assignmentId}
         C->>S: cancelOne(currentUserId, assignmentId)
     else Hủy chuỗi từ ngày đã chọn
-        UI->>H: cancelSeries(registrationId, weekday, period, fromDate)
-        H->>API: cancelSeries(...)
+        UI->>API: GET /api/v1/users/me/schedule-registration
+        API->>C: getMyRegistration()
+        C->>S: getMyRegistration(currentUserId)
+        S->>DB: Đọc registration ACTIVE
+        DB-->>S: registrationId
+        UI->>API: DELETE chuỗi với query filters
         API->>C: DELETE .../{registrationId}/assignments với query filters
         C->>S: cancelSeries(currentUserId, filters)
     end
@@ -47,16 +47,15 @@ sequenceDiagram
     DB-->>S: affectedCount
     S-->>C: Kết quả hủy idempotent
     C-->>API: 200 + affectedCount
-    API-->>H: Kết quả hủy
-    H->>API: getMyShifts(currentFilters)
+    API-->>UI: Kết quả hủy
+    UI->>API: GET /api/v1/users/me/shifts
     API->>C: GET /api/v1/users/me/shifts
     C->>S: listMyShifts(currentUserId, currentFilters)
     S->>DB: Join SHIFT_ASSIGNMENT ACTIVE và SHIFT theo filters
     DB-->>S: Shift DTOs
     S-->>C: Danh sách mới
     C-->>API: 200 + data
-    API-->>H: Lịch đã làm mới
-    H-->>UI: Cập nhật lịch và đóng hộp thoại
+    API-->>UI: Cập nhật lịch và đóng hộp thoại
     UI-->>U: Hiển thị số ca đã hủy
 ```
 
@@ -67,4 +66,4 @@ sequenceDiagram
 - Hủy một ca lọc theo `SHIFT_ASSIGNMENT.id`, `accountId`, `status=ACTIVE` và ngày chưa qua. Hủy chuỗi join `SHIFT`, rồi lọc thêm `registrationId`, `weekday`, `period` và `workDate >= fromDate`.
 - Bản ghi không bị xóa: Service đặt `SHIFT_ASSIGNMENT.status=CANCELLED`, `cancelledAt`, `cancellationReason` và `updatedAt` trong một transaction.
 - Gọi lặp lại cùng yêu cầu trả `200` với `affectedCount=0`; trạng thái cuối không đổi.
-- Lịch tổng hợp của Admin đọc cùng dữ liệu assignment. Prototype cập nhật khi màn hình Admin tải hoặc làm mới, không khẳng định realtime.
+- Lịch tổng hợp của Admin đọc cùng dữ liệu assignment hiện hành và cập nhật ở lần tải/làm mới tiếp theo; lịch sử đã chốt trong `WORK_HISTORY` không bị thao tác hủy tương lai thay đổi.

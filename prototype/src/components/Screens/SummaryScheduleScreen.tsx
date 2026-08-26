@@ -55,6 +55,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const [view, setView] = useState<SummaryView>("week");
   const [calendarDate, setCalendarDate] = useState(today);
   const [shifts, setShifts] = useState<ShiftSlot[]>(initialShifts);
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
 
   // Sync when parent reloads (e.g. after admin toggles status)
   useEffect(() => {
@@ -64,6 +65,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   // Fetch summary for current month when history view navigates
   const fetchMonth = useCallback(async (date: Date) => {
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    setIsLoadingMonth(true);
     try {
       const res: any = await api.apiGet(`/api/v1/schedule-summary?month=${month}`);
       const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
@@ -84,6 +86,8 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       });
     } catch {
       // silent - keep existing shifts
+    } finally {
+      setIsLoadingMonth(false);
     }
   }, []);
 
@@ -331,6 +335,12 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Lịch sử tổng hợp</h3>
               </div>
+              {isLoadingMonth && (
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <span>Đang tải...</span>
+                </div>
+              )}
               <div className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" aria-label="Chuyển tháng">
                 <button type="button" onClick={() => changeMonth(-1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng trước">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
