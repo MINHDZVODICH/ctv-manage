@@ -35,13 +35,15 @@
 
 ## I. Danh sách tác nhân
 
-Hệ thống gồm có 2 tác nhân chính:
+Hệ thống gồm 2 tác nhân sử dụng hệ thống sau đăng nhập và 1 tác nhân khởi tạo yêu cầu đăng ký:
 
-|          |                       |                      |                                                                                                                                  |
-|----------|-----------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| **Mã**   | **Tác nhân**          | **Loại**             | **Mô tả và quyền hạn chính**                                                                                                     |
-| **AC-1** | Quản trị viên (Admin) | Người dùng đặc quyền | Quản lý tài khoản và hồ sơ CTV, duyệt yêu cầu đăng ký và xem lịch làm việc tổng hợp                                            |
-| **AC-2** | Cộng tác viên (CTV)   | Người dùng           | Đăng ký tài khoản và đính kèm hồ sơ, quản lý thông tin cá nhân, đăng ký/cập nhật ca làm việc, xem lịch tuần và lịch sử làm việc. |
+| **Mã**   | **Tác nhân**             | **Loại**                  | **Mô tả và quyền hạn chính**                                                                                         |
+|----------|--------------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------|
+| **AC-1** | Quản trị viên (Admin)    | Người dùng đặc quyền      | Quản lý tài khoản và hồ sơ CTV, duyệt yêu cầu đăng ký, xem lịch làm việc tổng hợp.                                  |
+| **AC-2** | Cộng tác viên (CTV)      | Người dùng                | Quản lý hồ sơ cá nhân, đăng ký/cập nhật lịch làm việc, xem lịch tuần và lịch sử làm việc.                           |
+| **AC-3** | Người đăng ký tài khoản  | Người dùng chưa xác thực  | Nhập thông tin, đính kèm hồ sơ tùy chọn và gửi yêu cầu đăng ký tài khoản CTV để Admin xem xét.                      |
+
+Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố định là Admin hoặc CTV. Giao diện và API phân quyền theo vai trò của phiên đăng nhập; hệ thống không cung cấp chức năng chuyển đổi vai trò.
 
 ## II. Danh sách use case
 
@@ -56,14 +58,14 @@ Hệ thống gồm có 2 tác nhân chính:
 | **1.5**                                              | Kích hoạt/vô hiệu hóa tài khoản   | Cho phép hoặc chặn người dùng truy cập hệ thống thông qua tài khoản                                                    |
 | **1.6**                                              | Xoá tài khoản                     | Admin xóa tài khoản CTV sau bước cảnh báo và xác nhận.                                                                 |
 | **1.7**                                              | Xem thông tin tài khoản           | Admin xem hồ sơ đính kèm, lịch trình CTV và mở thao tác đặt lại mật khẩu; người dùng xem hồ sơ cá nhân của mình.       |
-| **1.8**                                              | Cập nhật thông tin hồ sơ          | Admin/CTV cập nhật thông tin cá nhân, ảnh đại diện, ảnh CCCD và hồ sơ ứng tuyển (CV) được phép chỉnh sửa.              |
+| **1.8**                                              | Cập nhật thông tin hồ sơ          | Admin/CTV cập nhật thông tin cá nhân và tệp hồ sơ của chính mình.                                                       |
 | **1.9**                                              | Đổi/đặt lại mật khẩu              | Người dùng đổi mật khẩu cá nhân; Admin đặt lại mật khẩu mặc định cho CTV.                                              |
 | **1.10**                                             | Duyệt yêu cầu đăng ký tài khoản   | Admin xem, duyệt hoặc từ chối yêu cầu đăng ký đang chờ.                                                                |
 | **Phân hệ 2 – Quản lý lịch trình**                   |                                   |                                                                                                                        |
 | **2.1**                                              | Đăng ký/cập nhật lịch làm việc    | CTV chọn buồng và mẫu ca Sáng/Chiều theo tuần để đăng ký hoặc cập nhật lịch làm việc.                                  |
 | **2.2**                                              | Xem lịch tuần và lịch sử làm việc | CTV xem cùng dữ liệu lịch cá nhân theo tuần hoặc lịch sử theo tháng.                                                   |
 | **2.3**                                              | Xem chi tiết và hủy ca làm việc   | CTV xem chi tiết ca, hủy riêng một ca hoặc hủy chuỗi ca định kỳ trong tương lai.                                       |
-| **2.4**                                              | Xem lịch làm việc tổng hợp        | Admin xem CTV làm việc hôm nay và số lượng CTV theo từng ca trong lịch tháng.                                          |
+| **2.4**                                              | Xem lịch tuần tổng hợp và lịch sử tổng hợp     | Admin xem CTV làm việc hôm nay và lịch tổng hợp theo tuần/tổng hợp lịch sử theo tháng, giống hệt giao diện CTV nhưng mỗi ca hiển thị số lượng CTV và danh sách chi tiết. |
 | **2.5**                                              | Xem chi tiết ca và hồ sơ CTV      | Admin xem danh sách CTV trong ca và mở hồ sơ, CV, lịch trình hoặc ghi chú của từng người.                              |
 
 ## III. Đặc tả chi tiết use case
@@ -139,6 +141,12 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 3, nếu Email hoặc Mật khẩu để trống, hệ thống hiển thị “Vui lòng nhập trường này!” và không thực hiện đăng nhập.
 
+- Thông báo bắt buộc được đặt ngay dưới trường còn thiếu, căn phải và không có nền màu bao quanh.
+
+- Tại bước 3, nếu Email hoặc Mật khẩu không đúng, hệ thống hiển thị “Email hoặc mật khẩu không đúng” ngay dưới tiêu đề Đăng nhập và phía trên biểu mẫu.
+
+- Tại bước 3, nếu tài khoản đã bị vô hiệu hóa, hệ thống hiển thị “Tài khoản đã bị vô hiệu hóa” tại cùng vị trí thông báo đăng nhập thất bại và không tạo phiên đăng nhập.
+
 - Tại bước 3, nếu người dùng nhấn biểu tượng mắt trong trường Mật khẩu, hệ thống chuyển giữa chế độ hiển thị và che ký tự.
 
 - Tại bước 2, nếu người dùng chọn Tạo tài khoản mới, hệ thống chuyển sang luồng đăng ký.
@@ -164,7 +172,7 @@ Hệ thống gồm có 2 tác nhân chính:
 | **Bước** | **Thao tác của tác nhân**                                        | **Phản ứng của hệ thống**                                                               |
 |----------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
 | 1        | Người dùng nhấn khối thông tin tài khoản ở cuối thanh điều hướng |                                                                                         |
-| 2        |                                                                  | Hệ thống mở menu gồm Đổi vai trò, Hồ sơ cá nhân, Cài đặt hệ thống và Đăng xuất.         |
+| 2        |                                                                  | Hệ thống mở menu gồm Hồ sơ cá nhân, Cài đặt hệ thống và Đăng xuất.                      |
 | 3        | Người dùng nhấn Đăng xuất                                        |                                                                                         |
 | 4        |                                                                  | Hệ thống quay về màn hình Đăng nhập và hiển thị thông báo “Đã đăng xuất khỏi hệ thống”. |
 
@@ -176,9 +184,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 *a. Tác nhân chính*
 
-- Cộng tác viên đăng ký mới
-
-- Người dùng chưa có tài khoản hệ thống
+- Người đăng ký tài khoản chưa có tài khoản hệ thống (AC-3)
 
 *b. Điều kiện ban đầu*
 
@@ -235,7 +241,8 @@ Hệ thống gồm có 2 tác nhân chính:
 <tr class="odd">
 <td>5</td>
 <td></td>
-<td><p>Hiển thị “Đang chờ admin duyệt yêu cầu. Vui lòng cập nhật email để nhận thông báo!”.</p>
+<td><p>Hiển thị tiêu đề “Gửi yêu cầu đăng ký thành công!”.</p>
+<p>Hiển thị nội dung “Hồ sơ ứng tuyển và thông tin của bạn đang được Ban Quản trị xem xét phê duyệt. Vui lòng theo dõi email để nhận thông báo kết quả.”.</p>
 <p>Hiển thị dòng đếm ngược tự động chuyển đến trang đăng nhập sau 5 giây.</p></td>
 </tr>
 <tr class="even">
@@ -248,7 +255,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 *e. Các trường hợp khác*
 
-- Tại bước 3, nếu thiếu Họ và tên, Email, Số điện thoại, Mật khẩu hoặc Nhập lại mật khẩu, trường tương ứng hiển thị lỗi bắt buộc. Nếu Email đã tồn tại, hệ thống hiển thị “Email đã có người sử dụng. Vui lòng chọn email khác!”.
+- Tại bước 3, nếu thiếu Họ và tên, Email, Số điện thoại, Mật khẩu hoặc Nhập lại mật khẩu, trường tương ứng hiển thị lỗi bắt buộc. Nếu Email đã tồn tại hoặc đang có yêu cầu chờ duyệt, hệ thống hiển thị “Email đã tồn tại hoặc đang chờ duyệt”.
 
 - Tại bước 3, nếu hai mật khẩu không khớp, trường Nhập lại mật khẩu hiển thị “Mật khẩu phải trùng khớp!”. Ảnh CCCD và CV là tài liệu đính kèm tùy chọn nhưng phải đúng định dạng khi được chọn.
 
@@ -543,9 +550,9 @@ Hệ thống gồm có 2 tác nhân chính:
 
 *a. Tác nhân chính*
 
-- Quản trị viên
+- Quản trị viên, khi cập nhật hồ sơ cá nhân của chính mình
 
-- Cộng tác viên
+- Cộng tác viên, khi cập nhật hồ sơ cá nhân của chính mình
 
 *b. Điều kiện ban đầu*
 
@@ -673,7 +680,7 @@ Hệ thống gồm có 2 tác nhân chính:
 <tr class="even">
 <td>4</td>
 <td></td>
-<td>Với luồng tự đổi, hệ thống kiểm tra mật khẩu hiện tại không trống, mật khẩu mới tối thiểu 6 ký tự và hai mật khẩu mới khớp nhau. Với luồng Admin đặt lại, mật khẩu mặc định mới phải có nội dung.</td>
+<td>Với luồng tự đổi, hệ thống kiểm tra mật khẩu hiện tại không trống, mật khẩu mới tối thiểu 8 ký tự và hai mật khẩu mới khớp nhau. Với luồng Admin đặt lại, mật khẩu mặc định mới phải có ít nhất 8 ký tự.</td>
 </tr>
 <tr class="odd">
 <td>5</td>
@@ -692,7 +699,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 4, nếu Mật khẩu hiện tại để trống, hệ thống hiển thị “Vui lòng nhập mật khẩu hiện tại”.
 
-- Tại bước 4, nếu Mật khẩu mới có dưới 6 ký tự, hệ thống hiển thị “Mật khẩu mới phải có ít nhất 6 ký tự”.
+- Tại bước 4, nếu Mật khẩu mới có dưới 8 ký tự, hệ thống hiển thị “Mật khẩu mới phải có ít nhất 8 ký tự”.
 
 - Tại bước 4, nếu Mật khẩu mới và Xác nhận mật khẩu mới không khớp, hệ thống hiển thị “Mật khẩu xác nhận không khớp”.
 
@@ -801,7 +808,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Cộng tác viên đã đăng nhập
 
-- Cộng tác viên đang ở màn hình Lịch làm việc của tôi
+- Cộng tác viên đang ở màn hình Lịch làm việc
 
 *c. Điều kiện đối với kết quả*
 
@@ -825,7 +832,7 @@ Hệ thống gồm có 2 tác nhân chính:
 <tbody>
 <tr class="odd">
 <td>1</td>
-<td>CTV chọn Lịch làm việc của tôi trên thanh điều hướng</td>
+<td>CTV chọn Lịch làm việc trên thanh điều hướng</td>
 <td></td>
 </tr>
 <tr class="even">
@@ -894,7 +901,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 *b. Điều kiện ban đầu*
 
-- Cộng tác viên đã đăng nhập và có quyền truy cập Lịch làm việc của tôi
+- Cộng tác viên đã đăng nhập và có quyền truy cập Lịch làm việc
 
 *c. Điều kiện đối với kết quả*
 
@@ -904,7 +911,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 | **Bước** | **Thao tác của tác nhân**                            | **Phản ứng của hệ thống**                                                                                                    |
 |----------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| 1        | CTV chọn Lịch làm việc của tôi                       |                                                                                                                              |
+| 1        | CTV chọn Lịch làm việc                               |                                                                                                                              |
 | 2        |                                                      | Hệ thống mặc định hiển thị chế độ Lịch tuần cùng nhãn buồng làm việc hiện tại.                                               |
 | 3        |                                                      | Lưới gồm năm ngày Thứ 2-Thứ 6; ngày hiện tại có nhãn Hôm nay và các ca đã đăng ký hiển thị thẻ tương ứng ở Ca Sáng/Ca Chiều. |
 | 4        | CTV chọn Lịch sử làm việc                            |                                                                                                                              |
@@ -996,7 +1003,7 @@ Hệ thống gồm có 2 tác nhân chính:
 
 - Tại bước 5, nếu CTV chọn Hủy ca định kỳ, hệ thống hủy các ca cùng thứ và cùng buổi từ ngày đang chọn trở đi; các ca trước đó được giữ nguyên.
 
-#### 2.4. Xem lịch làm việc tổng hợp
+#### 2.4. Xem lịch tuần tổng hợp và lịch sử tổng hợp (Admin)
 
 *a. Tác nhân chính*
 
@@ -1008,79 +1015,33 @@ Hệ thống gồm có 2 tác nhân chính:
 
 *c. Điều kiện đối với kết quả*
 
-- Danh sách CTV làm việc hôm nay và lịch tháng tổng thể được hiển thị từ dữ liệu phân công hiện có
+- Danh sách CTV làm việc hôm nay và lịch tổng hợp được hiển thị; giao diện 2 tab giống CTV (Lịch tuần tổng hợp / Lịch sử tổng hợp), khác duy nhất là mỗi ca bấm vào để xem những CTV đi làm hôm đó
 
 *d. Kịch bản thành công chính*
 
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>Quản trị viên chọn Lịch làm việc tổng hợp trên thanh điều hướng</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td><p>Màn hình hiển thị:</p>
-<p>- Dòng tiêu đề Lịch làm việc tổng hợp</p>
-<p>- Khối Danh sách CTV đăng ký hôm nay</p>
-<p>- Ngày hiện tại và tổng số CTV hôm nay</p>
-<p>- Thẻ từng CTV cùng các ca Sáng/Chiều đã đăng ký</p>
-<p>- Khối Lịch Tháng tổng thể</p>
-<p>- Nút Tháng trước và Tháng sau</p>
-<p>- Năm cột Thứ 2-Thứ 6</p>
-<p>- Mỗi ca có dữ liệu hiển thị số lượng CTV</p></td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>Quản trị viên nhấn Tháng trước hoặc Tháng sau</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td></td>
-<td>Hệ thống cập nhật tháng/năm, các ngày trong lưới và số lượng CTV của từng ca.</td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td>Quản trị viên nhấn thẻ CTV hôm nay hoặc thẻ số lượng CTV của một ca</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td></td>
-<td>Hệ thống mở Hồ sơ &amp; Lịch trình tài khoản nếu chọn CTV; hoặc mở Chi tiết ca làm việc nếu chọn một ca trong lịch tháng.</td>
-</tr>
-<tr class="odd">
-<td>7</td>
-<td></td>
-<td>Từ danh sách CTV trong Chi tiết ca làm việc, quản trị viên có thể nhấn Họ tên để tiếp tục mở hồ sơ của người đó.</td>
-</tr>
-</tbody>
-</table>
+| **Bước** | **Thao tác của tác nhân**                                                      | **Phản ứng của hệ thống**                                                                                                            |
+|----------|--------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| 1        | Quản trị viên chọn Lịch làm việc tổng hợp trên thanh điều hướng                |                                                                                                                              |
+| 2        |                                                                                | Hệ thống mặc định hiển thị tab Lịch tuần tổng hợp cùng khối Danh sách CTV đăng ký hôm nay và lưới T2-T6 của tuần hiện tại. |
+| 3        |                                                                                | Mỗi ca có dữ liệu hiển thị số lượng CTV (badge màu vàng/tím); ngày hiện tại có nhãn Hôm nay.                                        |
+| 4        | Quản trị viên chọn tab Lịch sử tổng hợp                                        |                                                                                                                              |
+| 5        |                                                                                | Hệ thống hiển thị lưới tháng Mon-Fri với điều khiển chuyển tháng; chỉ ngày quá khứ (`workDate < today`) có dữ liệu, tương lai để trống. |
+| 6        | Quản trị viên nhấn Tháng trước/Tháng sau                                       |                                                                                                                              |
+| 7        |                                                                                | Hệ thống cập nhật tháng/năm, các ngày trong lưới và số lượng CTV của từng ca (chỉ quá khứ).                                  |
+| 8        | Quản trị viên nhấn thẻ số lượng CTV của một ca (tuần hoặc lịch sử)            |                                                                                                                              |
+| 9        |                                                                                | Hệ thống mở Chi tiết ca làm việc: tên ca, ngày, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Phòng làm việc.             |
+| 10       | Quản trị viên nhấn Họ tên CTV trong Chi tiết ca                                |                                                                                                                              |
+| 11       |                                                                                | Hệ thống đóng Chi tiết ca và mở Hồ sơ & Lịch trình tài khoản của đúng CTV đó.                                              |
 
 *e. Các trường hợp khác*
 
 - Tại bước 2, nếu hôm nay chưa có CTV đăng ký, hệ thống hiển thị “Chưa có CTV nào đăng ký hôm nay”.
 
-- Tại bước 6, nếu ca được chọn chưa có CTV, cửa sổ chi tiết hiển thị trạng thái chưa có người đăng ký.
+- Tại bước 8, nếu ca được chọn chưa có CTV, cửa sổ chi tiết hiển thị “Chưa có CTV nào đăng ký ca làm việc này”.
 
-- Tại bước 3, nếu quản trị viên chuyển tháng, hệ thống cập nhật tiêu đề tháng, các ngày và số lượng CTV tương ứng.
+- Tại bước 5, nếu màn hình hẹp, lưới giữ năm cột Thứ 2-Thứ 6 và cho phép cuộn ngang.
 
-- Tại bước 2, nếu màn hình hẹp, lịch tháng giữ năm cột Thứ 2-Thứ 6 và cho phép cuộn ngang.
+- Lịch tuần tổng hợp và Lịch sử tổng hợp có bố cục tabs/grid/nav giống hệt giao diện Lịch làm việc của CTV (Lịch tuần / Lịch sử làm việc); khác duy nhất là nội dung mỗi ô ca là số CTV + bấm để xem danh sách CTV đi làm.
 
 #### 2.5. Xem chi tiết ca và hồ sơ CTV
 

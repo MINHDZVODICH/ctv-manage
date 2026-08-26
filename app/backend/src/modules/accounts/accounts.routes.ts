@@ -1,23 +1,20 @@
 import { Router } from 'express';
-import { requireRole, requireSession } from '../../middleware/auth.middleware.js';
-import { requireCsrf } from '../../middleware/csrf.middleware.js';
-import { requireAllowedOrigin } from '../../middleware/origin.middleware.js';
-import { AccountsController } from './accounts.controller.js';
-import { AccountsService } from './accounts.service.js';
-import { profileUpload } from './users.routes.js';
+import { auth } from '../../middleware/auth.js';
+import { requireRole } from '../../middleware/requireRole.js';
+import * as controller from './accounts.controller.js';
 
-export function createAccountsRouter(service: AccountsService): Router {
-  const router = Router();
-  const controller = new AccountsController(service);
-  router.use(requireSession, requireRole('ADMIN'));
-  router.get('/', controller.list);
-  router.get('/:accountId', controller.detail);
-  router.patch('/:accountId', requireAllowedOrigin, requireCsrf, controller.update);
-  router.patch('/:accountId/status', requireAllowedOrigin, requireCsrf, controller.updateStatus);
-  router.patch('/:accountId/notes', requireAllowedOrigin, requireCsrf, controller.updateNotes);
-  router.delete('/:accountId', requireAllowedOrigin, requireCsrf, controller.delete);
-  router.post('/:accountId/password-resets', requireAllowedOrigin, requireCsrf, controller.resetPassword);
-  router.put('/:accountId/files/:category', requireAllowedOrigin, requireCsrf, profileUpload, controller.replaceAccountFile);
-  router.delete('/:accountId/files/:category', requireAllowedOrigin, requireCsrf, controller.deleteAccountFile);
-  return router;
-}
+export const accountsRouter = Router();
+
+// All routes require ADMIN
+accountsRouter.use(auth as any);
+accountsRouter.use(requireRole('ADMIN') as any);
+
+accountsRouter.get('/', controller.list as any);
+accountsRouter.get('/:id', controller.getById as any);
+accountsRouter.patch('/:id', controller.patch as any);
+accountsRouter.patch('/:id/notes', controller.patchNotes as any);
+accountsRouter.patch('/:id/status', controller.patchStatus as any);
+accountsRouter.delete('/:id', controller.del as any);
+accountsRouter.post('/:id/password-resets', controller.postPasswordReset as any);
+
+export default accountsRouter;

@@ -22,11 +22,11 @@ sequenceDiagram
     UI->>H: submit(credentials)
     H->>H: Kiểm tra dữ liệu biểu mẫu
     H->>API: createSession(credentials)
-    API->>C: POST /api/v1/auth/sessions
-    C->>C: Parse và validate request
+    API->>C: POST /api/v1/auth/sessions {email, password}
+    C->>C: Parse JSON và validate schema
     C->>S: authenticate(email, password)
-    S->>DB: Tìm tài khoản theo email
-    DB-->>S: Tài khoản và passwordHash
+    S->>DB: SELECT ACCOUNT theo email chuẩn hóa
+    DB-->>S: Account hoặc null
 
     alt Sai thông tin hoặc tài khoản không hoạt động
         S-->>C: INVALID_CREDENTIALS hoặc ACCOUNT_DISABLED
@@ -34,9 +34,9 @@ sequenceDiagram
         API-->>H: Ném lỗi chuẩn hóa
         H-->>UI: Hiển thị thông báo
     else Xác thực thành công
-        S->>S: So khớp mật khẩu và tạo session token
-        S->>DB: Lưu hash token, userId, expiresAt
-        DB-->>S: Session đã tạo
+        S->>S: Verify Argon2id, sinh token ngẫu nhiên và tokenHash
+        S->>DB: Transaction cập nhật login và tạo SESSION
+        DB-->>S: Session {id, expiresAt}
         S-->>C: User DTO và thời hạn session
         C-->>API: 201 + Set-Cookie ctv_session
         API-->>H: User DTO
@@ -48,4 +48,6 @@ sequenceDiagram
 ## Chú thích
 
 - Cookie phiên là `HttpOnly`, `Secure`, `SameSite=Lax`; Frontend không đọc token.
+- Truy vấn tài khoản dùng email đã chuẩn hóa và điều kiện `ACCOUNT.deletedAt IS NULL`; chỉ `ACCOUNT.status = ACTIVE` được đăng nhập.
+- Transaction thành công cập nhật `ACCOUNT.lastLoginAt` và tạo `SESSION(accountId, tokenHash, expiresAt, ipAddress, userAgent)`. Database không lưu token gốc.
 - Thông báo sai email và sai mật khẩu dùng cùng một lỗi để tránh tiết lộ tài khoản tồn tại.

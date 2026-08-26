@@ -1,163 +1,134 @@
-import type { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
-import type { AuthLocals } from '../../middleware/auth.middleware.js';
-import { ApiError } from '../../shared/api-error.js';
-import type { StageFileInput } from '../../shared/file-storage.js';
-import {
-  accountFileParamsSchema,
-  accountIdParamsSchema,
-  accountListQuerySchema,
-  accountNotesSchema,
-  accountStatusSchema,
-  accountUpdateSchema,
-  passwordChangeSchema,
-  passwordResetSchema,
-  selfFileParamsSchema,
-} from './accounts.schemas.js';
-import { AccountsService, fileCategoryFromSlug } from './accounts.service.js';
+import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import * as accountsService from './accounts.service.js';
 
-export class AccountsController {
-  constructor(private readonly service: AccountsService) {}
+// ---------------------------------------------------------------------------
+// zod schemas
+// ---------------------------------------------------------------------------
 
-  list = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const result = await this.service.list(accountListQuerySchema.parse(request.query));
-      response.status(200).json({
-        data: result.items,
-        meta: { page: result.page, pageSize: result.pageSize, total: result.total },
-      });
-    } catch (error) { next(validationError(error)); }
-  };
+const listQuerySchema = z.object({
+  q: z.string().optional(),
+  status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
 
-  detail = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.detail(accountId) });
-    } catch (error) { next(validationError(error)); }
-  };
+const idParamSchema = z.object({
+  id: z.string().min(1),
+});
 
-  me = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      response.status(200).json({ data: await this.service.me(actor(response).id) });
-    } catch (error) { next(error); }
-  };
+const patchBodySchema = z.object({
+  displayName: z.string().min(1).optional(),
+  phone: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  gender: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  expectedVersion: z.number().int().optional(),
+});
 
-  update = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.update(accountId, accountUpdateSchema.parse(request.body)) });
-    } catch (error) { next(validationError(error)); }
-  };
+const patchNotesBodySchema = z.object({
+  adminNotes: z.string().nullable(),
+  expectedVersion: z.number().int().optional(),
+});
 
-  updateMe = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      response.status(200).json({ data: await this.service.update(
-        actor(response).id,
-        accountUpdateSchema.parse(request.body),
-        true,
-      ) });
-    } catch (error) { next(validationError(error)); }
-  };
+const patchStatusBodySchema = z.object({
+  status: z.enum(['ACTIVE', 'DISABLED']),
+  expectedVersion: z.number().int().optional(),
+});
 
-  updateStatus = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.updateStatus(accountId, accountStatusSchema.parse(request.body)) });
-    } catch (error) { next(validationError(error)); }
-  };
+const passwordResetBodySchema = z.object({
+  newPassword: z.string().min(8),
+  mustChangePassword: z.boolean().optional(),
+});
 
-  updateNotes = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.updateNotes(accountId, accountNotesSchema.parse(request.body)) });
-    } catch (error) { next(validationError(error)); }
-  };
+// ---------------------------------------------------------------------------
+// handlers
+// ---------------------------------------------------------------------------
 
-  delete = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      await this.service.softDelete(accountId);
-      response.status(204).end();
-    } catch (error) { next(validationError(error)); }
-  };
-
-  changePassword = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      response.status(200).json({ data: await this.service.changePassword(
-        actor(response).id,
-        passwordChangeSchema.parse(request.body),
-      ) });
-    } catch (error) { next(validationError(error)); }
-  };
-
-  resetPassword = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId } = accountIdParamsSchema.parse(request.params);
-      const result = await this.service.resetPassword(
-        accountId,
-        actor(response).id,
-        request.get('idempotency-key') ?? '',
-        passwordResetSchema.parse(request.body),
-      );
-      response.status(result.statusCode).json(result.body);
-    } catch (error) { next(validationError(error)); }
-  };
-
-  replaceMyFile = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { category } = selfFileParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.replaceFile(
-        actor(response).id,
-        uploadInput(request, fileCategoryFromSlug(category)),
-      ) });
-    } catch (error) { next(validationError(error)); }
-  };
-
-  replaceAccountFile = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId, category } = accountFileParamsSchema.parse(request.params);
-      response.status(200).json({ data: await this.service.replaceFile(
-        accountId,
-        uploadInput(request, fileCategoryFromSlug(category)),
-        true,
-      ) });
-    } catch (error) { next(validationError(error)); }
-  };
-
-  deleteMyFile = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { category } = selfFileParamsSchema.parse(request.params);
-      await this.service.deleteFile(actor(response).id, fileCategoryFromSlug(category));
-      response.status(204).end();
-    } catch (error) { next(validationError(error)); }
-  };
-
-  deleteAccountFile = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { accountId, category } = accountFileParamsSchema.parse(request.params);
-      await this.service.deleteFile(accountId, fileCategoryFromSlug(category), true);
-      response.status(204).end();
-    } catch (error) { next(validationError(error)); }
-  };
+export async function list(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = listQuerySchema.parse(req.query);
+    const result = await accountsService.listAccounts({
+      q: query.q,
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 5;
+    res.json({ data: result.data, total: result.total, page, pageSize });
+  } catch (e) {
+    next(e);
+  }
 }
 
-function actor(response: Response) {
-  const account = (response.locals as AuthLocals).auth?.account;
-  if (!account) throw new ApiError(401, 'AUTHENTICATION_REQUIRED', 'A valid session is required.');
-  return account;
+export async function getById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const account = await accountsService.getAccount(id);
+    res.json({ data: account });
+  } catch (e) {
+    next(e);
+  }
 }
 
-function uploadInput(request: Request, category: StageFileInput['category']): StageFileInput {
-  if (!request.file) throw new ApiError(422, 'VALIDATION_FAILED', 'The multipart file part is required.');
-  return {
-    category,
-    originalName: request.file.originalname,
-    mimeType: request.file.mimetype,
-    buffer: request.file.buffer,
-  };
+export async function patch(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const body = patchBodySchema.parse(req.body);
+    const result = await accountsService.updateAccount(id, {
+      displayName: body.displayName,
+      phone: body.phone,
+      dateOfBirth: body.dateOfBirth as any,
+      gender: body.gender,
+      address: body.address,
+      expectedVersion: body.expectedVersion,
+    });
+    res.json({ data: result });
+  } catch (e) {
+    next(e);
+  }
 }
 
-function validationError(error: unknown): unknown {
-  if (!(error instanceof ZodError)) return error;
-  return new ApiError(422, 'VALIDATION_FAILED', 'Request validation failed.', error.flatten());
+export async function patchNotes(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const body = patchNotesBodySchema.parse(req.body);
+    const result = await accountsService.updateNotes(id, body.adminNotes, body.expectedVersion);
+    res.json({ data: result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function patchStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const body = patchStatusBodySchema.parse(req.body);
+    const result = await accountsService.changeStatus(id, body.status, body.expectedVersion);
+    res.json({ data: result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function del(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const result = await accountsService.softDelete(id);
+    res.json({ data: result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function postPasswordReset(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idParamSchema.parse(req.params);
+    const body = passwordResetBodySchema.parse(req.body);
+    const result = await accountsService.resetPassword(id, body.newPassword, body.mustChangePassword);
+    res.json({ data: result });
+  } catch (e) {
+    next(e);
+  }
 }

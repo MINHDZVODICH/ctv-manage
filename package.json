@@ -11,7 +11,10 @@
     "dev:api": "npm.cmd run dev --workspace=app/backend",
     "dev:web": "npm.cmd run dev --workspace=app/frontend",
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue.bold,green.bold\" \"npm.cmd run dev:backend\" \"npm.cmd run dev:frontend\"",
-    "test": "npm.cmd run test --workspaces",
+    "test": "npm.cmd run test:api && npm.cmd run test:e2e",
+    "test:api": "npm.cmd run test --workspace=app/backend",
+    "test:e2e": "npm.cmd run test:e2e --workspace=app/frontend",
+    "test:acceptance": "npm.cmd run typecheck && npm.cmd run build && npm.cmd run test:api && npm.cmd run test:e2e",
     "build": "npm.cmd run build --workspaces",
     "typecheck": "npm.cmd run typecheck --workspaces",
     "prisma:generate": "npm.cmd run prisma:generate --workspace=app/backend",
@@ -19,6 +22,10 @@
     "prisma:seed": "npm.cmd run prisma:seed --workspace=app/backend"
   },
   "devDependencies": {
+    "@types/multer": "^2.2.0",
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "multer": "^2.2.0"
   }
 }

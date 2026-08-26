@@ -1,41 +1,43 @@
 {
-  "name": "@ctv-manage/backend",
+  "name": "backend",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
-    "test": "vitest run --no-file-parallelism",
-    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "prisma db seed"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "acceptance:seed": "npm.cmd run test:prepare && tsx scripts/acceptance-seed.ts",
+    "acceptance:serve": "npm.cmd run acceptance:seed && tsx src/main.ts",
+    "test:prepare": "set DATABASE_URL=file:./acceptance.db&& prisma db push --force-reset --skip-generate",
+    "test": "npm.cmd run test:prepare && set DATABASE_URL=file:./acceptance.db&& set FILE_STORAGE_ROOT=.acceptance-uploads&& set NODE_ENV=test&& vitest run --no-file-parallelism"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
-    "argon2": "^0.45.1",
+    "argon2": "^0.41.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "multer": "^2.2.0",
     "pino": "^9.6.0",
-    "pino-http": "^10.3.0",
-    "zod": "^3.24.2"
+    "prisma": "^6.4.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1",
-    "@types/multer": "^1.4.12",
-    "@types/node": "^22.13.10",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.14.0",
     "@types/supertest": "^6.0.2",
-    "prisma": "^6.4.1",
     "supertest": "^7.0.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.8"
+    "typescript": "~5.8.2",
+    "vitest": "^3.2.6"
   }
 }

@@ -1,36 +1,18 @@
 import { Router } from 'express';
-import { createHash } from 'node:crypto';
-import { sessionMiddleware } from '../../middleware/auth.middleware.js';
-import { csrfMiddleware } from '../../middleware/csrf.middleware.js';
-import { createRateLimitMiddleware } from '../../middleware/rate-limit.middleware.js';
-import { requireAllowedOrigin } from '../../middleware/origin.middleware.js';
-import { AuthController } from './auth.controller.js';
-import { authService } from './auth.service.js';
+import * as authController from './auth.controller.js';
+import { auth } from '../../middleware/auth.js';
 
-export function createAuthRouter(): Router {
-  const router = Router();
-  const controller = new AuthController(authService);
-  const loginRateLimit = createRateLimitMiddleware({
-    max: 5,
-    maxKeys: 10_000,
-    windowMs: 15 * 60 * 1000,
-    key: (request) => {
-      const ipAddress = (request.ip ?? 'unknown').slice(0, 64);
-      const normalizedEmail = String(request.body?.email ?? '').trim().toLowerCase().slice(0, 320);
-      const emailHash = createHash('sha256').update(normalizedEmail).digest('hex');
-      return `${ipAddress}:${emailHash}`;
-    },
-  });
+const router = Router();
 
-  router.post('/sessions', requireAllowedOrigin, loginRateLimit, controller.createSession);
-  router.get('/sessions/current', sessionMiddleware(authService), controller.currentSession);
-  router.get('/csrf-token', sessionMiddleware(authService), controller.csrfToken);
-  router.delete(
-    '/sessions/current',
-    sessionMiddleware(authService, true),
-    csrfMiddleware(true),
-    controller.deleteCurrentSession,
-  );
+// POST /  -> login  (mounted at /api/v1/auth/sessions)
+router.post('/', authController.login);
 
-  return router;
-}
+// DELETE /current -> logout
+router.delete('/current', authController.logout);
+
+// GET /me -> current user (mounted at /api/v1/users/me or /api/v1/auth/sessions/me)
+// When mounted under /api/v1/auth/sessions this serves /api/v1/auth/sessions/me
+// When mounted under /api/v1/users this serves /api/v1/users/me
+router.get('/me', auth, authController.getMe);
+
+export default router;

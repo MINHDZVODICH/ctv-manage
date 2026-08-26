@@ -23,8 +23,8 @@ sequenceDiagram
     H->>API: getMyScheduleRegistration()
     API->>C: GET /api/v1/users/me/schedule-registration
     C->>S: getRegistration(currentUserId)
-    S->>DB: Đọc mẫu lịch và version
-    DB-->>S: Registration hoặc không có
+    S->>DB: Đọc SCHEDULE_REGISTRATION ACTIVE và SCHEDULE_PATTERN_SLOT
+    DB-->>S: Registration hiện hành hoặc null
     S-->>C: ScheduleRegistration DTO
     C-->>API: 200 + data
     API-->>H: Dữ liệu biểu mẫu
@@ -32,13 +32,13 @@ sequenceDiagram
 
     U->>UI: Chọn Buồng 1-4, thời gian và ca
     UI->>H: saveScheduleRegistration(form)
-    H->>H: Kiểm tra ngày và ít nhất một slot
+    H->>H: Kiểm tra roomCode và ít nhất một slot
     H->>API: putMyScheduleRegistration(payload)
     API->>C: PUT /api/v1/users/me/schedule-registration
+    C->>C: Validate roomCode, slots và expectedVersion
     C->>S: upsertRegistration(currentUserId, payload)
-    S->>S: Kiểm tra roomCode cố định và period hợp lệ
-    S->>S: Sinh danh sách ngày-ca từ mẫu tuần
-    S->>DB: Transaction kiểm tra version và upsert assignments
+    S->>S: Tính khoảng áp dụng và sinh danh sách ngày-ca
+    S->>DB: Transaction đồng bộ registration, slots, SHIFT và assignment
 
     alt Version đã thay đổi
         DB-->>S: Xung đột phiên bản
@@ -47,14 +47,14 @@ sequenceDiagram
         API-->>H: Yêu cầu tải lại dữ liệu
         H-->>UI: Cảnh báo dữ liệu đã thay đổi
     else Lưu thành công
-        DB-->>S: Registration, version mới và shifts
+        DB-->>S: Registration, version mới và assignments
         S-->>C: ScheduleRegistration DTO
         C-->>API: 200 + data
         API-->>H: Mẫu lịch đã lưu
         H->>API: getMyShifts(filters)
         API->>C: GET /api/v1/users/me/shifts
         C->>S: listMyShifts(currentUserId, filters)
-        S->>DB: Đọc assignments đang hoạt động
+        S->>DB: Join SHIFT_ASSIGNMENT ACTIVE và SHIFT theo filters
         DB-->>S: Danh sách ca
         S-->>C: Shift DTOs
         C-->>API: 200 + data
@@ -68,4 +68,6 @@ sequenceDiagram
 
 - `roomCode` chỉ nhận `ROOM_1` đến `ROOM_4`; không có API hay bảng quản trị phòng.
 - `period` chỉ nhận `MORNING` hoặc `AFTERNOON`; ngày truyền theo `YYYY-MM-DD`.
-- `version` bảo vệ cập nhật đồng thời. Frontend phải tải lại thay vì tự ghi đè khi nhận `409`.
+- Payload từ Frontend gồm `roomCode`, `slots[{weekday, period}]` và `expectedVersion`; khi tạo mới, `expectedVersion` là `null`. Service tự tính `startDate`, `endDate` và lưu `timeZone=Asia/Bangkok` theo cấu hình hệ thống.
+- Trước khi đọc hoặc lưu, Service chuyển registration `ACTIVE` có `endDate` đã qua sang `EXPIRED`. Transaction chỉ cho phép một registration `ACTIVE` trên mỗi `accountId`, thay toàn bộ `SCHEDULE_PATTERN_SLOT`, upsert `SHIFT(workDate, period)`, upsert assignment mong muốn và chuyển assignment tương lai không còn trong mẫu sang `CANCELLED`.
+- Khi cập nhật, điều kiện `id + version + status=ACTIVE` phải khớp và `version` tăng một. Frontend tải lại thay vì ghi đè khi nhận `409 VERSION_CONFLICT`.

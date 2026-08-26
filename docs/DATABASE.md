@@ -17,6 +17,7 @@ erDiagram
         string passwordHash
         string role
         string status
+        int version
         boolean mustChangePassword
         string displayName
         string phone
@@ -93,15 +94,16 @@ erDiagram
 
 | Trường | Giá trị hợp lệ |
 |---|---|
+| `ACCOUNT.email`, `REGISTRATION_REQUEST.email` | Chuẩn hóa trim và lowercase trước khi lưu |
 | `ACCOUNT.role` | `ADMIN`, `CTV` |
 | `ACCOUNT.status` | `ACTIVE`, `DISABLED` |
+| `ACCOUNT.version` | Bắt đầu từ `1`, tăng sau mỗi lần cập nhật có kiểm soát đồng thời |
 | `REGISTRATION_REQUEST.status` | `PENDING`, `APPROVED`, `REJECTED` |
+| `REGISTRATION_REQUEST.passwordHash` | Bắt buộc khi `PENDING`; đặt `NULL` ngay khi hồ sơ được duyệt hoặc từ chối |
 | `FILE_ASSET.state` | `STAGED`, `ACTIVE`, `QUARANTINED`, `DELETED` |
 | File category | `AVATAR`, `CCCD_FRONT`, `CCCD_BACK`, `CV` |
 
-## 2 Lịch làm việc
-
-Một `SHIFT` biểu diễn một ca dùng chung theo ngày và buổi. CTV tham gia ca qua `SHIFT_ASSIGNMENT`; phòng làm việc nằm trên assignment vì các CTV trong cùng ngày/buổi có thể chọn buồng khác nhau.
+## 2. Lịch làm việc
 
 ```mermaid
 erDiagram
@@ -118,7 +120,6 @@ erDiagram
         date endDate
         string timeZone
         string roomCode
-        string workContent
         int version
         string status
         datetime createdAt
@@ -136,7 +137,6 @@ erDiagram
         string id PK
         date workDate
         string period
-        string status
         datetime createdAt
         datetime updatedAt
     }
@@ -147,7 +147,6 @@ erDiagram
         string accountId FK
         string registrationId FK
         string roomCode
-        string workContent
         string status
         datetime assignedAt
         datetime cancelledAt
@@ -163,44 +162,25 @@ erDiagram
 | `period` | `MORNING`, `AFTERNOON` |
 | `weekday` | `1` đến `5`, tương ứng Thứ 2 đến Thứ 6 |
 | `roomCode` | `ROOM_1`, `ROOM_2`, `ROOM_3`, `ROOM_4` |
+| `timeZone` | IANA time zone; phiên bản hiện tại dùng `Asia/Bangkok` |
 | `SCHEDULE_REGISTRATION.status` | `ACTIVE`, `CANCELLED`, `EXPIRED` |
-| `SHIFT.status` | `OPEN`, `CLOSED`, `CANCELLED` |
 | `SHIFT_ASSIGNMENT.status` | `ACTIVE`, `CANCELLED` |
 | `SCHEDULE_REGISTRATION` | `endDate >= startDate`, `version >= 1` |
+| `SCHEDULE_REGISTRATION` | Tối đa một bản ghi `ACTIVE` cho mỗi `accountId` |
 | `SCHEDULE_PATTERN_SLOT` | unique `(registrationId, weekday, period)` |
 | `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)` và `(registrationId, shiftId)` |
 
-## 3. Thông báo
-
-```mermaid
-erDiagram
-    ACCOUNT ||--o{ NOTIFICATION : "nhận"
-
-    NOTIFICATION {
-        string id PK
-        string accountId FK
-        string type
-        string title
-        string message
-        string sourceType
-        string sourceId
-        datetime readAt
-        datetime createdAt
-    }
-
-```
-
-## 4. Index
+## 3. Index
 
 | Bảng | Index |
 |---|---|
 | `ACCOUNT` | unique `email`; unique nullable `ctvCode`; `(status, deletedAt)` |
 | `SESSION` | unique `tokenHash`; `(accountId, revokedAt, expiresAt)`; `expiresAt` |
-| `REGISTRATION_REQUEST` | `(status, submittedAt DESC)`; `email`; `(reviewedById, reviewedAt)` |
+| `REGISTRATION_REQUEST` | unique `(email)` khi `status = PENDING`; `(status, submittedAt DESC)`; `email`; `(reviewedById, reviewedAt)` |
+| `REGISTRATION_REQUEST_FILE` | unique `(requestId, category)` |
 | `FILE_ASSET` | unique `storageKey`; `(state, createdAt)`; `sha256` |
-| `ACCOUNT_FILE` | `(accountId, category, deletedAt)` |
-| `SCHEDULE_REGISTRATION` | `(accountId, status, startDate, endDate)` |
-| `SHIFT` | unique `(workDate, period)`; `(workDate, status)` |
+| `ACCOUNT_FILE` | unique `(accountId, category)` khi `deletedAt IS NULL`; `(accountId, category, deletedAt)` |
+| `SCHEDULE_REGISTRATION` | unique `(accountId)` khi `status = ACTIVE`; `(accountId, status, startDate, endDate)` |
+| `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)`; unique `(registrationId, shiftId)`; `(accountId, status)`; `(registrationId, status)` |
-| `NOTIFICATION` | `(accountId, readAt, createdAt DESC)` |

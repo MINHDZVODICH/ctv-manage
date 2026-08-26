@@ -7,154 +7,96 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum AccountRole {
-  ADMIN
-  CTV
-}
-
-enum AccountStatus {
-  ACTIVE
-  DISABLED
-}
-
-enum RegistrationRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum FileAssetState {
-  STAGED
-  ACTIVE
-  QUARANTINED
-  DELETED
-}
-
-enum FileCategory {
-  AVATAR
-  CCCD_FRONT
-  CCCD_BACK
-  CV
-}
-
-enum IdempotencyRecordStatus {
-  IN_PROGRESS
-  COMPLETED
-}
-
-enum ShiftPeriod {
-  MORNING
-  AFTERNOON
-}
-
-enum RoomCode {
-  ROOM_1
-  ROOM_2
-  ROOM_3
-  ROOM_4
-}
-
-enum ScheduleRegistrationStatus {
-  ACTIVE
-  CANCELLED
-  EXPIRED
-}
-
-enum ShiftStatus {
-  OPEN
-  CLOSED
-  CANCELLED
-}
-
-enum ShiftAssignmentStatus {
-  ACTIVE
-  CANCELLED
-}
+// Enums represented as Strings with constraints in application layer (SQLite has no native enum)
 
 model Account {
-  id                     String   @id @default(cuid())
-  email                  String   @unique
-  passwordHash           String
-  role                   AccountRole
-  status                 AccountStatus @default(ACTIVE)
-  mustChangePassword     Boolean  @default(true)
-  displayName            String
-  phone                  String?
-  ctvCode                String?  @unique
-  dateOfBirth            DateTime?
-  gender                 String?
-  address                String?
-  adminNotes             String?
-  version                Int      @default(1)
-  joinedAt               DateTime?
-  lastLoginAt            DateTime?
-  passwordChangedAt      DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  deletedAt              DateTime?
-  sessions               Session[]
-  accountFiles           AccountFile[]
-  scheduleRegistrations  ScheduleRegistration[]
-  shiftAssignments       ShiftAssignment[]
-  notifications          Notification[]
-  reviewedRequests       RegistrationRequest[] @relation("ReviewedRequests")
-  approvedRequests       RegistrationRequest[] @relation("ApprovedAccounts")
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  role                String // ADMIN | CTV
+  status              String // ACTIVE | DISABLED
+  version             Int       @default(1)
+  mustChangePassword  Boolean   @default(false)
+  displayName         String
+  phone               String?
+  ctvCode             String?   @unique
+  dateOfBirth         DateTime?
+  gender              String?
+  address             String?
+  adminNotes          String?
+  joinedAt            DateTime  @default(now())
+  lastLoginAt         DateTime?
+  passwordChangedAt   DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  sessions              Session[]
+  accountFiles          AccountFile[]
+  scheduleRegistrations ScheduleRegistration[]
+  shiftAssignments      ShiftAssignment[]
+  reviewedRequests      RegistrationRequest[] @relation("ReviewedBy")
+  approvedRequests      RegistrationRequest[] @relation("ApprovedAccount")
 
   @@index([status, deletedAt])
 }
 
 model Session {
-  id          String   @id @default(cuid())
-  accountId   String
-  tokenHash   String   @unique
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-  account     Account  @relation(fields: [accountId], references: [id])
+  id        String    @id @default(cuid())
+  accountId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, revokedAt, expiresAt])
   @@index([expiresAt])
 }
 
 model RegistrationRequest {
-  id                String                    @id @default(cuid())
-  email             String
-  passwordHash      String
-  displayName       String
-  phone             String?
-  dateOfBirth       DateTime?
-  gender            String?
-  address           String?
-  status            RegistrationRequestStatus @default(PENDING)
-  rejectionReason   String?
-  reviewedById      String?
-  approvedAccountId String?                   @unique
-  submittedAt       DateTime                  @default(now())
-  reviewedAt        DateTime?
-  updatedAt         DateTime                  @updatedAt
-  reviewedBy        Account?                  @relation("ReviewedRequests", fields: [reviewedById], references: [id])
-  approvedAccount   Account?                  @relation("ApprovedAccounts", fields: [approvedAccountId], references: [id])
-  files             RegistrationRequestFile[]
+  id                 String    @id @default(cuid())
+  email              String
+  passwordHash       String?
+  displayName        String
+  phone              String?
+  dateOfBirth        DateTime?
+  gender             String?
+  address            String?
+  status             String // PENDING | APPROVED | REJECTED
+  rejectionReason    String?
+  reviewedById       String?
+  approvedAccountId  String?
+  submittedAt        DateTime  @default(now())
+  reviewedAt         DateTime?
+  updatedAt          DateTime  @updatedAt
 
-  @@index([status, submittedAt])
+  reviewedBy      Account? @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  approvedAccount Account? @relation("ApprovedAccount", fields: [approvedAccountId], references: [id])
+
+  files RegistrationRequestFile[]
+
+  @@index([status, submittedAt(sort: Desc)])
   @@index([email])
   @@index([reviewedById, reviewedAt])
 }
 
 model FileAsset {
-  id                   String                    @id @default(cuid())
-  storageKey           String                    @unique
-  originalName         String
-  mimeType             String
-  sizeBytes            Int
-  sha256               String
-  state                FileAssetState            @default(STAGED)
-  createdAt            DateTime                  @default(now())
-  deletedAt            DateTime?
-  registrationFiles    RegistrationRequestFile[]
-  accountFiles         AccountFile[]
+  id           String    @id @default(cuid())
+  storageKey   String    @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String?
+  state        String // STAGED | ACTIVE | QUARANTINED | DELETED
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  registrationFiles RegistrationRequestFile[]
+  accountFiles      AccountFile[]
 
   @@index([state, createdAt])
   @@index([sha256])
@@ -163,121 +105,89 @@ model FileAsset {
 model RegistrationRequestFile {
   requestId String
   fileId    String
-  category  FileCategory
+  category  String // AVATAR | CCCD_FRONT | CCCD_BACK | CV
+
   request   RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  file      FileAsset           @relation(fields: [fileId], references: [id])
+  fileAsset FileAsset           @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@id([requestId, fileId])
+  @@unique([requestId, category])
 }
 
 model AccountFile {
-  accountId  String
-  fileId     String
-  category   FileCategory
-  createdAt  DateTime @default(now())
-  deletedAt  DateTime?
-  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  file       FileAsset @relation(fields: [fileId], references: [id])
+  accountId String
+  fileId    String
+  category  String // AVATAR | CCCD_FRONT | CCCD_BACK | CV
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  fileAsset FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@id([accountId, fileId])
   @@index([accountId, category, deletedAt])
 }
 
 model ScheduleRegistration {
-  id          String                     @id @default(cuid())
-  accountId   String
-  startDate   DateTime
-  endDate     DateTime
-  timeZone    String
-  roomCode    RoomCode
-  workContent String
-  version     Int                        @default(1)
-  status      ScheduleRegistrationStatus @default(ACTIVE)
-  createdAt   DateTime                   @default(now())
-  updatedAt   DateTime                   @updatedAt
+  id         String    @id @default(cuid())
+  accountId  String
+  startDate  DateTime 
+  endDate    DateTime 
+  timeZone   String    @default("Asia/Bangkok")
+  roomCode   String // ROOM_1..4
+  version    Int       @default(1)
+  status     String // ACTIVE | CANCELLED | EXPIRED
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   cancelledAt DateTime?
-  account     Account                    @relation(fields: [accountId], references: [id])
+
+  account     Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
   patternSlots SchedulePatternSlot[]
-  assignments ShiftAssignment[]
+  assignments  ShiftAssignment[]
 
   @@index([accountId, status, startDate, endDate])
 }
 
 model SchedulePatternSlot {
   registrationId String
-  weekday        Int
-  period         ShiftPeriod
-  registration   ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  weekday        Int // 1..5
+  period         String // MORNING | AFTERNOON
+
+  registration ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
   @@id([registrationId, weekday, period])
 }
 
 model Shift {
-  id          String      @id @default(cuid())
-  workDate    DateTime
-  period      ShiftPeriod
-  status      ShiftStatus @default(OPEN)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        String   @id @default(cuid())
+  workDate  DateTime
+  period    String // MORNING | AFTERNOON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   assignments ShiftAssignment[]
 
   @@unique([workDate, period])
-  @@index([workDate, status])
 }
 
 model ShiftAssignment {
-  id                 String                @id @default(cuid())
-  shiftId            String
-  accountId          String
-  registrationId     String
-  roomCode           RoomCode
-  workContent        String
-  status             ShiftAssignmentStatus @default(ACTIVE)
-  assignedAt         DateTime              @default(now())
-  cancelledAt        DateTime?
+  id               String    @id @default(cuid())
+  shiftId          String
+  accountId        String
+  registrationId   String
+  roomCode         String
+  status           String // ACTIVE | CANCELLED
+  assignedAt       DateTime  @default(now())
+  cancelledAt      DateTime?
   cancellationReason String?
-  updatedAt          DateTime              @updatedAt
-  shift              Shift                 @relation(fields: [shiftId], references: [id])
-  account            Account               @relation(fields: [accountId], references: [id])
-  registration       ScheduleRegistration  @relation(fields: [registrationId], references: [id])
+  updatedAt        DateTime  @updatedAt
+
+  shift        Shift                @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  account      Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  registration ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
   @@unique([shiftId, accountId])
   @@unique([registrationId, shiftId])
   @@index([accountId, status])
   @@index([registrationId, status])
-}
-
-model Notification {
-  id         String   @id @default(cuid())
-  accountId  String
-  type       String
-  title      String
-  message    String
-  sourceType String?
-  sourceId   String?
-  readAt     DateTime?
-  createdAt  DateTime @default(now())
-  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId, readAt, createdAt])
-}
-
-model IdempotencyRecord {
-  id             String   @id @default(cuid())
-  scope          String
-  fingerprintHash String
-  keyHash        String
-  requestHash    String
-  status         IdempotencyRecordStatus @default(IN_PROGRESS)
-  resourceId     String?
-  responseStatus Int?
-  responseBody   String?
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([scope, fingerprintHash, keyHash])
-  @@index([expiresAt])
-  @@index([status, updatedAt])
-  @@index([resourceId])
 }

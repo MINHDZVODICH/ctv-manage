@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    cacheDir: 'node_modules/.vite-cache',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

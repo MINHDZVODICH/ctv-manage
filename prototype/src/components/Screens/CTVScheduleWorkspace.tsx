@@ -694,7 +694,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     <div className="space-y-5 pb-8">
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-blue-50/70 p-4 shadow-sm dark:border-slate-700 dark:from-[#25262b] dark:via-[#25262b] dark:to-blue-950/25">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-accent">
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
               calendar_month
             </span>
@@ -703,7 +703,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           <button
             type="button"
             onClick={openRegistration}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors duration-200 hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto dark:focus-visible:ring-offset-slate-900"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent hover:bg-accent-hover px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto dark:focus-visible:ring-offset-slate-900"
           >
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
               edit_calendar
@@ -728,7 +728,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 aria-pressed={calendarView === view}
                 className={`min-h-11 rounded-lg px-4 text-xs font-bold transition-colors duration-200 ${
                   calendarView === view
-                    ? "bg-blue-700 text-white shadow-sm"
+                    ? "bg-accent text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
@@ -740,7 +740,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-2xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
               <span
-                className="material-symbols-outlined text-[18px] text-blue-600 dark:text-blue-400"
+                className="material-symbols-outlined text-[18px] text-accent"
                 aria-hidden="true"
               >
                 door_front
@@ -754,7 +754,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           <div className="space-y-4 p-4 sm:p-5">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <span
-                className="material-symbols-outlined text-[22px] text-blue-700 dark:text-blue-300"
+                className="material-symbols-outlined text-[22px] text-accent"
                 aria-hidden="true"
               >
                 calendar_view_week
@@ -763,30 +763,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <div className="min-w-[650px] space-y-3">
+              <div className="min-w-[700px] space-y-3">
                 {/* Header: THỨ 2, THỨ 3, THỨ 4, THỨ 5, THỨ 6 */}
                 <div className="grid grid-cols-5 gap-3">
-                  {WEEKDAYS.map((weekday, index) => {
-                    const date = weekDays[index];
-                    const isToday = toISODate(date) === todayISO;
-                    return (
-                      <div
-                        key={weekday.index}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
-                          isToday
-                            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                            : "bg-slate-100/90 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        }`}
-                      >
-                        <span>{weekday.label}</span>
-                        {isToday && (
-                          <span className="rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white normal-case tracking-normal">
-                            Hôm nay
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {WEEKDAYS.map((weekday) => (
+                    <div
+                      key={weekday.index}
+                      className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <span>{weekday.label}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Day Cards */}
@@ -800,10 +787,10 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     return (
                       <div
                         key={dateISO}
-                        className={`rounded-2xl border-2 bg-white p-3 min-h-[104px] shadow-2xs transition-colors dark:bg-slate-900 ${
+                        className={`rounded-2xl border-2 p-3 min-h-[110px] shadow-2xs transition-colors ${
                           isToday
-                            ? "border-blue-600 dark:border-blue-400"
-                            : "border-slate-200 dark:border-slate-800"
+                            ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25"
+                            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                         }`}
                       >
                         <div className="space-y-2">
@@ -843,11 +830,11 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             </div>
           </div>
         ) : (
-          <div className="space-y-4 p-5">
+          <div className="space-y-4 p-4 sm:p-5">
             <div className="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <span
-                  className="material-symbols-outlined text-[22px] text-blue-700 dark:text-blue-300"
+                  className="material-symbols-outlined text-[22px] text-accent"
                   aria-hidden="true"
                 >
                   calendar_month
@@ -891,12 +878,12 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <div className="min-w-[850px]">
-                <div className="mb-3 grid grid-cols-5 gap-3 text-center">
+              <div className="min-w-[700px] space-y-3">
+                <div className="grid grid-cols-5 gap-3">
                   {WEEKDAYS.map((day) => (
                     <div
                       key={day.index}
-                      className="rounded-xl border border-slate-200/80 bg-slate-100 px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:border-slate-800 dark:bg-[#1f2023] dark:text-slate-200"
+                      className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                     >
                       {day.label}
                     </div>
@@ -911,7 +898,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                           return (
                             <div
                               key={dayIndex}
-                              className="min-h-[110px] rounded-xl border border-dashed border-slate-200 bg-slate-50/50 opacity-40 dark:border-slate-800/60 dark:bg-[#1f2023]/30"
+                              className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 opacity-40 dark:border-slate-800/60 dark:bg-[#1f2023]/30"
                               aria-hidden="true"
                             />
                           );
@@ -926,13 +913,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                         return (
                           <div
                             key={dateISO}
-                            className={`flex min-h-[110px] flex-col rounded-xl border p-2.5 transition-all ${isToday ? "border-blue-700 bg-blue-50/40 ring-2 ring-blue-700/20 dark:border-blue-500 dark:bg-blue-950/20" : "border-slate-200/90 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-[#222327] dark:hover:border-slate-700"}`}
+                            className={`flex min-h-[110px] flex-col rounded-2xl border-2 p-3 shadow-2xs transition-colors ${
+                              isToday
+                                ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25"
+                                : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                            }`}
                           >
-                            <div className="mb-2 flex min-h-6 items-center justify-center gap-2 border-b border-slate-100 pb-1.5 text-center dark:border-slate-800/80">
+                            <div className="flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 pb-1.5 mb-2">
                               <span className="flex items-center justify-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                {formatShortDate(date)}
+                                <span>{formatShortDate(date)}</span>
                                 {isToday && (
-                                  <span className="rounded bg-blue-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                  <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
                                     Hôm nay
                                   </span>
                                 )}

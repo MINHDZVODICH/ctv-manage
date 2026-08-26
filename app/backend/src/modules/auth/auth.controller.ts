@@ -1,57 +1,92 @@
-import type { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
-import { config } from '../../config.js';
-import type { AuthLocals } from '../../middleware/auth.middleware.js';
-import { ApiError } from '../../shared/api-error.js';
-import { deriveCsrfToken } from '../../shared/security.js';
-import { clearSessionCookie, setSessionCookie } from '../../shared/session.js';
-import { loginSchema } from './auth.schemas.js';
-import { authService, type AuthService } from './auth.service.js';
+import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import * as authService from './auth.service.js';
+import { prisma } from '../../shared/prisma.js';
+import { Errors } from '../../shared/errors.js';
+import {
+  COOKIE_NAME,
+  sessionCookieOptions,
+  clearCookieOptions,
+} from '../../shared/crypto.js';
 
-export class AuthController {
-  constructor(private readonly service: AuthService = authService) {}
+const loginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+});
 
-  createSession = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      if (!request.is('application/json')) {
-        throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json.');
-      }
-      const credentials = loginSchema.parse(request.body);
-      const created = await this.service.createSession(credentials, {
-        ipAddress: request.ip,
-        userAgent: request.get('user-agent'),
-      });
-      setSessionCookie(response, created.token);
-      response.status(201).json({ data: created.dto });
-    } catch (error) {
-      next(normalizeValidationError(error));
+function toUserDto(account: any) {
+  return {
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName,
+    phone: account.phone,
+    role: account.role,
+    status: account.status,
+    version: account.version,
+    mustChangePassword: account.mustChangePassword,
+    ctvCode: account.ctvCode,
+    dateOfBirth: account.dateOfBirth,
+    gender: account.gender,
+    address: account.address,
+    adminNotes: account.adminNotes,
+    joinedAt: account.joinedAt,
+    lastLoginAt: account.lastLoginAt,
+    createdAt: account.createdAt,
+  };
+}
+
+export async function login(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation failed');
     }
-  };
+    const { email, password } = parsed.data;
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? undefined;
+    const userAgent = req.headers['user-agent'] as string | undefined;
 
-  currentSession = (_request: Request, response: Response): void => {
-    const auth = (response.locals as AuthLocals).auth;
-    response.status(200).json({ data: auth!.dto });
-  };
+    const { account, token } = await authService.authenticate(
+      email,
+      password,
+      ipAddress,
+      userAgent,
+    );
 
-  csrfToken = (_request: Request, response: Response): void => {
-    const auth = (response.locals as AuthLocals).auth;
-    response.status(200).json({
-      data: { csrfToken: deriveCsrfToken(auth!.tokenHash, config.CSRF_SECRET) },
+    res.cookie(COOKIE_NAME, token, sessionCookieOptions());
+    res.status(201).json({ user: toUserDto(account) });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    const token = (req as any).cookies?.[COOKIE_NAME] as string | undefined;
+    await authService.revokeCurrentSession(token);
+    res.clearCookie(COOKIE_NAME, clearCookieOptions());
+    // Also set cookie with clear options to ensure removal
+    res.cookie(COOKIE_NAME, '', clearCookieOptions());
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    if (!user) throw Errors.unauthorized();
+
+    const account = await prisma.account.findUnique({
+      where: { id: user.id },
     });
-  };
+    if (!account || account.deletedAt) throw Errors.unauthorized();
 
-  deleteCurrentSession = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      await this.service.revokeSession((response.locals as AuthLocals).sessionToken);
-      clearSessionCookie(response);
-      response.status(204).end();
-    } catch (error) {
-      next(error);
-    }
-  };
+    res.json({ user: toUserDto(account) });
+  } catch (e) {
+    next(e);
+  }
 }
 
-function normalizeValidationError(error: unknown): unknown {
-  if (!(error instanceof ZodError)) return error;
-  return new ApiError(422, 'VALIDATION_FAILED', 'Request validation failed.', error.flatten());
-}
+export { toUserDto };

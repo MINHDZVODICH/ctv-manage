@@ -23,7 +23,7 @@ sequenceDiagram
     H->>API: getShift(shiftId)
     API->>C: GET /api/v1/shifts/{shiftId}
     C->>S: getShiftForUser(shiftId, currentUserId)
-    S->>DB: Đọc ca và assignment của CTV
+    S->>DB: Đọc SHIFT và SHIFT_ASSIGNMENT thuộc currentUserId
     DB-->>S: ShiftDetail DTO
     S-->>C: Chi tiết và quyền hủy
     C-->>API: 200 + data
@@ -39,19 +39,19 @@ sequenceDiagram
     else Hủy chuỗi từ ngày đã chọn
         UI->>H: cancelSeries(registrationId, weekday, period, fromDate)
         H->>API: cancelSeries(...)
-        API->>C: DELETE /api/v1/users/me/schedule-registrations/{registrationId}/assignments?weekday={weekday}&period={period}&fromDate={date}
+        API->>C: DELETE .../{registrationId}/assignments với query filters
         C->>S: cancelSeries(currentUserId, filters)
     end
 
-    S->>DB: Transaction hủy assignment phù hợp
+    S->>DB: Conditional UPDATE SHIFT_ASSIGNMENT còn ACTIVE và chưa qua
     DB-->>S: affectedCount
-    S-->>C: Kết quả hủy
+    S-->>C: Kết quả hủy idempotent
     C-->>API: 200 + affectedCount
-    API-->>H: Kết quả idempotent
+    API-->>H: Kết quả hủy
     H->>API: getMyShifts(currentFilters)
     API->>C: GET /api/v1/users/me/shifts
     C->>S: listMyShifts(currentUserId, currentFilters)
-    S->>DB: Đọc danh sách ca còn hoạt động
+    S->>DB: Join SHIFT_ASSIGNMENT ACTIVE và SHIFT theo filters
     DB-->>S: Shift DTOs
     S-->>C: Danh sách mới
     C-->>API: 200 + data
@@ -62,6 +62,9 @@ sequenceDiagram
 
 ## Chú thích
 
-- Hủy một ca dùng `assignmentId`; hủy chuỗi dùng `registrationId` cùng bộ lọc rõ ràng, không dùng một `shiftId` cho hai ý nghĩa.
+- Hủy một ca dùng `assignmentId`; hủy chuỗi gọi `DELETE /api/v1/users/me/schedule-registrations/{registrationId}/assignments` với query `weekday`, `period`, `fromDate`, không dùng một `shiftId` cho hai ý nghĩa.
+- `fromDate` là ngày của ca được chọn theo `YYYY-MM-DD`; Backend tự xác định ngày hiện tại theo `Asia/Bangkok` và không tin cờ `canCancel` từ Frontend.
+- Hủy một ca lọc theo `SHIFT_ASSIGNMENT.id`, `accountId`, `status=ACTIVE` và ngày chưa qua. Hủy chuỗi join `SHIFT`, rồi lọc thêm `registrationId`, `weekday`, `period` và `workDate >= fromDate`.
+- Bản ghi không bị xóa: Service đặt `SHIFT_ASSIGNMENT.status=CANCELLED`, `cancelledAt`, `cancellationReason` và `updatedAt` trong một transaction.
 - Gọi lặp lại cùng yêu cầu trả `200` với `affectedCount=0`; trạng thái cuối không đổi.
 - Lịch tổng hợp của Admin đọc cùng dữ liệu assignment. Prototype cập nhật khi màn hình Admin tải hoặc làm mới, không khẳng định realtime.

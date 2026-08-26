@@ -1,15 +1,18 @@
 # Sequence diagram
 
-Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md](../USE-CASE.md). Contract HTTP lấy từ [API_SPEC.md](../API_SPEC.md); ranh giới lớp lấy từ [ARCHITECTURE.md](../ARCHITECTURE.md); trạng thái bền vững lấy từ [DATABASE.md](../DATABASE.md).
+Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md](../USE-CASE.md). Ranh giới lớp lấy từ [ARCHITECTURE.md](../ARCHITECTURE.md); trạng thái bền vững và tên trường lấy từ [DATABASE.md](../DATABASE.md). Method, path, payload và mã lỗi HTTP được mô tả trực tiếp trên mũi tên hoặc trong chú thích của từng sơ đồ.
 
 ## Quy ước chung
 
 - Frontend đi theo `UI → Feature Hook → Shared API Client`.
 - Backend đi theo `Controller → Service → Prisma/File Storage`; Controller không gọi Prisma trực tiếp.
-- Cookie session và CSRF được Shared API Client xử lý theo API spec.
+- Shared API Client tự gửi cookie session và CSRF header cho request thay đổi dữ liệu.
 - SQLite là nguồn dữ liệu lịch dùng chung. Lịch cá nhân và lịch tổng hợp không duy trì hai bản sao.
 - Buồng là cấu hình cố định `ROOM_1`–`ROOM_4`; ca chỉ có `MORNING`/`AFTERNOON`.
-- Sơ đồ chỉ chú thích các mũi tên có payload, quyền hoặc tính nhất quán dễ gây hiểu nhầm.
+- Mũi tên HTTP ghi rõ method và path; mũi tên Service → DB ghi bảng, điều kiện lọc hoặc thay đổi trạng thái chính.
+- Payload, transaction hoặc constraint quá dài được đặt trong phần Chú thích ngay dưới sơ đồ.
+- Tên bảng và trường phải trùng [DATABASE.md](../DATABASE.md); DTO có thể dùng tên tổng hợp nhưng phải được giải thích.
+- “Thông báo” trong use case là toast tạm thời của giao diện; hệ thống không lưu bảng `NOTIFICATION`.
 
 ## Danh sách sơ đồ
 
