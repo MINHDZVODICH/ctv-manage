@@ -30,13 +30,13 @@ export function isFileCategory(v: string): v is FileCategory {
 
 export async function authorizeFile(actorId: string, actorRole: string, fileId: string) {
   const asset = await (prisma as any).fileAsset.findFirst({
-    where: { id: fileId, state: 'ACTIVE' },
+    where: { id: fileId, state: { in: ['ACTIVE', 'STAGED'] } },
   });
   if (!asset) throw Errors.notFound('Không tìm thấy tệp');
 
-  // Check that an active AccountFile link exists for this fileId.
-  // Non-admin users may only access their own account's files.
-  const link = await (prisma as any).accountFile.findFirst({
+  // Account owners can only read their own active file. Admins can additionally
+  // inspect files attached to a registration request while it is still staged.
+  const accountLink = await (prisma as any).accountFile.findFirst({
     where: {
       fileId,
       deletedAt: null,
@@ -44,9 +44,16 @@ export async function authorizeFile(actorId: string, actorRole: string, fileId: 
     },
     select: { accountId: true },
   });
+  const registrationLink =
+    actorRole === 'ADMIN'
+      ? await (prisma as any).registrationRequestFile.findFirst({
+          where: { fileId },
+          select: { requestId: true },
+        })
+      : null;
 
-  if (!link) {
-    // Avoid leaking existence: non-ADMIN without a link gets forbidden; ADMIN without link also forbidden.
+  if ((!accountLink || (actorRole !== 'ADMIN' && asset.state !== 'ACTIVE')) && !registrationLink) {
+    // Do not expose unattached assets or another CTV's files.
     throw Errors.forbidden();
   }
 
@@ -66,6 +73,9 @@ export async function uploadFileForAccount(targetAccountId: string, category: Fi
   });
   if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
+  if (!ALLOWED_MIMES[category].includes(file.mimetype)) {
+    throw Errors.badRequest('INVALID_FILE_TYPE', 'Loại tệp không hợp lệ');
+  }
   assertFileMagic(file.buffer, ALLOWED_MIMES[category]);
 
   const fileAssetId = generateCuid();

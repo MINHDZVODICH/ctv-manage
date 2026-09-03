@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import type { UserAccount, RegistrationRequest, ShiftSlot, ViewTab } from '../types';
 import { Sidebar } from '../components/Navigation/Sidebar';
 import { LoginScreen } from '../components/Screens/LoginScreen';
@@ -26,6 +26,16 @@ import {
 } from '../shared/mappers';
 
 const SHIFT_STORAGE_KEY = 'ctv_schedule_cache';
+const PAGE_SIZE = 5;
+
+interface PaginatedQueryState {
+  page: number;
+  pageSize: number;
+  q: string;
+  total: number;
+  loading: boolean;
+  error: string | null;
+}
 
 export const App: React.FC = () => {
   const { isDarkMode } = useSystemSettings();
@@ -38,8 +48,16 @@ export const App: React.FC = () => {
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [requests, setRequests] = useState<RegistrationRequest[]>([]);
   const [shifts, setShifts] = useState<ShiftSlot[]>([]);
-  const [totalAccounts, setTotalAccounts] = useState(0);
+  const [accountQuery, setAccountQuery] = useState<PaginatedQueryState>({ page: 1, pageSize: PAGE_SIZE, q: '', total: 0, loading: false, error: null });
+  const [requestQuery, setRequestQuery] = useState<PaginatedQueryState>({ page: 1, pageSize: PAGE_SIZE, q: '', total: 0, loading: false, error: null });
+  const [accountSearchInput, setAccountSearchInput] = useState('');
+  const [requestSearchInput, setRequestSearchInput] = useState('');
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  const accountRequestController = useRef<AbortController | null>(null);
+  const requestRequestController = useRef<AbortController | null>(null);
+  const accountRequestSequence = useRef(0);
+  const requestRequestSequence = useRef(0);
 
   const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
   const [selectedAccountDetail, setSelectedAccountDetail] = useState<UserAccount | null>(null);
@@ -58,68 +76,95 @@ export const App: React.FC = () => {
   const isLoggedIn = !!authUser;
 
   // ---- load current user profile ----
-  useEffect(() => {
+  const refreshCurrentUser = useCallback(async () => {
     if (!authUser) {
       setCurrentUser(null);
-      return;
+      return null;
     }
-    // Prefer detailed profile if available
-    api
-      .apiGet<any>('/api/v1/users/me')
-      .then((res: any) => {
-        const raw = res.user ?? res.data ?? res;
-        if (raw?.id) {
-          const mapped = accountToUserAccount(raw as any, 0);
-          setCurrentUser(mapped);
-        } else if (authUser) {
-          // fallback from authUser
-          setCurrentUser({
-            id: authUser.id,
-            stt: 1,
-            name: authUser.displayName,
-            email: authUser.email,
-            phone: '',
-            role: mapRole(authUser.role),
-            status: 'Kích hoạt',
-            registerDate: '',
-          });
-        }
-      })
-      .catch(() => {
-        if (authUser) {
-          setCurrentUser({
-            id: authUser.id,
-            stt: 1,
-            name: authUser.displayName,
-            email: authUser.email,
-            phone: '',
-            role: mapRole(authUser.role),
-            status: 'Kích hoạt',
-            registerDate: '',
-          });
-        }
+    try {
+      const res: any = await api.apiGet('/api/v1/users/me');
+      const raw = res.user ?? res.data ?? res;
+      if (raw?.id) {
+        const mapped = accountToUserAccount(raw as any, 0);
+        setCurrentUser(mapped);
+        return mapped;
+      }
+    } catch {}
+    if (authUser) {
+      setCurrentUser({
+        id: authUser.id,
+        stt: 1,
+        name: authUser.displayName,
+        email: authUser.email,
+        phone: '',
+        role: mapRole(authUser.role),
+        status: 'Kích hoạt',
+        registerDate: '',
       });
+    }
+    return null;
   }, [authUser]);
+
+  useEffect(() => {
+    refreshCurrentUser();
+  }, [refreshCurrentUser]);
 
   // ---- load accounts (admin) ----
   const loadAccounts = useCallback(async () => {
     if (!isAdmin) return;
+    accountRequestController.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++accountRequestSequence.current;
+    accountRequestController.current = controller;
+    const { page, pageSize, q } = accountQuery;
+    setAccountQuery((current) => ({ ...current, loading: true, error: null }));
     try {
-      const res: any = await api.apiGet('/api/v1/accounts?page=1&pageSize=100');
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (q.trim()) params.set('q', q.trim());
+      const res: any = await api.apiGet(`/api/v1/accounts?${params.toString()}`, { signal: controller.signal });
       const rows = res.data ?? res.items ?? [];
+      const total = res.total ?? rows.length;
+      if (sequence !== accountRequestSequence.current) return;
+      const lastPage = Math.max(1, Math.ceil(total / pageSize));
+      if (total > 0 && rows.length === 0 && page > lastPage) {
+        setAccountQuery((current) => ({ ...current, page: lastPage, total, loading: false }));
+        return;
+      }
       setAccounts(accountsToUserAccounts(rows));
-      setTotalAccounts(res.total ?? rows.length);
-    } catch {}
-  }, [isAdmin]);
+      setAccountQuery((current) => ({ ...current, total, loading: false, error: null }));
+    } catch (error) {
+      if (api.isRequestAborted(error) || sequence !== accountRequestSequence.current) return;
+      setAccountQuery((current) => ({ ...current, loading: false, error: 'Không thể tải danh sách tài khoản.' }));
+    }
+  }, [accountQuery.page, accountQuery.pageSize, accountQuery.q, isAdmin]);
 
   const loadRequests = useCallback(async () => {
     if (!isAdmin) return;
+    requestRequestController.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++requestRequestSequence.current;
+    requestRequestController.current = controller;
+    const { page, pageSize, q } = requestQuery;
+    setRequestQuery((current) => ({ ...current, loading: true, error: null }));
     try {
-      const res: any = await api.apiGet('/api/v1/registration-requests?status=PENDING&page=1&pageSize=100');
+      const params = new URLSearchParams({ status: 'PENDING', page: String(page), pageSize: String(pageSize) });
+      if (q.trim()) params.set('q', q.trim());
+      const res: any = await api.apiGet(`/api/v1/registration-requests?${params.toString()}`, { signal: controller.signal });
       const rows = res.items ?? res.data ?? [];
+      const total = res.total ?? rows.length;
+      if (sequence !== requestRequestSequence.current) return;
+      const lastPage = Math.max(1, Math.ceil(total / pageSize));
+      if (total > 0 && rows.length === 0 && page > lastPage) {
+        setRequestQuery((current) => ({ ...current, page: lastPage, total, loading: false }));
+        return;
+      }
       setRequests(requestsToRegistrationRequests(rows));
-    } catch {}
-  }, [isAdmin]);
+      setRequestQuery((current) => ({ ...current, total, loading: false, error: null }));
+    } catch (error) {
+      if (api.isRequestAborted(error) || sequence !== requestRequestSequence.current) return;
+      setRequestQuery((current) => ({ ...current, loading: false, error: 'Không thể tải danh sách yêu cầu đăng ký.' }));
+    }
+  }, [isAdmin, requestQuery.page, requestQuery.pageSize, requestQuery.q]);
 
   const loadShifts = useCallback(async () => {
     if (!authUser) return;
@@ -156,11 +201,62 @@ export const App: React.FC = () => {
   }, [authUser, isAdmin, currentUser]);
 
   useEffect(() => {
-    if (!authUser) return;
-    loadAccounts();
-    loadRequests();
-    loadShifts();
-  }, [authUser, loadAccounts, loadRequests, loadShifts]);
+    const timeout = window.setTimeout(() => {
+      setAccountQuery((current) => ({ ...current, q: accountSearchInput, page: 1 }));
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [accountSearchInput]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setRequestQuery((current) => ({ ...current, q: requestSearchInput, page: 1 }));
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [requestSearchInput]);
+
+  useEffect(() => {
+    if (!authUser || !isAdmin || currentTab !== 'accounts') {
+      accountRequestController.current?.abort();
+      return;
+    }
+    void loadAccounts();
+    return () => accountRequestController.current?.abort();
+  }, [authUser, currentTab, isAdmin, loadAccounts]);
+
+  useEffect(() => {
+    if (!authUser || !isAdmin || currentTab !== 'requests') {
+      requestRequestController.current?.abort();
+      return;
+    }
+    void loadRequests();
+    return () => requestRequestController.current?.abort();
+  }, [authUser, currentTab, isAdmin, loadRequests]);
+
+  useEffect(() => {
+    if (authUser && !isAdmin && currentTab === 'schedule') void loadShifts();
+  }, [authUser, currentTab, isAdmin, loadShifts]);
+
+  // A focus and a visibility event often fire together; defer once and refresh only the visible resource.
+  useEffect(() => {
+    let timer: number | null = null;
+    const refreshVisibleResource = () => {
+      if (document.visibilityState !== 'visible' || !authUser || timer !== null) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        if (currentTab === 'profile') void refreshCurrentUser();
+        else if (isAdmin && currentTab === 'accounts') void loadAccounts();
+        else if (isAdmin && currentTab === 'requests') void loadRequests();
+        else if (!isAdmin && currentTab === 'schedule') void loadShifts();
+      }, 0);
+    };
+    window.addEventListener('focus', refreshVisibleResource);
+    document.addEventListener('visibilitychange', refreshVisibleResource);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener('focus', refreshVisibleResource);
+      document.removeEventListener('visibilitychange', refreshVisibleResource);
+    };
+  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser]);
 
   // ---- tab default per role ----
   useEffect(() => {
@@ -172,6 +268,32 @@ export const App: React.FC = () => {
   }, [authUser?.role]);
 
   // ---- handlers wiring to API ----
+  const handleOpenAccountDetail = async (acc: UserAccount) => {
+    setSelectedAccountDetail(acc);
+    try {
+      const detailRes: any = await api.apiGet(`/api/v1/accounts/${acc.id}`);
+      const raw = detailRes.data ?? (detailRes as any);
+      if (raw?.id) {
+        const mapped = accountToUserAccount(raw, acc.stt);
+        setSelectedAccountDetail(mapped);
+      }
+    } catch {}
+  };
+
+  const handleOpenAccountDetailById = async (id: string) => {
+    try {
+      const detailRes: any = await api.apiGet(`/api/v1/accounts/${id}`);
+      const raw = detailRes.data ?? detailRes;
+      if (raw?.id) setSelectedAccountDetail(accountToUserAccount(raw, 0));
+    } catch (error) {
+      if (!api.isRequestAborted(error)) showToast('Không thể tải thông tin tài khoản.');
+    }
+  };
+
+  const handleOpenRequestDetail = (req: RegistrationRequest) => {
+    setSelectedRequest(req);
+  };
+
   const handleLoginSuccess = async (email: string, password: string) => {
     try {
       await login(email, password);
@@ -200,6 +322,9 @@ export const App: React.FC = () => {
       await api.apiPatch(`/api/v1/accounts/${id}/status`, { status: targetStatus, expectedVersion: version });
       showToast(targetStatus === 'DISABLED' ? `Đã khóa tài khoản ${acc.name}` : `Đã kích hoạt lại ${acc.name}`);
       await loadAccounts();
+      if (selectedAccountDetail?.id === id) {
+        handleOpenAccountDetail({ ...acc, status: targetStatus === 'DISABLED' ? 'Vô hiệu hóa' : 'Kích hoạt' });
+      }
     } catch (e: any) {
       showToast(e.message ?? 'Cập nhật trạng thái thất bại');
     }
@@ -212,6 +337,7 @@ export const App: React.FC = () => {
     try {
       await api.apiDelete(`/api/v1/accounts/${id}`);
       showToast(`Đã xóa tài khoản ${target.name}`);
+      if (selectedAccountDetail?.id === id) setSelectedAccountDetail(null);
       await loadAccounts();
     } catch (e: any) {
       showToast(e.message ?? 'Xóa thất bại');
@@ -248,7 +374,8 @@ export const App: React.FC = () => {
     try {
       await api.apiPatch(`/api/v1/registration-requests/${id}`, { decision: 'APPROVED', expectedStatus: 'PENDING' });
       showToast('Đã phê duyệt hồ sơ');
-      await Promise.all([loadRequests(), loadAccounts()]);
+      if (selectedRequest?.id === id) setSelectedRequest(null);
+      await loadRequests();
     } catch (e: any) {
       showToast(e.message ?? 'Phê duyệt thất bại');
     }
@@ -280,7 +407,7 @@ export const App: React.FC = () => {
       const version = meRes.user?.version ?? meRes.data?.version;
       if (version !== undefined) payload.expectedVersion = version;
       await api.apiPatch('/api/v1/users/me', payload);
-      setCurrentUser((prev) => (prev ? { ...prev, ...updated } : prev));
+      await refreshCurrentUser();
       showToast('Đã cập nhật thông tin hồ sơ cá nhân.');
     } catch (e: any) {
       showToast(e.message ?? 'Cập nhật hồ sơ thất bại');
@@ -293,7 +420,7 @@ export const App: React.FC = () => {
       try {
         await api.apiDelete('/api/v1/users/me/files/AVATAR');
         showToast('Đã xóa ảnh đại diện');
-        handleSaveProfile({ avatar: undefined } as any);
+        await refreshCurrentUser();
       } catch (e: any) {
         showToast(e.message ?? 'Xóa ảnh thất bại');
       }
@@ -305,10 +432,7 @@ export const App: React.FC = () => {
       form.append('file', blob, 'avatar.png');
       await api.apiUpload('/api/v1/users/me/files/AVATAR', form, 'PUT');
       showToast('Đã thay đổi ảnh đại diện thành công');
-      // refresh profile
-      const meRes: any = await api.apiGet('/api/v1/users/me');
-      const mapped = accountToUserAccount(meRes.user ?? meRes.data ?? meRes, 0);
-      setCurrentUser(mapped);
+      await refreshCurrentUser();
     } catch (e: any) {
       showToast(e.message ?? 'Tải ảnh thất bại');
     }
@@ -319,7 +443,10 @@ export const App: React.FC = () => {
       try {
         await api.apiDelete(`/api/v1/users/me/files/${kind}`);
         showToast(`Đã xóa ảnh CCCD ${kind === 'CCCD_FRONT' ? 'mặt trước' : 'mặt sau'}`);
-      } catch {}
+        await refreshCurrentUser();
+      } catch (e: any) {
+        showToast(e.message ?? 'Xóa ảnh thất bại');
+      }
       return;
     }
     try {
@@ -328,6 +455,7 @@ export const App: React.FC = () => {
       form.append('file', blob, `${kind}.png`);
       await api.apiUpload(`/api/v1/users/me/files/${kind}`, form, 'PUT');
       showToast('Đã thay đổi ảnh CCCD thành công');
+      await refreshCurrentUser();
     } catch (e: any) {
       showToast(e.message ?? 'Tải ảnh CCCD thất bại');
     }
@@ -338,7 +466,10 @@ export const App: React.FC = () => {
       try {
         await api.apiDelete('/api/v1/users/me/files/CV');
         showToast('Đã xóa file CV');
-      } catch {}
+        await refreshCurrentUser();
+      } catch (e: any) {
+        showToast(e.message ?? 'Xóa CV thất bại');
+      }
       return;
     }
     try {
@@ -347,6 +478,7 @@ export const App: React.FC = () => {
       form.append('file', blob, cvData.cvFileName);
       await api.apiUpload('/api/v1/users/me/files/CV', form, 'PUT');
       showToast(`Đã cập nhật file CV: ${cvData.cvFileName}`);
+      await refreshCurrentUser();
     } catch (e: any) {
       showToast(e.message ?? 'Tải CV thất bại');
     }
@@ -359,7 +491,7 @@ export const App: React.FC = () => {
     showToast('Kết thúc lịch: vui lòng hủy từng ca trong Lịch làm việc.');
   };
 
-  const pendingRequestsCount = requests.filter((r) => r.status === 'Chờ duyệt').length;
+  const pendingRequestsCount = requestQuery.total;
 
   if (authLoading) {
     return (
@@ -414,9 +546,6 @@ export const App: React.FC = () => {
         onSelectTab={(tab) => {
           setCurrentTab(tab);
           setIsMobileMenuOpen(false);
-          if (tab === 'accounts') loadAccounts();
-          if (tab === 'requests') loadRequests();
-          if (tab === 'schedule') loadShifts();
         }}
         pendingRequestsCount={pendingRequestsCount}
         onLogout={handleLogout}
@@ -471,18 +600,42 @@ export const App: React.FC = () => {
             {currentTab === 'accounts' && (
               <AccountListScreen
                 accounts={accounts}
+                total={accountQuery.total}
+                page={accountQuery.page}
+                pageSize={accountQuery.pageSize}
+                searchTerm={accountSearchInput}
+                loading={accountQuery.loading}
+                error={accountQuery.error}
+                onSearchChange={setAccountSearchInput}
+                onPageChange={(page) => setAccountQuery((current) => ({ ...current, page }))}
+                onResetFilters={() => {
+                  setAccountSearchInput('');
+                  setAccountQuery((current) => ({ ...current, q: '', page: 1 }));
+                }}
                 onToggleAccountStatus={handleToggleAccountStatus}
                 onDeleteAccount={handleDeleteAccount}
-                onViewAccountDetail={(acc) => setSelectedAccountDetail(acc)}
+                onViewAccountDetail={handleOpenAccountDetail}
                 onResetPassword={handleResetPassword}
               />
             )}
             {currentTab === 'requests' && (
               <RequestsScreen
                 requests={requests}
+                total={requestQuery.total}
+                page={requestQuery.page}
+                pageSize={requestQuery.pageSize}
+                searchTerm={requestSearchInput}
+                loading={requestQuery.loading}
+                error={requestQuery.error}
+                onSearchChange={setRequestSearchInput}
+                onPageChange={(page) => setRequestQuery((current) => ({ ...current, page }))}
+                onResetFilters={() => {
+                  setRequestSearchInput('');
+                  setRequestQuery((current) => ({ ...current, q: '', page: 1 }));
+                }}
                 onApproveRequest={handleApproveRequest}
                 onRejectRequest={handleRejectRequest}
-                onViewRequestDetail={(req) => setSelectedRequest(req)}
+                onViewRequestDetail={handleOpenRequestDetail}
               />
             )}
             {currentTab === 'schedule' && (
@@ -492,7 +645,7 @@ export const App: React.FC = () => {
                 onUpdateShifts={setShifts}
                 onShowToast={showToast}
                 onReload={loadShifts}
-                onViewAccountDetail={(acc) => setSelectedAccountDetail(acc)}
+                onViewAccountDetail={handleOpenAccountDetail}
                 currentUser={effectiveCurrentUser}
                 userRole={userRoleLabel as any}
               />
@@ -500,8 +653,7 @@ export const App: React.FC = () => {
             {currentTab === 'meetings' && (
               <SummaryScheduleScreen
                 shifts={shifts}
-                accounts={accounts}
-                onViewAccountDetail={(acc) => setSelectedAccountDetail(acc)}
+                onViewAccountDetail={handleOpenAccountDetailById}
                 onShowToast={showToast}
                 currentUser={currentUser ?? undefined}
                 userRole={userRoleLabel as any}

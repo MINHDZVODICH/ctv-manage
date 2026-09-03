@@ -26,10 +26,11 @@
     - [1.8. Cập nhật thông tin hồ sơ](#18-cập-nhật-thông-tin-hồ-sơ)
     - [1.9. Đổi/đặt lại mật khẩu](#19-đổiđặt-lại-mật-khẩu)
     - [1.10. Duyệt yêu cầu đăng ký tài khoản](#110-duyệt-yêu-cầu-đăng-ký-tài-khoản)
+    - [1.11. Cài đặt hệ thống](#111-cài-đặt-hệ-thống)
   - [2. Quản lý lịch trình](#2-quản-lý-lịch-trình)
-    - [2.1. Đăng ký/cập nhật lịch làm việc](#21-đăng-kýcập-nhật-lịch-làm-việc)
-    - [2.2. Xem lịch tuần và lịch sử làm việc](#22-xem-lịch-tuần-và-lịch-sử-làm-việc)
-    - [2.3. Xem chi tiết và hủy ca làm việc](#23-xem-chi-tiết-và-hủy-ca-làm-việc)
+    - [2.1. Truy cập lịch làm việc của CTV](#21-truy-cập-lịch-làm-việc-của-ctv)
+    - [2.2. Xem lịch tuần và lịch sử làm việc của CTV](#22-xem-lịch-tuần-và-lịch-sử-làm-việc-của-ctv)
+    - [2.3. Xem chi tiết ca làm việc trên giao diện CTV](#23-xem-chi-tiết-ca-làm-việc-trên-giao-diện-ctv)
     - [2.4. Xem lịch làm việc tổng hợp](#24-xem-lịch-làm-việc-tổng-hợp)
     - [2.5. Xem chi tiết ca và hồ sơ CTV](#25-xem-chi-tiết-ca-và-hồ-sơ-ctv)
 
@@ -40,7 +41,7 @@ Hệ thống gồm 2 tác nhân sử dụng hệ thống sau đăng nhập và 1
 | **Mã**   | **Tác nhân**             | **Loại**                  | **Mô tả và quyền hạn chính**                                                                                         |
 |----------|--------------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------|
 | **AC-1** | Quản trị viên (Admin)    | Người dùng đặc quyền      | Quản lý tài khoản và hồ sơ CTV, duyệt yêu cầu đăng ký, xem lịch làm việc tổng hợp.                                  |
-| **AC-2** | Cộng tác viên (CTV)      | Người dùng                | Quản lý hồ sơ cá nhân, đăng ký/cập nhật lịch làm việc, xem lịch tuần và lịch sử làm việc.                           |
+| **AC-2** | Cộng tác viên (CTV)      | Người dùng                | Quản lý hồ sơ cá nhân và xem giao diện lịch làm việc theo tuần/tháng; UI hiện tại chưa cung cấp đăng ký/cập nhật/hủy lịch cá nhân. |
 | **AC-3** | Người đăng ký tài khoản  | Người dùng chưa xác thực  | Nhập thông tin, đính kèm hồ sơ tùy chọn và gửi yêu cầu đăng ký tài khoản CTV để Admin xem xét.                      |
 
 Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố định là Admin hoặc CTV. Giao diện và API phân quyền theo vai trò của phiên đăng nhập; hệ thống không cung cấp chức năng chuyển đổi vai trò.
@@ -57,14 +58,15 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | **1.4**                                              | Quản lý danh sách tài khoản       | Hiển thị danh sách CTV, hỗ trợ tìm kiếm, phân trang và các thao tác đặt lại mật khẩu, khóa/mở khóa hoặc xóa tài khoản. |
 | **1.5**                                              | Kích hoạt/vô hiệu hóa tài khoản   | Cho phép hoặc chặn người dùng truy cập hệ thống thông qua tài khoản                                                    |
 | **1.6**                                              | Xoá tài khoản                     | Admin xóa tài khoản CTV sau bước cảnh báo và xác nhận.                                                                 |
-| **1.7**                                              | Xem thông tin tài khoản           | Admin xem hồ sơ đính kèm, lịch trình CTV và mở thao tác đặt lại mật khẩu; người dùng xem hồ sơ cá nhân của mình.       |
+| **1.7**                                              | Xem thông tin tài khoản           | Admin xem hồ sơ đính kèm và lịch trình CTV; người dùng xem hồ sơ cá nhân của mình. Thao tác đặt lại mật khẩu được mở từ danh sách tài khoản.       |
 | **1.8**                                              | Cập nhật thông tin hồ sơ          | Admin/CTV cập nhật thông tin cá nhân và tệp hồ sơ của chính mình.                                                       |
-| **1.9**                                              | Đổi/đặt lại mật khẩu              | Người dùng đổi mật khẩu cá nhân; Admin đặt lại mật khẩu mặc định cho CTV.                                              |
+| **1.9**                                              | Đổi/đặt lại mật khẩu              | Người dùng đổi mật khẩu cá nhân; Admin đặt lại bằng mật khẩu do hệ thống tự sinh cho CTV.                              |
 | **1.10**                                             | Duyệt yêu cầu đăng ký tài khoản   | Admin xem, duyệt hoặc từ chối yêu cầu đăng ký đang chờ.                                                                |
+| **1.11**                                             | Cài đặt hệ thống                  | Người dùng mở bảng cài đặt và thay đổi giao diện, độ tương phản, màu điểm nhấn hoặc ngôn ngữ.                         |
 | **Phân hệ 2 – Quản lý lịch trình**                   |                                   |                                                                                                                        |
-| **2.1**                                              | Đăng ký/cập nhật lịch làm việc    | CTV chọn buồng và mẫu ca Sáng/Chiều theo tuần để đăng ký hoặc cập nhật lịch làm việc.                                  |
-| **2.2**                                              | Xem lịch tuần và lịch sử làm việc | CTV xem cùng dữ liệu lịch cá nhân theo tuần hoặc lịch sử theo tháng.                                                   |
-| **2.3**                                              | Xem chi tiết và hủy ca làm việc   | CTV xem chi tiết ca, hủy riêng một ca hoặc hủy chuỗi ca định kỳ trong tương lai.                                       |
+| **2.1**                                              | Truy cập lịch làm việc của CTV    | CTV mở màn hình Lịch làm việc đang hiển thị lịch tổng hợp theo tuần/tháng; hiện chưa có đăng ký lịch cá nhân trên UI. |
+| **2.2**                                              | Xem lịch tuần và lịch sử làm việc của CTV | CTV xem giao diện lịch tổng hợp theo tuần hoặc lịch theo tháng; dữ liệu không được lọc thành lịch cá nhân.       |
+| **2.3**                                              | Xem chi tiết ca làm việc trên giao diện CTV | CTV nhấn ca có dữ liệu để xem danh sách CTV, số điện thoại và buồng; hiện không có thao tác hủy ca.              |
 | **2.4**                                              | Xem lịch tuần tổng hợp và lịch sử tổng hợp     | Admin xem CTV làm việc hôm nay và lịch tổng hợp theo tuần/tổng hợp lịch sử theo tháng, giống hệt giao diện CTV nhưng mỗi ca hiển thị số lượng CTV và danh sách chi tiết. |
 | **2.5**                                              | Xem chi tiết ca và hồ sơ CTV      | Admin xem danh sách CTV trong ca và mở hồ sơ, CV, lịch trình hoặc ghi chú của từng người.                              |
 
@@ -223,8 +225,8 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <p>- Trường Họ và tên</p>
 <p>- Ngày sinh bằng ba hộp chọn Ngày/Tháng/Năm</p>
 <p>- Trường Email và Số điện thoại</p>
-<p>- Vùng tải ảnh CCCD mặt trước/mặt sau (JPG, PNG, WebP)</p>
-<p>- Vùng tải CV ứng tuyển (PDF, DOC, DOCX)</p>
+<p>- Vùng tải ảnh CCCD mặt trước/mặt sau (JPG, PNG)</p>
+<p>- Vùng tải CV ứng tuyển (PDF)</p>
 <p>- Mật khẩu và Nhập lại mật khẩu, có nút hiển thị/che ký tự</p>
 <p>- Nút Đăng ký và Đăng nhập</p></td>
 </tr>
@@ -243,7 +245,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <td></td>
 <td><p>Hiển thị tiêu đề “Gửi yêu cầu đăng ký thành công!”.</p>
 <p>Hiển thị nội dung “Hồ sơ ứng tuyển và thông tin của bạn đang được Ban Quản trị xem xét phê duyệt. Vui lòng theo dõi email để nhận thông báo kết quả.”.</p>
-<p>Hiển thị dòng đếm ngược tự động chuyển đến trang đăng nhập sau 5 giây.</p></td>
+<p>Hiển thị dòng đếm ngược tự động chuyển đến trang đăng nhập sau 3 giây.</p></td>
 </tr>
 <tr class="even">
 <td></td>
@@ -257,7 +259,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 3, nếu thiếu Họ và tên, Email, Số điện thoại, Mật khẩu hoặc Nhập lại mật khẩu, trường tương ứng hiển thị lỗi bắt buộc. Nếu Email đã tồn tại hoặc đang có yêu cầu chờ duyệt, hệ thống hiển thị “Email đã tồn tại hoặc đang chờ duyệt”.
 
-- Tại bước 3, nếu hai mật khẩu không khớp, trường Nhập lại mật khẩu hiển thị “Mật khẩu phải trùng khớp!”. Ảnh CCCD và CV là tài liệu đính kèm tùy chọn nhưng phải đúng định dạng khi được chọn.
+- Tại bước 3, nếu hai mật khẩu không khớp, trường Nhập lại mật khẩu hiển thị “Mật khẩu phải trùng khớp!”. Ảnh CCCD và CV là tài liệu đính kèm tùy chọn; ảnh chỉ nhận JPG/PNG và CV chỉ nhận PDF khi được chọn.
 
 #### 1.4. Quản lý danh sách tài khoản
 
@@ -300,7 +302,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <td><p>Màn hình Danh sách tài khoản gồm:</p>
 <p>- Tiêu đề và tổng số tài khoản CTV</p>
 <p>- Ô tìm theo Họ tên, Email hoặc SĐT</p>
-<p>- Nút Đặt lại</p>
+<p>- Nút Làm mới</p>
 <p>- Bảng STT, Họ và tên, Số điện thoại, Ngày đăng ký, Thao tác</p>
 <p>- Vùng Họ tên/ảnh đại diện mở chi tiết tài khoản</p>
 <p>- Biểu tượng đặt lại mật khẩu, khóa/mở khóa và xóa, có chú thích khi di chuột</p>
@@ -332,7 +334,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *e. Các trường hợp khác*
 
-- Tại bước 4, khi không có kết quả phù hợp, bảng hiển thị “Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.”; nút Đặt lại xóa từ khóa và đưa phân trang về trang đầu.
+- Tại bước 4, khi không có kết quả phù hợp, bảng hiển thị “Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.”; nút Làm mới xóa từ khóa và đưa phân trang về trang đầu.
 
 - Tại bước 5, nếu quản trị viên nhấn vùng Họ tên hoặc ảnh đại diện, hệ thống mở cửa sổ Hồ sơ & Lịch trình tài khoản của đúng CTV.
 
@@ -534,8 +536,8 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <td>2</td>
 <td></td>
 <td><p>Hệ thống mở đúng màn hình chi tiết theo ngữ cảnh.</p>
-<p>- Với tài khoản do Admin chọn: hiển thị thông tin cá nhân, ảnh CCCD, CV (Xem/Tải về), lịch tuần, buồng làm việc, lịch sử, Ghi chú và nút Đặt lại mật khẩu.</p>
-<p>- Với hồ sơ cá nhân: hiển thị ảnh đại diện, ảnh CCCD, CV, thông tin cá nhân/tài khoản, nút Đổi mật khẩu và Chỉnh sửa thông tin; CV có thể Xem, Thay đổi hoặc Tải về.</p></td>
+<p>- Với tài khoản do Admin chọn: hiển thị thông tin cá nhân, ảnh CCCD, CV nếu có, lịch tuần, buồng làm việc, lịch sử và Ghi chú. Cửa sổ này không có nút đặt lại mật khẩu.</p>
+<p>- Với hồ sơ cá nhân: hiển thị ảnh đại diện, ảnh CCCD, CV, thông tin cá nhân/tài khoản, nút Đổi mật khẩu và Chỉnh sửa thông tin; CV có nút Xem CV trong tab mới và Thay đổi.</p></td>
 </tr>
 </tbody>
 </table>
@@ -544,7 +546,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 2, nếu quản trị viên nhấn biểu tượng X ở góc cửa sổ chi tiết, hệ thống trở về danh sách mà không thay đổi dữ liệu.
 
-- Tại bước 2, từ Hồ sơ cá nhân, người dùng có thể xem hoặc thay đổi ảnh đại diện, ảnh CCCD; xem, thay đổi hoặc tải CV. Hệ thống hiển thị thông báo ngắn sau khi cập nhật.
+- Tại bước 2, từ Hồ sơ cá nhân, người dùng có thể thao tác trực tiếp trên ảnh đại diện, ảnh CCCD và khối CV; hệ thống hiển thị thông báo ngắn sau khi cập nhật.
 
 #### 1.8. Cập nhật thông tin hồ sơ
 
@@ -562,7 +564,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- Họ tên, số điện thoại, ngày sinh, giới tính, địa chỉ và tệp CV mới được hiển thị trên hồ sơ cá nhân; ảnh đại diện và ảnh CCCD cũng phản ánh bản cập nhật trực tiếp
+- Họ tên, số điện thoại, ngày sinh, giới tính và địa chỉ mới được hiển thị trên hồ sơ cá nhân; tệp CV, ảnh đại diện và ảnh CCCD phản ánh khi được cập nhật trực tiếp trên các khối tương ứng
 
 *d. Kịch bản thành công chính*
 
@@ -588,9 +590,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="even">
 <td>2</td>
 <td></td>
-<td><p>Hộp thoại Chỉnh sửa thông tin cá nhân gồm:</p>
-<p>- Họ và tên, Số điện thoại, Ngày sinh, Giới tính và Địa chỉ thường trú.</p>
-<p>- Hồ sơ ứng tuyển (CV) cho phép tải lên, thay đổi hoặc xóa tệp PDF/DOC/DOCX; có nút Hủy và nút Lưu thay đổi.</p></td>
+<td><p>Hộp thoại chỉ gồm Họ và tên, Số điện thoại, Ngày sinh, Giới tính và Địa chỉ thường trú, cùng nút Lưu thay đổi và biểu tượng đóng.</p></td>
 </tr>
 <tr class="odd">
 <td>3</td>
@@ -610,7 +610,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="even">
 <td>6</td>
 <td></td>
-<td>Hệ thống cập nhật dữ liệu hồ sơ cùng thông tin tệp CV và đóng hộp thoại.</td>
+<td>Hệ thống cập nhật dữ liệu hồ sơ và đóng hộp thoại.</td>
 </tr>
 <tr class="odd">
 <td>7</td>
@@ -622,13 +622,11 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *e. Các trường hợp khác*
 
-- Tại bước 5, nếu người dùng chọn Hủy thay vì Lưu thay đổi, hệ thống đóng hộp thoại và bỏ các thay đổi chưa lưu.
-
-- Tại bước 5, nếu người dùng chọn biểu tượng đóng ở góc hộp thoại thay vì Lưu thay đổi, hệ thống xử lý như thao tác Hủy.
+- Tại bước 5, nếu người dùng chọn biểu tượng đóng ở góc hộp thoại thay vì Lưu thay đổi, hệ thống đóng hộp thoại và bỏ các thay đổi chưa lưu.
 
 - Tại bước 5, nếu Họ và tên để trống, ràng buộc bắt buộc của trường ngăn gửi biểu mẫu; các trường còn lại không có thông báo kiểm tra định dạng riêng.
 
-- Tại bước 1, nếu người dùng thao tác trực tiếp trên ảnh đại diện, ảnh CCCD hoặc khối CV thay vì mở Chỉnh sửa thông tin, hệ thống cập nhật tệp tương ứng và hiển thị thông báo ngắn; CV hỗ trợ PDF, DOC và DOCX.
+- Tại bước 1, nếu người dùng thao tác trực tiếp trên ảnh đại diện, ảnh CCCD hoặc khối CV thay vì mở Chỉnh sửa thông tin, hệ thống cập nhật tệp tương ứng và hiển thị thông báo ngắn. Các thao tác tệp nằm ngoài hộp thoại chỉnh sửa thông tin.
 
 #### 1.9. Đổi/đặt lại mật khẩu
 
@@ -638,7 +636,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đã đăng nhập và đang ở Thông tin tài khoản; hoặc Admin đang ở Danh sách tài khoản/Hồ sơ & Lịch trình tài khoản của CTV
+- Người dùng đã đăng nhập và đang ở Thông tin tài khoản; hoặc Admin đang ở Danh sách tài khoản khi cần đặt lại mật khẩu cho CTV
 
 *c. Điều kiện đối với kết quả*
 
@@ -662,15 +660,15 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tbody>
 <tr class="odd">
 <td>1</td>
-<td>Người dùng nhấn Đổi mật khẩu trên Thông tin tài khoản; hoặc Admin nhấn biểu tượng/nút Đặt lại mật khẩu của một CTV</td>
+<td>Người dùng nhấn Đổi mật khẩu trên Thông tin tài khoản; hoặc Admin nhấn biểu tượng Đặt lại mật khẩu tại đúng dòng CTV trong Danh sách tài khoản</td>
 <td></td>
 </tr>
 <tr class="even">
 <td>2</td>
 <td></td>
 <td><p>Hệ thống mở hộp thoại theo ngữ cảnh:</p>
-<p>- Đổi mật khẩu: Mật khẩu hiện tại, Mật khẩu mới, Xác nhận mật khẩu mới, khu vực lỗi, nút Hủy và nút Đổi mật khẩu.</p>
-<p>- Đặt lại mật khẩu CTV: thẻ thông tin CTV, trường Mật khẩu mặc định mới (mặc định CTV@123456), nút Sao chép, biểu tượng X và nút Xác nhận.</p></td>
+<p>- Đổi mật khẩu: Mật khẩu hiện tại, Mật khẩu mới, Xác nhận mật khẩu mới, nút Đổi mật khẩu và biểu tượng đóng.</p>
+<p>- Đặt lại mật khẩu CTV: thẻ thông tin CTV, mật khẩu mới do hệ thống tự sinh, nút Tạo mật khẩu khác, nút Sao chép mật khẩu, nút Xác nhận và nút Đóng.</p></td>
 </tr>
 <tr class="odd">
 <td>3</td>
@@ -680,12 +678,12 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="even">
 <td>4</td>
 <td></td>
-<td>Với luồng tự đổi, hệ thống kiểm tra mật khẩu hiện tại không trống, mật khẩu mới tối thiểu 8 ký tự và hai mật khẩu mới khớp nhau. Với luồng Admin đặt lại, mật khẩu mặc định mới phải có ít nhất 8 ký tự.</td>
+<td>Với luồng tự đổi, hệ thống kiểm tra mật khẩu hiện tại không trống, mật khẩu mới tối thiểu 8 ký tự và hai mật khẩu mới khớp nhau. Với luồng Admin đặt lại, hệ thống hiển thị sẵn mật khẩu tự sinh và cho phép tạo lại trước khi xác nhận.</td>
 </tr>
 <tr class="odd">
 <td>5</td>
 <td></td>
-<td>Nếu hợp lệ, luồng tự đổi hiển thị “Đổi mật khẩu thành công!”. Luồng Admin đặt lại lưu mật khẩu mặc định, đánh dấu CTV phải đổi mật khẩu khi đăng nhập và hiển thị thông báo kèm mật khẩu mới.</td>
+<td>Nếu hợp lệ, luồng tự đổi hiển thị “Đổi mật khẩu thành công!”. Luồng Admin đặt lại lưu mật khẩu mới và hiển thị thông báo kèm kết quả xử lý.</td>
 </tr>
 <tr class="even">
 <td>6</td>
@@ -703,7 +701,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 4, nếu Mật khẩu mới và Xác nhận mật khẩu mới không khớp, hệ thống hiển thị “Mật khẩu xác nhận không khớp”.
 
-- Tại bước 3, nếu người dùng chọn Hủy hoặc biểu tượng đóng thay vì Đổi mật khẩu, hệ thống đóng hộp thoại và không đổi mật khẩu. Với luồng Admin đặt lại, nếu trường mật khẩu mặc định trống thì nút Xác nhận bị vô hiệu hóa; Admin có thể dùng nút Sao chép trước khi xác nhận.
+- Tại bước 3, nếu người dùng chọn biểu tượng đóng thay vì Đổi mật khẩu, hệ thống đóng hộp thoại và không đổi mật khẩu. Với luồng Admin đặt lại, Admin có thể tạo mật khẩu khác hoặc sao chép mật khẩu trước khi nhấn Xác nhận.
 
 #### 1.10. Duyệt yêu cầu đăng ký tài khoản
 
@@ -748,7 +746,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <td><p>Màn hình Yêu cầu đăng ký gồm:</p>
 <p>- Tiêu đề và tổng số yêu cầu trong dữ liệu</p>
 <p>- Danh sách chỉ hiển thị yêu cầu Chờ duyệt</p>
-<p>- Ô tìm theo Họ tên, Email hoặc SĐT và nút Đặt lại</p>
+<p>- Ô tìm theo Họ tên, Email hoặc SĐT và nút Làm mới</p>
 <p>- Bảng STT, Họ và tên, Số điện thoại, Ngày gửi, Thao tác</p>
 <p>- Nhấn Họ tên/ảnh đại diện để mở chi tiết hồ sơ</p>
 <p>- Biểu tượng Duyệt/Từ chối hồ sơ và thanh phân trang ở cuối bảng</p></td>
@@ -792,13 +790,44 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 4, khi không có yêu cầu phù hợp, bảng hiển thị “Không tìm thấy yêu cầu đăng ký phù hợp với điều kiện tìm kiếm.”.
 
-- Tại bước 3, nếu quản trị viên chọn Đặt lại, hệ thống xóa từ khóa tìm kiếm và đưa phân trang về trang đầu.
+- Tại bước 3, nếu quản trị viên chọn Làm mới, hệ thống xóa từ khóa tìm kiếm và đưa phân trang về trang đầu.
 
 - Tại bước 3, cửa sổ Chi tiết Hồ sơ Đăng ký CTV cho phép xem thông tin, ảnh CCCD và CV (Xem/Tải về), đồng thời có nút Từ chối hồ sơ, Phê duyệt và biểu tượng X; Duyệt/Từ chối cũng có thể thực hiện bằng biểu tượng tại bảng.
 
+#### 1.11. Cài đặt hệ thống
+
+*a. Tác nhân chính*
+
+- Quản trị viên
+
+- Cộng tác viên
+
+*b. Điều kiện ban đầu*
+
+- Người dùng đã đăng nhập và mở menu tài khoản ở cuối thanh điều hướng.
+
+*c. Điều kiện đối với kết quả*
+
+- Tùy chọn giao diện được áp dụng ngay cho phiên giao diện hiện tại và được phản ánh trên màn hình đang mở.
+
+*d. Kịch bản thành công chính*
+
+| **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
+|---|---|---|
+| 1 | Người dùng chọn **Cài đặt hệ thống** trong menu tài khoản | Hệ thống mở bảng **Cài đặt hệ thống**. |
+| 2 | Người dùng mở mục **Giao diện** | Hệ thống cho phép chọn **Sáng** hoặc **Tối**. |
+| 3 | Người dùng mở mục **Độ tương phản** | Hệ thống cho phép chọn **Thấp**, **Trung bình** hoặc **Cao**. |
+| 4 | Người dùng mở mục **Màu điểm nhấn** | Hệ thống cho phép chọn **Trắng**, **Lục**, **Lam**, **Vàng**, **Đỏ**, **Cam** hoặc **Tím**. |
+| 5 | Người dùng mở mục **Ngôn ngữ** | Hệ thống cho phép chọn **Tiếng Việt** hoặc **Tiếng Anh**. |
+| 6 | Người dùng chọn một giá trị và đóng bảng bằng biểu tượng X | Tùy chọn được áp dụng; hệ thống quay lại màn hình trước đó. |
+
+*e. Các trường hợp khác*
+
+- Người dùng có thể đóng bảng bất kỳ lúc nào bằng biểu tượng X; các thay đổi đã chọn không cần nút Lưu riêng.
+
 ### 2. Quản lý lịch trình
 
-#### 2.1. Đăng ký/cập nhật lịch làm việc
+#### 2.1. Truy cập lịch làm việc của CTV
 
 *a. Tác nhân chính*
 
@@ -808,92 +837,26 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Cộng tác viên đã đăng nhập
 
-- Cộng tác viên đang ở màn hình Lịch làm việc
-
 *c. Điều kiện đối với kết quả*
 
-- Mẫu ca Sáng/Chiều theo tuần và buồng làm việc được lưu và phản ánh ngay trên Lịch tuần; Lịch sử làm việc đã chốt không thay đổi
+- CTV được đưa tới màn hình lịch đang được triển khai trong giao diện thực tế.
 
 *d. Kịch bản thành công chính*
 
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>CTV chọn Lịch làm việc trên thanh điều hướng</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td><p>Màn hình Lịch làm việc gồm:</p>
-<p>- Tiêu đề Lịch làm việc</p>
-<p>- Nút Đăng ký lịch làm việc</p>
-<p>- Hai chế độ Lịch tuần và Lịch sử làm việc</p>
-<p>- Nhãn buồng làm việc hiện tại</p>
-<p>- Lưới Thứ 2-Thứ 6</p>
-<p>- Ca Sáng và Ca Chiều</p>
-<p>- Ngày hiện tại được đánh dấu Hôm nay</p></td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>CTV nhấn Đăng ký lịch làm việc</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td></td>
-<td>Hệ thống mở hộp thoại gồm Buồng làm việc và bảng Mẫu ca làm việc theo tuần với Ca Sáng/Ca Chiều từ Thứ 2 đến Thứ 6.</td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td></td>
-<td>Nếu CTV đã có lần đăng ký gần nhất, hệ thống khôi phục mẫu tuần và buồng; nếu chưa có, hệ thống dùng mẫu mặc định và khoảng áp dụng tự động.</td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td>CTV chọn buồng và bật/tắt các ô ca cần đăng ký</td>
-<td></td>
-</tr>
-<tr class="odd">
-<td>7</td>
-<td></td>
-<td>Ô được chọn hiển thị dấu kiểm; hệ thống chuẩn bị các lần làm việc tương ứng trong khoảng đăng ký tự động.</td>
-</tr>
-<tr class="even">
-<td>8</td>
-<td>CTV nhấn Đăng ký</td>
-<td></td>
-</tr>
-<tr class="odd">
-<td>9</td>
-<td></td>
-<td>Hệ thống lưu hoặc cập nhật lịch, đóng hộp thoại, hiển thị “Đăng ký thành công” và cập nhật ngay Lịch tuần. Lịch sử làm việc không bị tác động.</td>
-</tr>
-</tbody>
-</table>
+| **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
+|---|---|---|
+| 1 | CTV chọn **Lịch làm việc** trên thanh điều hướng | |
+| 2 | | Hệ thống hiển thị tiêu đề **Lịch làm việc tổng hợp**, khối **Danh sách CTV đăng ký hôm nay** và tổng số CTV trong ngày. |
+| 3 | | Hệ thống hiển thị hai tab **Lịch tuần tổng hợp** và **Lịch sử tổng hợp** cùng lưới Thứ 2-Thứ 6; ngày hiện tại có nhãn **Hôm nay**. |
+| 4 | | Các ca có dữ liệu hiển thị số lượng CTV; CTV có thể nhấn vào số lượng để xem chi tiết ca. |
 
 *e. Các trường hợp khác*
 
-- Tại bước 8, nếu chưa chọn ca nào trong tuần, hệ thống hiển thị “Vui lòng chọn ít nhất một ca trong tuần.” và giữ hộp thoại mở.
+- Giao diện CTV hiện không hiển thị nút Đăng ký lịch làm việc, bộ chọn buồng, mẫu ca hoặc thao tác lưu/cập nhật lịch cá nhân.
 
-- Tại bước 8, nếu chưa có buồng làm việc, hệ thống hiển thị “Vui lòng chọn buồng làm việc.” và không lưu lịch.
+- Khi không có CTV đăng ký hôm nay, hệ thống hiển thị “Chưa có CTV nào đăng ký hôm nay”.
 
-- Tại bước 3, nếu CTV nhấn Đóng, biểu tượng X hoặc vùng nền mờ, hệ thống đóng hộp thoại và không lưu thay đổi mới.
-
-#### 2.2. Xem lịch tuần và lịch sử làm việc
+#### 2.2. Xem lịch tuần và lịch sử làm việc của CTV
 
 *a. Tác nhân chính*
 
@@ -905,27 +868,27 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- Lịch tuần hiện hành lấy từ mẫu đăng ký; lịch sử theo tháng lấy từ bảng lịch sử độc lập được chốt hằng ngày
+- CTV xem được giao diện lịch tổng hợp theo tuần hoặc theo tháng; dữ liệu hiển thị phụ thuộc màn hình tổng hợp hiện tại, không phải lịch cá nhân của CTV.
 
 *d. Kịch bản thành công chính*
 
 | **Bước** | **Thao tác của tác nhân**                            | **Phản ứng của hệ thống**                                                                                                    |
 |----------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | 1        | CTV chọn Lịch làm việc                               |                                                                                                                              |
-| 2        |                                                      | Hệ thống mặc định hiển thị chế độ Lịch tuần cùng nhãn buồng làm việc hiện tại.                                               |
-| 3        |                                                      | Lưới gồm năm ngày Thứ 2-Thứ 6; ngày hiện tại có nhãn Hôm nay và các ca đã đăng ký hiển thị thẻ tương ứng ở Ca Sáng/Ca Chiều. |
-| 4        | CTV chọn Lịch sử làm việc                            |                                                                                                                              |
-| 5        |                                                      | Hệ thống hiển thị lịch sử theo tháng từ dữ liệu đã chốt hằng ngày, kèm điều khiển chuyển tháng và các ngày Thứ 2-Thứ 6.     |
-| 6        | CTV dùng nút chuyển tuần/tháng để xem giai đoạn khác |                                                                                                                              |
-| 7        |                                                      | Hệ thống cập nhật tiêu đề thời gian và các ca thuộc giai đoạn được chọn; ngày không có ca được để trống.                     |
+| 2        |                                                      | Hệ thống mặc định hiển thị **Lịch tuần tổng hợp**, khối CTV đăng ký hôm nay và lưới Thứ 2-Thứ 6. |
+| 3        |                                                      | Mỗi ca có dữ liệu hiển thị số lượng CTV; các ô không có dữ liệu hiển thị dấu “—”. |
+| 4        | CTV chọn **Lịch sử tổng hợp**                        | |
+| 5        |                                                      | Hệ thống hiển thị lịch theo tháng, có nút xem tháng trước/sau và lưới các ngày Thứ 2-Thứ 6. Trên tài khoản CTV kiểm thử, các ô lịch sử không hiển thị dữ liệu cá nhân và để “—”. |
+| 6        | CTV dùng nút chuyển tháng                             | |
+| 7        |                                                      | Hệ thống cập nhật tháng/năm; CTV không có bộ lọc để chuyển sang lịch cá nhân. |
 
 *e. Các trường hợp khác*
 
 - Tại bước 3, nếu màn hình hẹp, lưới năm ngày giữ nguyên cấu trúc và cho phép cuộn ngang để xem đầy đủ.
 
-- Tại bước 5, ngày không có ca hiển thị ô trống; ngày hiện tại được đánh dấu “Hôm nay” để phân biệt với các ngày còn lại.
+- Tại bước 5, ngày không có dữ liệu hiển thị dấu “—”; ngày hiện tại vẫn được đánh dấu “Hôm nay”.
 
-#### 2.3. Xem chi tiết và hủy ca làm việc
+#### 2.3. Xem chi tiết ca làm việc trên giao diện CTV
 
 *a. Tác nhân chính*
 
@@ -933,11 +896,11 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *b. Điều kiện ban đầu*
 
-- Cộng tác viên đã đăng nhập và chọn một ca thuộc lịch cá nhân
+- Cộng tác viên đã đăng nhập và có một ca hiển thị số lượng trên lịch tổng hợp
 
 *c. Điều kiện đối với kết quả*
 
-- Chi tiết ca được hiển thị; nếu hủy, đúng ca đã chọn hoặc chuỗi ca định kỳ từ ngày đó trở đi được cập nhật
+- Chi tiết ca tổng hợp được hiển thị; không có thao tác hủy ca trên giao diện CTV hiện tại.
 
 *d. Kịch bản thành công chính*
 
@@ -957,51 +920,32 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tbody>
 <tr class="odd">
 <td>1</td>
-<td>CTV nhấn một ca đã đăng ký trong Lịch tuần hoặc Lịch sử làm việc</td>
+<td>CTV nhấn thẻ số lượng CTV của một ca</td>
 <td></td>
 </tr>
 <tr class="even">
 <td>2</td>
 <td></td>
-<td>Hệ thống mở cửa sổ Chi tiết ca làm việc gồm tên ca, ngày làm việc, trạng thái Đi làm, danh sách CTV làm cùng và nhóm thao tác hủy.</td>
+<td>Hệ thống mở Chi tiết ca làm việc, hiển thị tên ca, ngày hoặc nhãn “Lịch tuần”, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc.</td>
 </tr>
 <tr class="odd">
 <td>3</td>
-<td>CTV nhấn Chỉ hủy ca này</td>
-<td></td>
+<td>CTV xem danh sách</td>
+<td>Hệ thống không hiển thị nút Chỉ hủy ca này, Hủy ca định kỳ hoặc chức năng cập nhật phân công.</td>
 </tr>
 <tr class="even">
 <td>4</td>
-<td></td>
-<td><p>Hệ thống cập nhật ngay sau thao tác:</p>
-<p>- Chỉ loại CTV khỏi đúng ca đang chọn</p>
-<p>- Giữ nguyên các ca khác trong chuỗi đăng ký</p>
-<p>- Đóng cửa sổ chi tiết</p>
-<p>- Hiển thị thông báo hủy và cập nhật hai chế độ xem lịch</p></td>
-</tr>
-<tr class="odd">
-<td>5</td>
-<td>Hoặc CTV mở một ca tương lai và nhấn Hủy ca định kỳ</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>6</td>
-<td></td>
-<td>Hệ thống loại CTV khỏi các ca cùng thứ và cùng buổi kể từ ngày đã chọn, giữ các ca trước đó và hiển thị thông báo kết quả.</td>
-</tr>
-<tr class="odd">
-<td>7</td>
-<td></td>
-<td>Nếu ca đã qua, hệ thống chỉ hiển thị chi tiết và thông báo không thể hủy; CTV dùng nút Đóng hoặc biểu tượng X để thoát.</td>
+<td>CTV nhấn Đóng hoặc biểu tượng X</td>
+<td>Hệ thống đóng cửa sổ chi tiết và giữ nguyên lịch.</td>
 </tr>
 </tbody>
 </table>
 
 *e. Các trường hợp khác*
 
-- Tại bước 1, nếu ca đã qua, hệ thống vẫn hiển thị chi tiết nhưng thông báo ca không thể hủy và chỉ cho phép đóng cửa sổ.
+- Tại bước 1, nếu ô lịch không có số lượng CTV, ô chỉ hiển thị “—” và không mở được chi tiết.
 
-- Tại bước 5, nếu CTV chọn Hủy ca định kỳ, hệ thống hủy các ca cùng thứ và cùng buổi từ ngày đang chọn trở đi; các ca trước đó được giữ nguyên.
+- Luồng đăng ký, cập nhật và hủy ca cá nhân chưa được cung cấp trên giao diện CTV hiện tại; các mô tả tương ứng trong đặc tả trước đây không phản ánh UI thực tế.
 
 #### 2.4. Xem lịch tuần tổng hợp và lịch sử tổng hợp (Admin)
 
@@ -1041,7 +985,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 5, nếu màn hình hẹp, lưới giữ năm cột Thứ 2-Thứ 6 và cho phép cuộn ngang.
 
-- Lịch tuần tổng hợp và Lịch sử tổng hợp có bố cục tabs/grid/nav giống hệt giao diện Lịch làm việc của CTV (Lịch tuần / Lịch sử làm việc); khác duy nhất là nội dung mỗi ô ca là số CTV + bấm để xem danh sách CTV đi làm.
+- Lịch tuần tổng hợp và Lịch sử tổng hợp có bố cục tabs/grid/nav giống giao diện Lịch làm việc mà CTV đang nhìn thấy; nội dung mỗi ô ca là số CTV + bấm để xem danh sách CTV đi làm.
 
 #### 2.5. Xem chi tiết ca và hồ sơ CTV
 

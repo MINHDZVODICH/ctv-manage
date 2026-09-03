@@ -4,6 +4,7 @@ import { z } from 'zod';
 import * as registrationService from './registration.service.js';
 import { Errors } from '../../shared/errors.js';
 import { assertFileMagic } from '../../shared/fileStorage.js';
+import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -13,11 +14,7 @@ const upload = multer({
 });
 
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
-const CV_MIMES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+const CV_MIMES = ['application/pdf'];
 
 const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional() as any);
@@ -25,8 +22,11 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
 const createBodySchema = z.object({
   email: z.string().trim().email('Email không hợp lệ'),
   displayName: z.string().trim().min(1, 'displayName là bắt buộc').max(100),
-  phone: z.string().trim().min(6, 'Số điện thoại không hợp lệ').max(20),
-  dateOfBirth: emptyToUndefined(z.coerce.date()),
+  phone: z.string().trim().regex(/^\d{10,11}$/, 'Số điện thoại phải từ 10 - 11 chữ số'),
+  dateOfBirth: z.preprocess((v) => {
+    if (v === '' || v === undefined || v === null) return undefined;
+    return parseAndValidateDateOfBirth(v);
+  }, z.date().nullable().optional()),
   gender: emptyToUndefined(z.string().trim().max(20)),
   address: emptyToUndefined(z.string().trim().max(255)),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
@@ -59,7 +59,7 @@ const createHandler = async (req: Request, res: Response, next: NextFunction) =>
     }
     if (cv) {
       if (!CV_MIMES.includes(cv.mimetype)) {
-        throw Errors.badRequest('INVALID_FILE_TYPE', 'CV phải là PDF, DOC hoặc DOCX');
+        throw Errors.badRequest('INVALID_FILE_TYPE', 'CV phải là tệp định dạng PDF (.pdf)');
       }
       assertFileMagic(cv.buffer, CV_MIMES);
     }

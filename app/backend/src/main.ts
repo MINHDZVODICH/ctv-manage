@@ -6,7 +6,10 @@ import { createApp } from './app.js';
 import { syncWorkHistory } from './modules/schedule/schedule.service.js';
 
 const PORT = Number(process.env.PORT ?? 4000);
-createApp().listen(PORT);
+const HOST = process.env.HOST ?? '0.0.0.0';
+createApp().listen(PORT, HOST, () => {
+  console.log(`Backend server listening on http://${HOST}:${PORT}`);
+});
 
 const syncCompletedWork = () => {
   void syncWorkHistory().catch((error) => {

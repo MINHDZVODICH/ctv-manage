@@ -1,6 +1,10 @@
 const BASE = '';
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export function isRequestAborted(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(init.headers as any) },
@@ -18,8 +22,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
-export function apiGet<T>(path: string) {
-  return request<T>(path, { method: 'GET' });
+export function apiGet<T>(path: string, options: RequestInit = {}) {
+  return request<T>(path, { ...options, method: 'GET' });
 }
 export function apiPost<T>(path: string, data?: unknown) {
   return request<T>(path, { method: 'POST', body: data !== undefined ? JSON.stringify(data) : undefined });

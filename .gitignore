@@ -19,14 +19,10 @@ build/
 .env.production.local
 
 # Database
-app/backend/prisma/dev.db
-app/backend/prisma/dev.db-journal
-app/backend/prisma/dev.db-wal
-app/backend/prisma/dev.db-shm
-app/backend/prisma/acceptance.db
-app/backend/prisma/acceptance.db-journal
-app/backend/prisma/acceptance.db-wal
-app/backend/prisma/acceptance.db-shm
+app/backend/prisma/*.db
+app/backend/prisma/*.db-journal
+app/backend/prisma/*.db-wal
+app/backend/prisma/*.db-shm
 app/backend/.e2e-private-storage/
 app/backend/.acceptance-uploads/
 app/backend/test-results/
@@ -62,3 +58,9 @@ Thumbs.db
 app/backend/uploads/
 app/backend/prisma/migrations/*/migration.sql
 !app/backend/prisma/migrations/migration_lock.toml
+
+Deploy-React-Nodejs-EN.md
+
+docs/
+
+prototype/

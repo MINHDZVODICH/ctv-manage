@@ -5,11 +5,11 @@ import { Errors } from './errors.js';
 
 /**
  * Base upload directory: app/backend/uploads
- * __dirname is src/shared (tsx dev) or dist/shared (compiled) — both resolve to app/backend/uploads.
+ * Backend npm scripts run with app/backend as process.cwd(), in both dev and production.
  */
 const BASE_DIR = process.env.FILE_STORAGE_ROOT
   ? path.resolve(process.cwd(), process.env.FILE_STORAGE_ROOT)
-  : path.resolve(__dirname, '..', '..', 'uploads');
+  : path.resolve(process.cwd(), 'uploads');
 
 export function getBaseDir(): string {
   return BASE_DIR;

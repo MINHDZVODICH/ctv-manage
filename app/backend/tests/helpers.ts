@@ -22,56 +22,60 @@ export async function resetDatabase() {
   await prisma.account.deleteMany();
 
   const uploadRoot = path.resolve(process.cwd(), process.env.FILE_STORAGE_ROOT ?? '.acceptance-uploads');
-  await fs.rm(uploadRoot, { recursive: true, force: true });
-  await fs.mkdir(uploadRoot, { recursive: true });
+  try {
+    const entries = await fs.readdir(uploadRoot);
+    for (const entry of entries) {
+      await fs.rm(path.join(uploadRoot, entry), { recursive: true, force: true }).catch(() => {});
+    }
+  } catch {
+    await fs.mkdir(uploadRoot, { recursive: true }).catch(() => {});
+  }
 }
 
 export async function seedActors() {
   passwordHash ??= await argon2.hash(TEST_PASSWORD);
-  const [admin, ctv, otherCtv, disabledCtv] = await Promise.all([
-    prisma.account.create({
-      data: {
-        email: 'admin.acceptance@ctv.local',
-        passwordHash,
-        role: 'ADMIN',
-        status: 'ACTIVE',
-        displayName: 'Admin Acceptance',
-        ctvCode: 'ADMIN-ACCEPTANCE',
-      },
-    }),
-    prisma.account.create({
-      data: {
-        email: 'ctv.active@ctv.local',
-        passwordHash,
-        role: 'CTV',
-        status: 'ACTIVE',
-        displayName: 'CTV Active',
-        phone: '0900000001',
-        ctvCode: 'CTV-ACCEPTANCE-001',
-      },
-    }),
-    prisma.account.create({
-      data: {
-        email: 'ctv.other@ctv.local',
-        passwordHash,
-        role: 'CTV',
-        status: 'ACTIVE',
-        displayName: 'CTV Other',
-        phone: '0900000002',
-        ctvCode: 'CTV-ACCEPTANCE-002',
-      },
-    }),
-    prisma.account.create({
-      data: {
-        email: 'ctv.disabled@ctv.local',
-        passwordHash,
-        role: 'CTV',
-        status: 'DISABLED',
-        displayName: 'CTV Disabled',
-        ctvCode: 'CTV-ACCEPTANCE-003',
-      },
-    }),
-  ]);
+  const admin = await prisma.account.create({
+    data: {
+      email: 'admin.acceptance@ctv.local',
+      passwordHash,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      displayName: 'Admin Acceptance',
+      ctvCode: 'ADMIN-ACCEPTANCE',
+    },
+  });
+  const ctv = await prisma.account.create({
+    data: {
+      email: 'ctv.active@ctv.local',
+      passwordHash,
+      role: 'CTV',
+      status: 'ACTIVE',
+      displayName: 'CTV Active',
+      phone: '0900000001',
+      ctvCode: 'CTV-ACCEPTANCE-001',
+    },
+  });
+  const otherCtv = await prisma.account.create({
+    data: {
+      email: 'ctv.other@ctv.local',
+      passwordHash,
+      role: 'CTV',
+      status: 'ACTIVE',
+      displayName: 'CTV Other',
+      phone: '0900000002',
+      ctvCode: 'CTV-ACCEPTANCE-002',
+    },
+  });
+  const disabledCtv = await prisma.account.create({
+    data: {
+      email: 'ctv.disabled@ctv.local',
+      passwordHash,
+      role: 'CTV',
+      status: 'DISABLED',
+      displayName: 'CTV Disabled',
+      ctvCode: 'CTV-ACCEPTANCE-003',
+    },
+  });
   return { admin, ctv, otherCtv, disabledCtv };
 }
 
@@ -90,3 +94,6 @@ export const validPng = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
 ]);
+
+export const validPdf = Buffer.from('%PDF-1.4\n%âãÏÓ\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
+

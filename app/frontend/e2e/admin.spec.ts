@@ -110,7 +110,13 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
   });
   await page.getByText('CTV Active', { exact: true }).click();
   await weeklyScheduleResponse;
-  await expect(page.getByRole('heading', { name: 'Hồ sơ & Lịch trình tài khoản' })).toBeVisible();
+  const detailHeading = page.getByRole('heading', { name: 'Hồ sơ & Lịch trình tài khoản' });
+  await expect(detailHeading).toBeVisible();
+  const detailModal = detailHeading.locator('xpath=ancestor::div[contains(@class, "max-w-3xl")][1]');
+  await expect(detailModal.getByText('Chưa có', { exact: true })).toHaveCount(3);
+  await expect(detailModal.locator('img[src*="images.unsplash.com"]')).toHaveCount(0);
+  await expect(detailModal.getByRole('button', { name: 'Xem file' })).toHaveCount(0);
+  await expect(detailModal.getByRole('button', { name: 'Tải về' })).toHaveCount(0);
   await expect(page.getByTitle('Buồng làm việc: Buồng 2')).toBeVisible();
   await expect(page.getByText('ROOM_2', { exact: true })).toHaveCount(0);
 

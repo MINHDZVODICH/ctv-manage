@@ -9,11 +9,10 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   timeout: 30_000,
   expect: { timeout: 8_000 },
-  outputDir: './test-results/artifacts',
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['junit', { outputFile: 'test-results/e2e-junit.xml' }],
+    ['junit', { outputFile: 'test-results/e2e-report.xml' }],
   ],
   use: {
     baseURL: frontendUrl,
@@ -27,7 +26,6 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         channel: 'chrome',
-        launchOptions: { args: ['--disable-background-mode'] },
       },
     },
   ],

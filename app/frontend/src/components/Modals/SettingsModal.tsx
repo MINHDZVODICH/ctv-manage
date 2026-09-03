@@ -8,7 +8,7 @@ interface SettingsModalProps {
 }
 
 const accentColorMap: Record<AccentColorOption, { name: string; hex: string; bgClass: string }> = {
-  'Trắng': { name: 'Trắng', hex: '#ffffff', bgClass: 'bg-slate-100 border border-slate-300 dark:bg-white' },
+  'Xám': { name: 'Xám', hex: '#64748b', bgClass: 'bg-slate-500' },
   'Lục': { name: 'Lục', hex: '#10b981', bgClass: 'bg-emerald-500' },
   'Lam': { name: 'Lam', hex: '#2563eb', bgClass: 'bg-blue-600' },
   'Vàng': { name: 'Vàng', hex: '#eab308', bgClass: 'bg-amber-400' },
@@ -29,11 +29,13 @@ function CustomSelect<T extends string>({
   options,
   onChange,
   isDarkMode = false,
+  direction = 'down',
 }: {
   value: T;
   options: DropdownItem<T>[];
   onChange: (val: T) => void;
   isDarkMode?: boolean;
+  direction?: 'up' | 'down';
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((o) => o.value === value) || options[0];
@@ -41,6 +43,7 @@ function CustomSelect<T extends string>({
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer ${
           isDarkMode
@@ -52,18 +55,24 @@ function CustomSelect<T extends string>({
           <span className={`w-3 h-3 rounded-full ${selectedOption.colorBgClass} inline-block shrink-0`} />
         )}
         <span>{selectedOption?.label || value}</span>
-        <span className={`material-symbols-outlined text-[18px] ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        <span
+          className={`material-symbols-outlined text-[18px] ml-1 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          } ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}
+        >
           expand_more
         </span>
       </button>
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div
-            className={`absolute right-0 top-full mt-1.5 z-40 border rounded-xl shadow-2xl p-1.5 min-w-[150px] text-left animate-in fade-in zoom-in-95 duration-100 ${
+            className={`absolute right-0 ${
+              direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            } z-50 border rounded-xl shadow-2xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto text-left animate-in fade-in zoom-in-95 duration-100 ${
               isDarkMode
-                ? 'bg-[#25262a] border-slate-700/80 text-slate-100'
+                ? 'bg-[#25262a] border-slate-700/80 text-slate-100 shadow-black/60'
                 : 'bg-white border-slate-200 text-slate-800 shadow-xl'
             }`}
           >
@@ -71,6 +80,7 @@ function CustomSelect<T extends string>({
               const isSelected = value === opt.value;
               return (
                 <button
+                  type="button"
                   key={opt.value}
                   onClick={() => {
                     onChange(opt.value);
@@ -126,9 +136,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+    >
       <div
-        className={`rounded-2xl border shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative rounded-2xl border shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-150 ${
           isDarkMode
             ? 'bg-[#1e1e20] text-white border-slate-800'
             : 'bg-white text-slate-800 border-slate-200'
@@ -136,7 +150,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-6 py-4 border-b ${
+          className={`flex items-center justify-between px-6 py-4 border-b rounded-t-2xl ${
             isDarkMode
               ? 'border-slate-800/80 bg-[#18181a]'
               : 'border-slate-200 bg-slate-50/80'
@@ -157,6 +171,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {t('nav_settings')}
           </h3>
           <button
+            type="button"
             onClick={onClose}
             className={`p-1 rounded-full transition-colors cursor-pointer ${
               isDarkMode
@@ -170,7 +185,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Content list */}
         <div
-          className={`p-2 sm:p-4 divide-y ${
+          className={`p-2 sm:p-4 divide-y rounded-b-2xl ${
             isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'
           }`}
         >
@@ -268,6 +283,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <CustomSelect<LanguageOption>
               isDarkMode={isDarkMode}
               value={language}
+              direction="up"
               options={[
                 { label: 'Tiếng Việt', value: 'Tiếng Việt' },
                 { label: 'Tiếng Anh', value: 'Tiếng Anh' },
@@ -275,22 +291,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onChange={setLanguage}
             />
           </div>
-        </div>
-
-        {/* Footer */}
-        <div
-          className={`p-4 border-t flex items-center justify-end ${
-            isDarkMode
-              ? 'bg-[#18181a] border-slate-800/80'
-              : 'bg-slate-50/80 border-slate-200'
-          }`}
-        >
-          <button
-            onClick={onClose}
-            className="px-5 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-          >
-            {t('close')}
-          </button>
         </div>
       </div>
     </div>

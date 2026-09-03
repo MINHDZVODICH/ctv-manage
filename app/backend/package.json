@@ -8,15 +8,14 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
+    "seed": "tsx prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "create:admin": "tsx scripts/create-admin.ts",
-    "seed:ctv": "tsx scripts/seed-ctv.ts",
-    "acceptance:seed": "npm.cmd run test:prepare && tsx scripts/acceptance-seed.ts",
-    "acceptance:serve": "npm.cmd run acceptance:seed && tsx src/main.ts",
-    "test:prepare": "set DATABASE_URL=file:./acceptance.db&& prisma db push --force-reset --skip-generate",
+    "test:prepare": "node -e \"const fs=require('fs'); ['acceptance.db','acceptance.db-shm','acceptance.db-wal'].forEach(f=>{try{fs.rmSync('prisma/'+f,{force:true})}catch{}})\" && set DATABASE_URL=file:./acceptance.db&& prisma db push --skip-generate",
     "test": "npm.cmd run test:prepare && set DATABASE_URL=file:./acceptance.db&& set FILE_STORAGE_ROOT=.acceptance-uploads&& set NODE_ENV=test&& vitest run --no-file-parallelism"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.4.1",

@@ -81,22 +81,23 @@ html.dark textarea {
 
 /* Custom Accent Color Utilities */
 .bg-accent {
-  background-color: var(--accent-primary);
-  color: var(--accent-text);
+  background-color: var(--accent-primary) !important;
+  color: var(--accent-text) !important;
 }
 
 .hover\:bg-accent:hover {
   background-color: var(--accent-primary) !important;
-  color: #ffffff !important;
+  color: var(--accent-text) !important;
   border-color: var(--accent-primary) !important;
 }
 
 .hover\:bg-accent-hover:hover {
-  background-color: var(--accent-hover);
+  background-color: var(--accent-hover) !important;
+  color: var(--accent-text) !important;
 }
 
 .text-accent {
-  color: var(--accent-primary);
+  color: var(--accent-text-brand, var(--accent-primary));
 }
 
 .border-accent {

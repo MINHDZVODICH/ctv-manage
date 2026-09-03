@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
+import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -15,6 +16,28 @@ function bangkokStartOfTodayUtc(): Date {
   const d = bkk.getUTCDate();
   // Bangkok 00:00 ICT = UTC y-m-d 00:00 minus 7h
   return new Date(Date.UTC(y, m, d, 0, 0, 0, 0) - 7 * 3600 * 1000);
+}
+
+function mapAccountFiles(a: any) {
+  return (a.accountFiles ?? [])
+    .filter((af: any) => !af.deletedAt)
+    .map((af: any) => ({
+      category: af.category,
+      fileId: af.fileId,
+      createdAt: af.createdAt,
+      file: af.fileAsset
+        ? {
+            id: af.fileAsset.id,
+            storageKey: af.fileAsset.storageKey,
+            originalName: af.fileAsset.originalName,
+            mimeType: af.fileAsset.mimeType,
+            sizeBytes: af.fileAsset.sizeBytes,
+            sha256: af.fileAsset.sha256,
+            state: af.fileAsset.state,
+            createdAt: af.fileAsset.createdAt,
+          }
+        : null,
+    }));
 }
 
 function mapAccountRow(a: any) {
@@ -34,6 +57,7 @@ function mapAccountRow(a: any) {
     lastLoginAt: a.lastLoginAt,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
+    files: mapAccountFiles(a),
   };
 }
 
@@ -57,25 +81,7 @@ function mapAccountDetail(a: any) {
     passwordChangedAt: a.passwordChangedAt,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
-    files: (a.accountFiles ?? [])
-      .filter((af: any) => !af.deletedAt)
-      .map((af: any) => ({
-        category: af.category,
-        fileId: af.fileId,
-        createdAt: af.createdAt,
-        file: af.fileAsset
-          ? {
-              id: af.fileAsset.id,
-              storageKey: af.fileAsset.storageKey,
-              originalName: af.fileAsset.originalName,
-              mimeType: af.fileAsset.mimeType,
-              sizeBytes: af.fileAsset.sizeBytes,
-              sha256: af.fileAsset.sha256,
-              state: af.fileAsset.state,
-              createdAt: af.fileAsset.createdAt,
-            }
-          : null,
-      })),
+    files: mapAccountFiles(a),
   };
 }
 
@@ -159,6 +165,12 @@ export async function listAccounts(params: ListAccountsParams): Promise<{ data: 
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      include: {
+        accountFiles: {
+          where: { deletedAt: null },
+          include: { fileAsset: true },
+        },
+      },
     }),
   ]);
 
@@ -208,11 +220,7 @@ export async function updateAccount(accountId: string, payload: UpdateAccountPay
   if (payload.gender !== undefined) data.gender = payload.gender;
   if (payload.address !== undefined) data.address = payload.address;
   if (payload.dateOfBirth !== undefined) {
-    if (payload.dateOfBirth === null || payload.dateOfBirth === '') {
-      data.dateOfBirth = null;
-    } else {
-      data.dateOfBirth = new Date(payload.dateOfBirth as any);
-    }
+    data.dateOfBirth = parseAndValidateDateOfBirth(payload.dateOfBirth);
   }
 
   const updated = await prisma.account.update({

@@ -50,4 +50,26 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
     await page.getByRole('button').filter({ hasText: 'Đăng xuất' }).click();
     await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
   });
+
+  test('không khôi phục màn hình đã đăng nhập khi trang được lấy từ lịch sử trình duyệt sau đăng xuất', async ({ page, loginAs }) => {
+    await loginAs('admin');
+    await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toBeVisible();
+
+    await page.getByRole('button', { name: /Admin Acceptance/ }).click();
+    await page.getByRole('button').filter({ hasText: 'Đăng xuất' }).click();
+    await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
+
+    // Mô phỏng `pageshow` khi Back/Forward cache khôi phục một bản React cũ.
+    // Kiểm tra rằng ứng dụng thật sự hỏi lại server, thay vì tin vào state cũ.
+    const sessionCheck = page.waitForResponse((response) =>
+      response.url().includes('/api/v1/auth/sessions/me') && response.request().method() === 'GET',
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    });
+    expect((await sessionCheck).status()).toBe(401);
+
+    await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toHaveCount(0);
+  });
 });

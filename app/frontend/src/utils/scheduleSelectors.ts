@@ -1,9 +1,8 @@
-import type { AssignedCTV, ShiftSlot, UserAccount } from "../types";
+import type { AssignedCTV, ShiftSlot } from "../types";
 import { formatRoomLabel } from "./rooms";
 
 export function getAssignedCTVsForDate(
   shifts: ShiftSlot[],
-  accounts: UserAccount[],
   workDate: string,
   shiftType: "morning" | "afternoon",
 ): AssignedCTV[] {
@@ -13,13 +12,6 @@ export function getAssignedCTVsForDate(
     .filter((shift) => shift.workDate === workDate && shift.shiftType === shiftType)
     .forEach((shift) => {
       (shift.assignedCTVs || []).forEach((ctv) => {
-        const account = accounts.find(
-          (candidate) =>
-            candidate.id === ctv.id ||
-            candidate.name.trim().toLowerCase() === ctv.name.trim().toLowerCase(),
-        );
-        if (account?.role === "Admin") return;
-
         const key = ctv.id || ctv.name.trim().toLowerCase();
         if (!uniqueCTVs.has(key)) {
           uniqueCTVs.set(key, {

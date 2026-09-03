@@ -276,22 +276,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
         </div>
-
-        {/* Footer */}
-        <div
-          className={`p-4 border-t flex items-center justify-end ${
-            isDarkMode
-              ? 'bg-[#18181a] border-slate-800/80'
-              : 'bg-slate-50/80 border-slate-200'
-          }`}
-        >
-          <button
-            onClick={onClose}
-            className="px-5 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-          >
-            {t('close')}
-          </button>
-        </div>
       </div>
     </div>
   );

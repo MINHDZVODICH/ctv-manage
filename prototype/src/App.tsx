@@ -107,6 +107,15 @@ export const App: React.FC = () => {
 
   // Handlers
   const handleLoginSuccess = (email: string) => {
+    const matched = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (matched) {
+      setCurrentUser(matched);
+      if (matched.role === "Cộng tác viên") {
+        setCurrentTab("schedule");
+      } else {
+        setCurrentTab("accounts");
+      }
+    }
     setIsLoggedIn(true);
     showToast(`Đăng nhập thành công với ${email}`);
   };
@@ -330,8 +339,10 @@ export const App: React.FC = () => {
       cccdFront: req.cccdFront,
       cccdBack: req.cccdBack,
       cvFile: req.cvFile,
-      cvFileName: req.cvFileName,
-      cvFileSize: req.cvFileSize,
+      cvFileName:
+        req.cvFileName ||
+        (req.cvFile ? `CV_${req.name.replace(/\s+/g, "_")}.pdf` : undefined),
+      cvFileSize: req.cvFileSize || (req.cvFile ? "1.8 MB" : undefined),
     };
     setAccounts((prev) => [newAcc, ...prev]);
     showToast(`Đã phê duyệt hồ sơ của ${req.name} và chuyển sang Danh sách tài khoản`);
@@ -429,16 +440,34 @@ export const App: React.FC = () => {
 
   // Pending count for sidebar badge
   const handleSwitchRole = (newRole: UserRole) => {
-    setCurrentUser((prev) => ({ ...prev, role: newRole }));
-    showToast(`Đã chuyển sang giao diện: ${newRole}`);
-    if (
-      newRole === "Cộng tác viên" &&
-      (currentTab === "accounts" || currentTab === "requests" || currentTab === "meetings")
-    ) {
-      setCurrentTab("schedule");
-    } else if (newRole === "Admin" && currentTab === "schedule") {
-      setCurrentTab("accounts");
+    if (newRole === "Cộng tác viên") {
+      const ctvAcc =
+        accounts.find((a) => a.role === "Cộng tác viên" && a.id === currentUser.id) ||
+        accounts.find((a) => a.role === "Cộng tác viên") || {
+          ...currentUser,
+          role: "Cộng tác viên",
+        };
+      setCurrentUser(ctvAcc);
+      if (
+        currentTab === "accounts" ||
+        currentTab === "requests" ||
+        currentTab === "meetings"
+      ) {
+        setCurrentTab("schedule");
+      }
+    } else {
+      const adminAcc =
+        accounts.find((a) => a.role === "Admin" && a.id === currentUser.id) ||
+        accounts.find((a) => a.role === "Admin") || {
+          ...currentUser,
+          role: "Admin",
+        };
+      setCurrentUser(adminAcc);
+      if (currentTab === "schedule") {
+        setCurrentTab("accounts");
+      }
     }
+    showToast(`Đã chuyển sang giao diện: ${newRole}`);
   };
 
   const pendingRequestsCount = requests.filter((r) => r.status === "Chờ duyệt").length;

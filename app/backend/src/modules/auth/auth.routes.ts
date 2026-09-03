@@ -7,8 +7,9 @@ const router = Router();
 // POST /  -> login  (mounted at /api/v1/auth/sessions)
 router.post('/', authController.login);
 
-// DELETE /current -> logout
+// DELETE /current or /me -> logout
 router.delete('/current', authController.logout);
+router.delete('/me', authController.logout);
 
 // GET /me -> current user (mounted at /api/v1/users/me or /api/v1/auth/sessions/me)
 // When mounted under /api/v1/auth/sessions this serves /api/v1/auth/sessions/me

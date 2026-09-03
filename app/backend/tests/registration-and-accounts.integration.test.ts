@@ -45,6 +45,46 @@ describe('registration approval and account administration', () => {
     expect(duplicate.body.error.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
+  test('allows only ADMIN to preview a staged CV from a pending registration', async () => {
+    const pdf = Buffer.from('%PDF-1.4\n%%EOF');
+    const created = await request(app)
+      .post('/api/v1/registration-requests')
+      .field('email', 'cv.preview@example.com')
+      .field('displayName', 'CTV Có CV')
+      .field('phone', '0912345678')
+      .field('password', TEST_PASSWORD)
+      .attach('cv', pdf, { filename: 'ho-so.pdf', contentType: 'application/pdf' });
+    expect(created.status).toBe(201);
+
+    const cvFile = created.body.request.files.find((file: any) => file.category === 'CV');
+    expect(cvFile).toBeTruthy();
+    expect((await prisma.fileAsset.findUniqueOrThrow({ where: { id: cvFile.fileId } })).state).toBe(
+      'STAGED',
+    );
+
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const contentUrl = `/api/v1/files/${cvFile.fileId}/content`;
+
+    const adminPreview = await request(app).get(contentUrl).set('Cookie', adminCookie);
+    expect(adminPreview.status).toBe(200);
+    expect(adminPreview.headers['content-type']).toContain('application/pdf');
+    expect((await request(app).get(contentUrl).set('Cookie', ctvCookie)).status).toBe(403);
+    expect((await request(app).get(contentUrl)).status).toBe(401);
+
+    const approved = await request(app)
+      .patch(`/api/v1/registration-requests/${created.body.request.id}`)
+      .set('Cookie', adminCookie)
+      .send({ decision: 'APPROVED', expectedStatus: 'PENDING' });
+    expect(approved.status).toBe(200);
+    expect((await prisma.fileAsset.findUniqueOrThrow({ where: { id: cvFile.fileId } })).state).toBe(
+      'ACTIVE',
+    );
+
+    const ownerCookie = await loginCookie(app, 'cv.preview@example.com');
+    expect((await request(app).get(contentUrl).set('Cookie', ownerCookie)).status).toBe(200);
+  });
+
   test('ADMIN approves a pending registration exactly once and the new CTV can log in', async () => {
     const registration = await request(app)
       .post('/api/v1/registration-requests')
@@ -62,6 +102,9 @@ describe('registration approval and account administration', () => {
     expect(approved.status).toBe(200);
     expect(approved.body.request.status).toBe('APPROVED');
     expect(approved.body.request.approvedAccount.ctvCode).toMatch(/^CTV-\d{4}-\d{3}$/);
+    const approvedAccountId = approved.body.request.approvedAccount.id;
+    expect(await prisma.scheduleRegistration.count({ where: { accountId: approvedAccountId } })).toBe(0);
+    expect(await prisma.shiftAssignment.count({ where: { accountId: approvedAccountId } })).toBe(0);
 
     const repeated = await request(app)
       .patch(`/api/v1/registration-requests/${requestId}`)
@@ -136,4 +179,3 @@ describe('registration approval and account administration', () => {
     expect(staleSession.status).toBe(401);
   });
 });
-

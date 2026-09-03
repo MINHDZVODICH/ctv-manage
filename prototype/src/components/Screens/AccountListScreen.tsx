@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { UserAccount, UserRole } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
 import { ResetPasswordModal } from "../Modals/ResetPasswordModal";
+import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface AccountListScreenProps {
   accounts: UserAccount[];
@@ -20,6 +21,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
   onViewAccountDetail,
   onResetPassword,
 }) => {
+  const { t, language } = useSystemSettings();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -56,10 +58,9 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">Danh sách tài khoản</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("nav_accounts")}</h2>
           <p className="text-sm text-[#44474e] mt-1">
-            Tổng số <span className="font-semibold text-[#1a1b1e]">{ctvAccounts.length}</span> tài
-            khoản
+            {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{ctvAccounts.length}</span> {t("ctv_unit")}
           </p>
         </div>
       </div>
@@ -79,7 +80,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Tìm theo họ tên, email, sđt..."
+              placeholder={t("search_placeholder")}
               className="w-full pl-10 pr-4 py-2 h-[40px] border border-[#E2E8F0] rounded text-sm bg-white text-[#1a1b1e] focus:border-[#1b365d] focus:ring-1 focus:ring-[#1b365d] outline-none"
             />
           </div>
@@ -91,7 +92,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               className="text-[#44474e] hover:text-[#1b365d] font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-              <span>Đặt lại</span>
+              <span>{t("refresh")}</span>
             </button>
           </div>
         </div>
@@ -104,19 +105,19 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  STT
+                  {language === "Tiếng Anh" ? "No." : "STT"}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Họ và tên
+                  {t("full_name")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Số điện thoại
+                  {t("phone_number")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Ngày đăng ký
+                  {t("registration_date")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider text-right">
-                  Thao tác
+                  {t("actions")}
                 </th>
               </tr>
             </thead>
@@ -124,7 +125,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               {currentItems.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.
+                    {language === "Tiếng Anh" ? "No accounts found matching search criteria." : "Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm."}
                   </td>
                 </tr>
               ) : (

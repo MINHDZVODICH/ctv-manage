@@ -13,6 +13,7 @@ myScheduleRouter.get('/shifts', ctrl.getMyShifts);
 myScheduleRouter.get('/work-history', ctrl.getMyWorkHistory);
 myScheduleRouter.delete('/shift-assignments/:assignmentId', ctrl.deleteAssignment);
 myScheduleRouter.delete('/schedule-registrations/:registrationId/assignments', ctrl.deleteSeries);
+myScheduleRouter.delete('/schedule-registrations/:registrationId/series', ctrl.deleteSeries);
 
 // /api/v1/shifts/:shiftId
 export const shiftRouter = Router();

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { UserAccount } from "../../types";
 
 interface EditProfileModalProps {
@@ -26,6 +26,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [cvFileSize, setCvFileSize] = useState<string | undefined>(user.cvFileSize || "1.8 MB");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setName(user.name);
+      setPhone(user.phone || "");
+      setDob(user.dob || "15/08/1990");
+      setGender(user.gender || "Nam");
+      setAddress(user.address || "");
+      setCvFile(user.cvFile);
+      setCvFileName(user.cvFileName || (user.cvFile ? `CV_${user.name.replace(/\s+/g, "_")}.pdf` : undefined));
+      setCvFileSize(user.cvFileSize || "1.8 MB");
+    }
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 

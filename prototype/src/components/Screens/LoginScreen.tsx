@@ -104,13 +104,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     reader.readAsDataURL(file);
   };
 
-  // CV File handlers (PDF, DOC, DOCX)
+  // CV File handlers (PDF only)
   const handleCvFileChange = (file?: File) => {
     if (!file) return;
     const name = file.name.toLowerCase();
-    const isAllowed = name.endsWith(".pdf") || name.endsWith(".doc") || name.endsWith(".docx");
+    const isAllowed = name.endsWith(".pdf");
     if (!isAllowed) {
-      setRegErrors((prev) => ({ ...prev, cvFile: "Vui lòng chọn file định dạng PDF (.pdf) hoặc Word (.doc, .docx)!" }));
+      setRegErrors((prev) => ({ ...prev, cvFile: "Vui lòng chọn tệp định dạng PDF (.pdf)!" }));
       return;
     }
     setCvFileName(file.name);
@@ -175,7 +175,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
 
     if (!regName.trim()) errors.regName = "Vui lòng nhập họ và tên!";
     if (!regEmail.trim()) errors.regEmail = "Vui lòng nhập email!";
-    if (!regPhone.trim()) errors.regPhone = "Vui lòng nhập số điện thoại!";
+    if (!regPhone.trim()) {
+      errors.regPhone = "Vui lòng nhập số điện thoại!";
+    } else if (!/^\d{10,11}$/.test(regPhone.trim())) {
+      errors.regPhone = "Số điện thoại phải từ 10 - 11 chữ số!";
+    }
     if (!regPassword) errors.regPassword = "Vui lòng nhập mật khẩu!";
     if (!regConfirmPassword) errors.regConfirmPassword = "Vui lòng nhập lại mật khẩu!";
 
@@ -271,7 +275,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="nhapemail@vienkhcn.vn"
                   disabled={isProcessing}
                   className="w-full px-3 py-2 bg-[#faf9fd] border border-[#c4c6cf] rounded-lg text-[#1a1b1e] text-sm focus:outline-none focus:border-[#002046] h-[40px]"
                 />
@@ -284,7 +287,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     type={showLoginPassword ? "text" : "password"}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="••••••••"
                     disabled={isProcessing}
                     className="w-full pl-3 pr-10 py-2 bg-[#faf9fd] border border-[#c4c6cf] rounded-lg text-[#1a1b1e] text-sm focus:outline-none focus:border-[#002046] h-[40px]"
                   />
@@ -342,7 +344,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   type="text"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="Nguyễn Văn A"
                   className={`w-full px-3 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[38px] ${
                     regErrors.regName ? "border-[#DC2626]" : "border-[#c4c6cf]"
                   }`}
@@ -412,7 +413,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     type="email"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="nguyenvana@vienkhcn.vn"
                     className={`w-full px-3 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[38px] ${
                       regErrors.regEmail ? "border-[#DC2626]" : "border-[#c4c6cf]"
                     }`}
@@ -432,8 +432,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <input
                     type="tel"
                     value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    placeholder="0987654321"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      setRegPhone(val);
+                      if (regErrors.regPhone) {
+                        setRegErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.regPhone;
+                          return next;
+                        });
+                      }
+                    }}
                     className={`w-full px-3 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[38px] ${
                       regErrors.regPhone ? "border-[#DC2626]" : "border-[#c4c6cf]"
                     }`}
@@ -549,7 +558,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         <span className="material-symbols-outlined text-slate-400 text-[24px] mb-1">
                           add_a_photo
                         </span>
-                        <p className="text-[11px] font-semibold text-[#1b365d]">Tải ảnh mặt trước</p>
+                        <p className="text-[11px] font-semibold text-[#1b365d]">Tải ảnh lên</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">Kéo thả hoặc nhấn để chọn</p>
                       </div>
                     )}
@@ -626,7 +635,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         <span className="material-symbols-outlined text-slate-400 text-[24px] mb-1">
                           add_a_photo
                         </span>
-                        <p className="text-[11px] font-semibold text-[#1b365d]">Tải ảnh mặt sau</p>
+                        <p className="text-[11px] font-semibold text-[#1b365d]">Tải ảnh lên</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">Kéo thả hoặc nhấn để chọn</p>
                       </div>
                     )}
@@ -639,23 +648,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 </div>
               </div>
 
-              {/* PHẦN 3: UPLOAD FILE PDF / WORD CV */}
+              {/* PHẦN 3: UPLOAD FILE PDF CV */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-[#1a1b1e] flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[#1b365d] text-[18px]">
                       description
                     </span>
-                    <span>CV ứng tuyển (File PDF, Word)</span>
+                    <span>Hồ sơ ứng tuyển (CV)</span>
                   </label>
-                  <span className="text-[11px] text-[#74777f]">.pdf, .doc, .docx</span>
+                  <span className="text-[11px] text-[#74777f]">.pdf</span>
                 </div>
 
                 {/* Hidden File Input for CV */}
                 <input
                   type="file"
                   ref={cvFileInputRef}
-                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  accept=".pdf,application/pdf"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -667,16 +676,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {cvFileName ? (
                   <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                          cvFileName.toLowerCase().endsWith(".pdf")
-                            ? "bg-red-50 text-red-600 border border-red-200"
-                            : "bg-blue-50 text-blue-600 border border-blue-200"
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[22px]">
-                          {cvFileName.toLowerCase().endsWith(".pdf") ? "picture_as_pdf" : "description"}
-                        </span>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-red-50 text-red-600 border border-red-200">
+                        <span className="material-symbols-outlined text-[22px]">picture_as_pdf</span>
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-[#1a1b1e] truncate">{cvFileName}</p>
@@ -684,7 +685,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           <span>{cvFileSize}</span>
                           <span>•</span>
                           <span className="uppercase font-semibold text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-700">
-                            {cvFileName.split(".").pop()}
+                            PDF
                           </span>
                         </div>
                       </div>
@@ -737,10 +738,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       <span className="material-symbols-outlined text-[22px]">upload_file</span>
                     </div>
                     <p className="text-[12px] font-semibold text-[#1b365d]">
-                      Tải lên CV cá nhân (PDF hoặc Word)
+                      Tải file CV lên
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      Kéo thả file vào đây hoặc nhấn để chọn từ thiết bị (.pdf, .doc, .docx)
+                      Kéo thả file vào đây hoặc nhấn để chọn từ thiết bị (.pdf)
                     </p>
                   </div>
                 )}
@@ -761,7 +762,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       type={showRegPassword ? "text" : "password"}
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder="••••••••"
                       className={`w-full pl-3 pr-9 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[38px] ${
                         regErrors.regPassword ? "border-[#DC2626]" : "border-[#c4c6cf]"
                       }`}
@@ -793,7 +793,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       type={showRegConfirmPassword ? "text" : "password"}
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
                       className={`w-full pl-3 pr-9 py-2 bg-[#faf9fd] border rounded-lg text-sm h-[38px] ${
                         regErrors.regConfirmPassword ? "border-[#DC2626]" : "border-[#c4c6cf]"
                       }`}

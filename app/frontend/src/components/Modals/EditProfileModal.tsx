@@ -1,5 +1,6 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { UserAccount } from "../../types";
+import { onlyDigits } from "../../utils/formatters";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -7,6 +8,38 @@ interface EditProfileModalProps {
   onClose: () => void;
   onSave: (updatedData: Partial<UserAccount>) => void;
 }
+
+const parseDobToParts = (rawDob?: string) => {
+  if (!rawDob || !rawDob.trim()) {
+    return { day: "15", month: "08", year: "1990" };
+  }
+  const str = rawDob.trim();
+  const vnMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (vnMatch) {
+    return {
+      day: vnMatch[1].padStart(2, "0"),
+      month: vnMatch[2].padStart(2, "0"),
+      year: vnMatch[3],
+    };
+  }
+  const isoMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (isoMatch) {
+    return {
+      day: isoMatch[3].padStart(2, "0"),
+      month: isoMatch[2].padStart(2, "0"),
+      year: isoMatch[1],
+    };
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return {
+      day: String(d.getUTCDate()).padStart(2, "0"),
+      month: String(d.getUTCMonth() + 1).padStart(2, "0"),
+      year: String(d.getUTCFullYear()),
+    };
+  }
+  return { day: "15", month: "08", year: "1990" };
+};
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isOpen,
@@ -16,121 +49,215 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 }) => {
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone);
-  const [dob, setDob] = useState(user.dob || "15/08/1990");
+  
+  const initialDobParts = parseDobToParts(user.dob);
+  const [dobDay, setDobDay] = useState(initialDobParts.day);
+  const [dobMonth, setDobMonth] = useState(initialDobParts.month);
+  const [dobYear, setDobYear] = useState(initialDobParts.year);
+
   const [gender, setGender] = useState(user.gender || "Nam");
   const [address, setAddress] = useState(user.address || "");
-  const [cvFile, setCvFile] = useState<string | undefined>(user.cvFile);
-  const [cvFileName, setCvFileName] = useState<string | undefined>(
-    user.cvFileName || (user.cvFile ? `CV_${user.name.replace(/\s+/g, "_")}.pdf` : undefined),
-  );
-  const [cvFileSize, setCvFileSize] = useState<string | undefined>(user.cvFileSize || "1.8 MB");
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isOpen && user) {
+      setName(user.name);
+      setPhone(user.phone || "");
+      const parts = parseDobToParts(user.dob);
+      setDobDay(parts.day);
+      setDobMonth(parts.month);
+      setDobYear(parts.year);
+      setGender(user.gender || "Nam");
+      setAddress(user.address || "");
+    }
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const handleCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === "string") {
-          setCvFile(reader.result);
-          setCvFileName(file.name);
-          setCvFileSize(formatFileSize(file.size));
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-    e.target.value = "";
-  };
-
-  const handleRemoveCv = () => {
-    setCvFile(undefined);
-    setCvFileName(undefined);
-    setCvFileSize(undefined);
-  };
+  const maxDaysInMonth = new Date(
+    parseInt(dobYear || "2000", 10),
+    parseInt(dobMonth || "1", 10),
+    0
+  ).getDate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const dob = `${dobDay}/${dobMonth}/${dobYear}`;
     onSave({
       name,
       phone,
       dob,
       gender,
       address,
-      cvFile: cvFile || undefined,
-      cvFileName: cvFileName || undefined,
-      cvFileSize: cvFileSize || undefined,
     });
     onClose();
   };
 
-  const isPdf = (cvFileName || "").toLowerCase().endsWith(".pdf");
-
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between p-5 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-          <h3 className="text-lg font-bold text-[#1a1b1e]">Chỉnh sửa thông tin cá nhân</h3>
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-[#1e1f23] rounded-2xl border border-[#E2E8F0] dark:border-[#3b3d45] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c] shrink-0">
+          <h3 className="text-base font-bold text-[#1a1b1e] dark:text-slate-100">
+            Chỉnh sửa thông tin cá nhân
+          </h3>
           <button
+            type="button"
             onClick={onClose}
-            className="text-[#74777f] hover:text-[#1a1b1e] p-1 rounded-full hover:bg-gray-200 transition-colors"
+            className="text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div>
-            <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">Họ và tên</label>
+            <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
+              Họ và tên <span className="text-[#DC2626]">*</span>
+            </label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
+              className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
+              <label
+                htmlFor="edit-profile-phone"
+                className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1"
+              >
                 Số điện thoại
               </label>
               <input
-                type="text"
+                id="edit-profile-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                minLength={6}
+                pattern="[0-9]{6,15}"
+                title="Số điện thoại chỉ gồm từ 6 đến 15 chữ số"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
+                onChange={(e) => setPhone(onlyDigits(e.target.value, 15))}
+                className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">Ngày sinh</label>
-              <input
-                type="text"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                placeholder="15/08/1990"
-                className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
-              />
+              <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
+                Ngày sinh
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {/* Ngày */}
+                <div className="relative">
+                  <select
+                    value={dobDay}
+                    onChange={(e) => setDobDay(e.target.value)}
+                    title="Ngày"
+                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                  >
+                    {Array.from({ length: maxDaysInMonth }, (_, i) => {
+                      const d = String(i + 1).padStart(2, "0");
+                      return (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="material-symbols-outlined pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </div>
+
+                {/* Tháng */}
+                <div className="relative">
+                  <select
+                    value={dobMonth}
+                    onChange={(e) => {
+                      const m = e.target.value;
+                      setDobMonth(m);
+                      const maxDays = new Date(
+                        parseInt(dobYear || "2000", 10),
+                        parseInt(m, 10),
+                        0
+                      ).getDate();
+                      if (parseInt(dobDay, 10) > maxDays) {
+                        setDobDay(String(maxDays).padStart(2, "0"));
+                      }
+                    }}
+                    title="Tháng"
+                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const m = String(i + 1).padStart(2, "0");
+                      return (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="material-symbols-outlined pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </div>
+
+                {/* Năm */}
+                <div className="relative">
+                  <select
+                    value={dobYear}
+                    onChange={(e) => {
+                      const y = e.target.value;
+                      setDobYear(y);
+                      const maxDays = new Date(
+                        parseInt(y, 10),
+                        parseInt(dobMonth || "1", 10),
+                        0
+                      ).getDate();
+                      if (parseInt(dobDay, 10) > maxDays) {
+                        setDobDay(String(maxDays).padStart(2, "0"));
+                      }
+                    }}
+                    title="Năm"
+                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                  >
+                    {Array.from(
+                      { length: new Date().getFullYear() - 1939 },
+                      (_, i) => {
+                        const y = String(1940 + i);
+                        return (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        );
+                      }
+                    ).reverse()}
+                  </select>
+                  <span className="material-symbols-outlined pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">Giới tính</label>
+              <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
+                Giới tính
+              </label>
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
+                className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               >
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
@@ -139,91 +266,30 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">Địa chỉ</label>
+              <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
+                Địa chỉ
+              </label>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="TP. Hồ Chí Minh"
-                className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
+                className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               />
             </div>
           </div>
 
-          {/* Hồ sơ ứng tuyển (CV) Edit Section */}
-          <div className="pt-2 border-t border-[#E2E8F0]">
-            <label className="block text-xs font-bold text-[#1b365d] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">description</span>
-              <span>Hồ sơ ứng tuyển (CV)</span>
-            </label>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              className="hidden"
-              onChange={handleCvChange}
-            />
-
-            {cvFileName || cvFile ? (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      isPdf ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {isPdf ? "picture_as_pdf" : "description"}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800 truncate">{cvFileName}</p>
-                    {cvFileSize && <p className="text-[10px] text-slate-500">{cvFileSize}</p>}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded transition-colors cursor-pointer"
-                  >
-                    Thay đổi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemoveCv}
-                    className="p-1 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded transition-colors cursor-pointer"
-                    title="Xóa CV"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 px-4 border-2 border-dashed border-slate-300 rounded-lg text-xs font-semibold text-slate-600 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50/40 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                <span>Tải lên file CV (.pdf, .doc, .docx)</span>
-              </button>
-            )}
-          </div>
-
-          <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-[#E2E8F0] dark:border-[#3b3d45] flex items-center justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-[#E2E8F0] rounded text-xs font-semibold text-[#44474e] hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+              className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
               Lưu thay đổi
             </button>

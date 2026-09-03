@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as api from '../shared/api';
 
 export type AuthUser = {
@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       const res: any = await api.apiGet('/api/v1/auth/sessions/me');
       // backend returns { user: {...} }  ; also support { data: ...}
@@ -35,11 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    refresh();
-  }, []);
+    void refresh();
+
+    // A page restored from the browser's back-forward cache retains React state,
+    // even when its server session was revoked after logout. Revalidate the
+    // session before exposing any protected screen again.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setLoading(true);
+        void refresh();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [refresh]);
 
   const login = async (email: string, password: string) => {
     const res: any = await api.apiPost('/api/v1/auth/sessions', { email, password });

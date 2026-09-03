@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ViewTab } from "../../types";
 import { useSystemSettings } from "../../context/SystemSettingsContext";
+import amstLogo from "../../assets/logo.png";
 
 interface SidebarProps {
   currentTab: ViewTab;
@@ -21,12 +22,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   pendingRequestsCount,
   onLogout,
-  userName = "Nguyễn Văn An",
+  userName = "Admin Quản trị",
   userRole = "Admin",
   userAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
   onOpenSettings,
   isCollapsed = false,
   onToggleCollapse,
+  onSwitchRole,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { t } = useSystemSettings();
@@ -41,12 +43,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Header */}
       <div
-        className={`px-3 py-3.5 border-b border-[#E2E8F0] dark:border-[#c4c6cf] flex items-center ${isCollapsed ? "justify-center" : "justify-between gap-1.5"}`}
+        className={`px-3 py-3.5 border-b border-[#E2E8F0] dark:border-[#c4c6cf] flex items-center ${
+          isCollapsed ? "justify-center" : "justify-between gap-1.5"
+        }`}
       >
         {!isCollapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-accent text-white flex items-center justify-center shadow-xs shrink-0 border border-white/20">
-              <span className="material-symbols-outlined text-[20px]">badge</span>
+            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+              <img src={amstLogo} alt="Logo AMST" className="w-8 h-8 object-contain drop-shadow-xs" />
             </div>
             <h1 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff] leading-tight tracking-tight whitespace-nowrap truncate">
               {t("system_name")}
@@ -56,9 +60,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {onToggleCollapse && (
           <button
+            type="button"
             onClick={onToggleCollapse}
             title={isCollapsed ? "Mở rộng Sidebar" : "Thu gọn Sidebar"}
-            className="p-1 text-[#44474e] dark:text-[#c4c6cf] hover:text-[#002046] dark:hover:text-white hover:bg-[#e9e8ec] dark:hover:bg-[#2c2d33] rounded-md transition-colors cursor-pointer shrink-0"
+            className={`p-1.5 text-[#44474e] dark:text-[#c4c6cf] hover:text-[#002046] dark:hover:text-white hover:bg-[#e9e8ec] dark:hover:bg-[#2c2d33] rounded-lg transition-colors cursor-pointer shrink-0 ${
+              isCollapsed ? "mx-auto" : ""
+            }`}
           >
             <span className="material-symbols-outlined text-[20px]">
               {isCollapsed ? "side_navigation" : "first_page"}

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { UserAccount } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
+import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface ProfileScreenProps {
   user: UserAccount;
@@ -27,6 +28,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isAdminViewing = false,
   onBack,
 }) => {
+  const { t, language } = useSystemSettings();
   const [previewModal, setPreviewModal] = useState<{
     title: string;
     url: string;
@@ -203,12 +205,12 @@ LỊCH SỬ HOẠT ĐỘNG:
             <button
               onClick={onBack}
               className="p-1.5 text-[#44474e] hover:text-[#002046] hover:bg-[#efedf1] rounded-lg transition-colors cursor-pointer"
-              title="Quay lại"
+              title={t("back")}
             >
               <span className="material-symbols-outlined text-[24px]">arrow_back</span>
             </button>
           )}
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">Thông tin tài khoản</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("account_info")}</h2>
         </div>
       </div>
 
@@ -367,91 +369,7 @@ LỊCH SỬ HOẠT ĐỘNG:
               </div>
             </div>
 
-            {/* Hồ sơ ứng tuyển (CV) Section */}
-            <div className="w-full mt-5 pt-4 border-t border-[#E2E8F0] dark:border-[#3b3d45] text-left">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-[#1b365d] dark:text-[#87a0cd] uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">description</span>
-                  <span>Hồ sơ ứng tuyển (CV)</span>
-                </span>
-              </div>
 
-              {hasCv ? (
-                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a1b1e] space-y-2.5 shadow-2xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
-                        isPdf
-                          ? "bg-red-50 text-red-600 border border-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/60"
-                          : "bg-blue-50 text-blue-600 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[22px]">
-                        {isPdf ? "picture_as_pdf" : "description"}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="text-xs font-bold text-[#1a1b1e] dark:text-white truncate"
-                        title={cvDisplayName}
-                      >
-                        {cvDisplayName}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {cvDisplaySize}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons Grid (Xem & Thay đổi) */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPreviewDocModal({
-                          fileName: cvDisplayName,
-                          fileSize: cvDisplaySize,
-                          fileUrl: user.cvFile,
-                          isPdf,
-                        })
-                      }
-                      className="px-2 py-2 bg-white hover:bg-slate-100 dark:bg-[#25262b] dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      title="Xem trước tài liệu"
-                    >
-                      <span className="material-symbols-outlined text-[17px] text-blue-600">
-                        visibility
-                      </span>
-                      <span>Xem</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => cvFileInputRef.current?.click()}
-                      className="px-2 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      title="Chọn file mới thay thế"
-                    >
-                      <span className="material-symbols-outlined text-[17px]">upload_file</span>
-                      <span>Thay đổi</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => cvFileInputRef.current?.click()}
-                  className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-[#1a1b1e]/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 transition-all cursor-pointer p-4 text-center group/cv"
-                >
-                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover/cv:scale-110 transition-transform">
-                    <span className="material-symbols-outlined text-[22px]">upload_file</span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover/cv:text-blue-600 transition-colors">
-                    Tải file CV lên
-                  </p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    Định dạng PDF, Word (.pdf, .doc, .docx)
-                  </p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -462,7 +380,7 @@ LỊCH SỬ HOẠT ĐỘNG:
             <div className="bg-[#F8FAFC] px-6 py-4 border-b border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-bold text-base text-[#1a1b1e] flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#002046]">badge</span>
-                <span>Thông tin chi tiết</span>
+                <span>{t("account_details")}</span>
               </h3>
               <div className="flex items-center gap-2">
                 <button
@@ -470,14 +388,14 @@ LỊCH SỬ HOẠT ĐỘNG:
                   className="px-3 py-1.5 border border-accent text-accent font-semibold text-xs rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">lock_reset</span>
-                  <span>Đổi mật khẩu</span>
+                  <span>{t("change_password")}</span>
                 </button>
                 <button
                   onClick={onOpenEditProfile}
                   className="px-3 py-1.5 bg-accent text-white font-semibold text-xs rounded hover:opacity-90 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
-                  <span>Chỉnh sửa thông tin</span>
+                  <span>{t("edit_info")}</span>
                 </button>
               </div>
             </div>
@@ -486,19 +404,19 @@ LỊCH SỬ HOẠT ĐỘNG:
               {/* Nhóm 1: Thông tin cá nhân */}
               <div>
                 <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
-                  Thông tin cá nhân
+                  {t("personal_info")}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Họ và tên
+                      {t("full_name")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">{user.name}</p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Ngày sinh
+                      {t("date_of_birth")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">
                       {user.dob || "15/08/1998"}
@@ -507,18 +425,32 @@ LỊCH SỬ HOẠT ĐỘNG:
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Email
+                      {t("email")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">{user.email}</p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Số điện thoại
+                      {t("phone_number")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">
                       {formatPhoneNumber(user.phone)}
                     </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                      {t("gender")}
+                    </label>
+                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.gender || (language === "Tiếng Anh" ? "Male" : "Nam")}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                      {t("address")}
+                    </label>
+                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.address || t("not_updated")}</p>
                   </div>
                 </div>
               </div>
@@ -526,32 +458,115 @@ LỊCH SỬ HOẠT ĐỘNG:
               {/* Nhóm 2: Thông tin tài khoản */}
               <div>
                 <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
-                  Thông tin tài khoản
+                  {t("account_info")}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5">
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Vai trò
+                      {t("role")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">{user.role}</p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Trạng thái
+                      {t("status")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">{user.status}</p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
-                      Ngày đăng ký
+                      {t("registration_date")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">
                       {user.joinDate || "01/12/2023"}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Nhóm 3: Hồ sơ ứng tuyển (CV) */}
+              <div>
+                <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
+                  {t("cv_title")}
+                </h4>
+
+                {hasCv ? (
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1a1b1e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+                          isPdf
+                            ? "bg-red-50 text-red-600 border border-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/60"
+                            : "bg-blue-50 text-blue-600 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[22px]">
+                          {isPdf ? "picture_as_pdf" : "description"}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="text-xs font-bold text-[#1a1b1e] dark:text-white truncate"
+                          title={cvDisplayName}
+                        >
+                          {cvDisplayName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {cvDisplaySize}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewDocModal({
+                            fileName: cvDisplayName,
+                            fileSize: cvDisplaySize,
+                            fileUrl: user.cvFile,
+                            isPdf,
+                          })
+                        }
+                        className="p-2 bg-white hover:bg-slate-100 dark:bg-[#25262b] dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                        title="Xem"
+                        aria-label="Xem"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          visibility
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => cvFileInputRef.current?.click()}
+                        className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                        title="Thay đổi"
+                        aria-label="Thay đổi"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => cvFileInputRef.current?.click()}
+                    className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-[#1a1b1e]/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 transition-all cursor-pointer p-4 text-center group/cv flex flex-col items-center justify-center"
+                  >
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover/cv:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-[22px]">upload_file</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover/cv:text-blue-600 transition-colors">
+                      Tải file CV lên
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      Định dạng PDF, Word (.pdf, .doc, .docx)
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

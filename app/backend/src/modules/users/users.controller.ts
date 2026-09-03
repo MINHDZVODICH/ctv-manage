@@ -17,10 +17,23 @@ function toUserDto(account: any) {
     dateOfBirth: account.dateOfBirth,
     gender: account.gender,
     address: account.address,
-    adminNotes: account.adminNotes,
+    adminNotes: account.role === 'ADMIN' ? account.adminNotes : undefined,
     joinedAt: account.joinedAt,
     lastLoginAt: account.lastLoginAt,
     createdAt: account.createdAt,
+    files: (account.accountFiles ?? []).map((accountFile: any) => ({
+      category: accountFile.category,
+      fileId: accountFile.fileId,
+      createdAt: accountFile.createdAt,
+      file: accountFile.fileAsset
+        ? {
+            id: accountFile.fileAsset.id,
+            originalName: accountFile.fileAsset.originalName,
+            mimeType: accountFile.fileAsset.mimeType,
+            sizeBytes: accountFile.fileAsset.sizeBytes,
+          }
+        : null,
+    })),
   };
 }
 

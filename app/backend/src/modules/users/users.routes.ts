@@ -10,5 +10,6 @@ router.use(auth);
 router.get('/', usersController.getMe);
 router.patch('/', usersController.patchMe);
 router.post('/password-changes', usersController.postPasswordChange);
+router.post('/password', usersController.postPasswordChange);
 
 export default router;

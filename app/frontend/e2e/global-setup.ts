@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,7 @@ function stopProcess(process: ChildProcess) {
 }
 
 export default async function globalSetup() {
+  console.log('[globalSetup] starting...');
   const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const workspaceRoot = path.resolve(frontendDir, '../..');
   const backendDir = path.join(workspaceRoot, 'app/backend');
@@ -35,29 +37,40 @@ export default async function globalSetup() {
     NODE_ENV: 'test',
   };
 
+  console.log('[globalSetup] cleaning db files...');
+  const dbFiles = ['acceptance.db', 'acceptance.db-shm', 'acceptance.db-wal'];
+  for (const f of dbFiles) {
+    try {
+      fs.rmSync(path.join(backendDir, 'prisma', f), { force: true });
+    } catch {}
+  }
+
+  console.log('[globalSetup] running prisma db push...');
   execFileSync(
     process.execPath,
     [
-      path.join(workspaceRoot, 'node_modules/prisma/build/index.js'),
+      path.join(backendDir, 'node_modules/prisma/build/index.js'),
       'db',
       'push',
-      '--force-reset',
       '--skip-generate',
+      '--accept-data-loss',
       '--schema',
       path.join(backendDir, 'prisma/schema.prisma'),
     ],
-    { cwd: backendDir, env, stdio: 'inherit' },
+    { cwd: backendDir, env, stdio: ['ignore', 'inherit', 'inherit'] },
   );
 
+  console.log('[globalSetup] running acceptance-seed...');
   execFileSync(
     process.execPath,
-    [path.join(workspaceRoot, 'node_modules/tsx/dist/cli.mjs'), 'scripts/acceptance-seed.ts'],
-    { cwd: backendDir, env, stdio: 'inherit' },
+    [path.join(backendDir, 'node_modules/tsx/dist/cli.mjs'), 'scripts/acceptance-seed.ts'],
+    { cwd: backendDir, env, stdio: ['ignore', 'inherit', 'inherit'] },
   );
 
+  console.log('[globalSetup] spawning backend and frontend...');
   const backend = spawn(
     process.execPath,
-    [path.join(workspaceRoot, 'node_modules/tsx/dist/cli.mjs'), 'src/main.ts'],
+    [path.join(backendDir, 'node_modules/tsx/dist/cli.mjs'), 'src/main.ts'],
     {
       cwd: backendDir,
       env: {
@@ -66,15 +79,17 @@ export default async function globalSetup() {
         CORS_ORIGIN: frontendUrl,
         SESSION_SECRET: 'acceptance-only-session-secret',
       },
-      stdio: 'ignore',
+      stdio: 'pipe',
       windowsHide: true,
     },
   );
+  backend.stdout?.on('data', (d) => process.stdout.write(`[backend] ${d}`));
+  backend.stderr?.on('data', (d) => process.stderr.write(`[backend-err] ${d}`));
 
   const frontend = spawn(
     process.execPath,
     [
-      path.join(workspaceRoot, 'node_modules/vite/bin/vite.js'),
+      path.join(frontendDir, 'node_modules/vite/bin/vite.js'),
       '--port',
       '3100',
       '--host',
@@ -83,23 +98,29 @@ export default async function globalSetup() {
     {
       cwd: frontendDir,
       env: { ...process.env, VITE_API_PROXY_TARGET: backendUrl },
-      stdio: 'ignore',
+      stdio: 'pipe',
       windowsHide: true,
     },
   );
+  frontend.stdout?.on('data', (d) => process.stdout.write(`[frontend] ${d}`));
+  frontend.stderr?.on('data', (d) => process.stderr.write(`[frontend-err] ${d}`));
 
+  console.log('[globalSetup] waiting for servers...');
   try {
     await Promise.all([
       waitForServer(`${backendUrl}/api/v1/health`, backend),
       waitForServer(frontendUrl, frontend),
     ]);
   } catch (error) {
+    console.error('[globalSetup] error waiting for servers:', error);
     stopProcess(frontend);
     stopProcess(backend);
     throw error;
   }
 
+  console.log('[globalSetup] servers ready!');
   return async () => {
+    console.log('[globalSetup] stopping servers...');
     stopProcess(frontend);
     stopProcess(backend);
   };

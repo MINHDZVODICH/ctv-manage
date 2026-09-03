@@ -13,7 +13,7 @@ export type ParticipantStatus = "confirmed" | "pending" | "declined";
 export type ViewTab = "accounts" | "requests" | "schedule" | "meetings" | "profile";
 
 export type ContrastOption = "Thấp" | "Trung bình" | "Cao";
-export type AccentColorOption = "Trắng" | "Lục" | "Lam" | "Vàng" | "Đỏ" | "Cam" | "Tím";
+export type AccentColorOption = "Xám" | "Lục" | "Lam" | "Vàng" | "Đỏ" | "Cam" | "Tím";
 export type LanguageOption = "Tiếng Việt" | "Tiếng Anh";
 
 export interface UserAccount {

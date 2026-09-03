@@ -15,11 +15,6 @@ interface ViewAccountDetailModalProps {
   onResetPassword?: (id: string, newPassword: string, requireChangeOnLogin: boolean) => void;
 }
 
-const DEFAULT_CCCD_FRONT =
-  "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80";
-const DEFAULT_CCCD_BACK =
-  "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=600&q=80";
-
 const WEEKDAYS = [
   { index: 0, dayName: "Thứ 2", shortName: "T2", dateStr: "06/07" },
   { index: 1, dayName: "Thứ 3", shortName: "T3", dateStr: "07/07" },
@@ -61,11 +56,6 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   onResetPassword,
 }) => {
   const [previewImg, setPreviewImg] = useState<{ title: string; url: string } | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<{
-    fileName: string;
-    fileSize: string;
-    isPdf: boolean;
-  } | null>(null);
   const [showWorkHistory, setShowWorkHistory] = useState<boolean>(false);
   const [historyDate, setHistoryDate] = useState<Date>(() => new Date());
   const [accountScheduleShifts, setAccountScheduleShifts] = useState<ShiftSlot[]>([]);
@@ -289,61 +279,22 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     );
   };
 
-  const cccdFrontUrl = account.cccdFront || DEFAULT_CCCD_FRONT;
-  const cccdBackUrl = account.cccdBack || DEFAULT_CCCD_BACK;
-
-  const cvFileName =
-    account.cvFileName ||
-    `CV_${account.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]/g, "_")}_HoSo.pdf`;
-  const cvFileSize = account.cvFileSize || "1.5 MB";
+  const cccdFrontUrl = account.cccdFront;
+  const cccdBackUrl = account.cccdBack;
+  const hasCv = Boolean(account.cvFile);
+  const cvFileName = account.cvFileName || "CV";
+  const cvFileSize = account.cvFileSize || "";
   const isPdf = cvFileName.toLowerCase().endsWith(".pdf");
 
   const handleDownloadCV = () => {
-    if (account.cvFile) {
-      const a = document.createElement("a");
-      a.href = account.cvFile;
-      a.download = cvFileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      const content = `=========================================
-HỒ SƠ ỨNG TUYỂN CỘNG TÁC VIÊN (CV)
-=========================================
-Họ và tên: ${account.name}
-Mã CTV: ${account.cctvCode || "N/A"}
-Email: ${account.email}
-Số điện thoại: ${account.phone}
-Ngày sinh: ${account.dob || "N/A"}
-Giới tính: ${account.gender || "N/A"}
-Địa chỉ: ${account.address || "N/A"}
+    if (!account.cvFile) return;
 
-BUỒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
-- Buồng làm việc: ${assignedWorkRoom}
-
-KỸ NĂNG & CHUYÊN MÔN:
-- ${account.skills && account.skills.length > 0 ? account.skills.join("\n- ") : "Kỹ năng chuyên môn, giao tiếp tốt"}
-
-LỊCH SỬ HOẠT ĐỘNG:
-- Ngày đăng ký: ${account.registerDate || "N/A"}
-- Ngày gia nhập: ${account.joinDate || account.registerDate || "N/A"}
-- Số ca hoàn thành: ${account.shiftsCompleted || 0} ca
-- Đánh giá trung bình: ${account.rating || 5.0} / 5.0 ⭐
-- Trạng thái tài khoản: ${account.status}
-`;
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = cvFileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    const a = document.createElement("a");
+    a.href = account.cvFile;
+    a.download = cvFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Helper to get shift status for a specific day and shift type
@@ -469,6 +420,18 @@ LỊCH SỬ HOẠT ĐỘNG:
                   {account.dob || "15/08/1998"}
                 </span>
               </div>
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
+                <span className="text-[#74777f]">Giới tính:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white">
+                  {account.gender || "Nam"}
+                </span>
+              </div>
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
+                <span className="text-[#74777f]">Địa chỉ:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white">
+                  {account.address || "Chưa cập nhật"}
+                </span>
+              </div>
             </div>
 
             <div className="mt-3 p-3.5 rounded-xl bg-[#F8FAFC] dark:bg-[#1e1f23] border border-[#E2E8F0] dark:border-[#3b3d45]">
@@ -479,39 +442,59 @@ LỊCH SỬ HOẠT ĐỘNG:
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div
-                  onClick={() =>
-                    setPreviewImg({ title: `CCCD Mặt trước - ${account.name}`, url: cccdFrontUrl })
-                  }
-                  className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
-                >
-                  <img
-                    src={cccdFrontUrl}
-                    alt="CCCD Mặt trước"
-                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
-                    <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                    <span>Xem mặt trước</span>
+                {cccdFrontUrl ? (
+                  <div
+                    onClick={() =>
+                      setPreviewImg({ title: `CCCD Mặt trước - ${account.name}`, url: cccdFrontUrl })
+                    }
+                    className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
+                  >
+                    <img
+                      src={cccdFrontUrl}
+                      alt="CCCD Mặt trước"
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
+                      <span className="material-symbols-outlined text-[18px]">zoom_in</span>
+                      <span>Xem mặt trước</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="h-28 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-[#25262b] flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-500">
+                    <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
+                      image_not_supported
+                    </span>
+                    <span className="text-xs font-semibold">Chưa có</span>
+                    <span className="text-[10px]">Mặt trước</span>
+                  </div>
+                )}
 
-                <div
-                  onClick={() =>
-                    setPreviewImg({ title: `CCCD Mặt sau - ${account.name}`, url: cccdBackUrl })
-                  }
-                  className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
-                >
-                  <img
-                    src={cccdBackUrl}
-                    alt="CCCD Mặt sau"
-                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
-                    <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                    <span>Xem mặt sau</span>
+                {cccdBackUrl ? (
+                  <div
+                    onClick={() =>
+                      setPreviewImg({ title: `CCCD Mặt sau - ${account.name}`, url: cccdBackUrl })
+                    }
+                    className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
+                  >
+                    <img
+                      src={cccdBackUrl}
+                      alt="CCCD Mặt sau"
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
+                      <span className="material-symbols-outlined text-[18px]">zoom_in</span>
+                      <span>Xem mặt sau</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="h-28 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-[#25262b] flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-500">
+                    <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
+                      image_not_supported
+                    </span>
+                    <span className="text-xs font-semibold">Chưa có</span>
+                    <span className="text-[10px]">Mặt sau</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -525,68 +508,72 @@ LỊCH SỬ HOẠT ĐỘNG:
                   <span>Hồ sơ ứng tuyển (CV)</span>
                 </span>
               </div>
-              <div className="p-2.5 bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
-                      isPdf
-                        ? "bg-red-50 text-red-600 border border-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/60"
-                        : "bg-blue-50 text-blue-600 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[22px]">
-                      {isPdf ? "picture_as_pdf" : "description"}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#1a1b1e] dark:text-white truncate">
-                      {cvFileName}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="relative group">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPreviewDoc({
-                          fileName: cvFileName,
-                          fileSize: cvFileSize,
-                          isPdf,
-                        })
-                      }
-                      aria-label="Xem file"
-                      className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
+              {hasCv ? (
+                <div className="p-2.5 bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+                        isPdf
+                          ? "bg-red-50 text-red-600 border border-red-200/80 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/60"
+                          : "bg-blue-50 text-blue-600 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
+                      }`}
                     >
-                      <span className="material-symbols-outlined text-[18px]">visibility</span>
-                    </button>
-                    <span
-                      role="tooltip"
-                      className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
-                    >
-                      Xem file
-                    </span>
+                      <span className="material-symbols-outlined text-[22px]">
+                        {isPdf ? "picture_as_pdf" : "description"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#1a1b1e] dark:text-white truncate">
+                        {cvFileName}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="relative group">
-                    <button
-                      type="button"
-                      onClick={handleDownloadCV}
-                      aria-label="Tải về"
-                      className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">download</span>
-                    </button>
-                    <span
-                      role="tooltip"
-                      className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
-                    >
-                      Tải về
-                    </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="relative group">
+                      <a
+                        href={account.cvFile}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Xem file trong tab mới"
+                        className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      </a>
+                      <span
+                        role="tooltip"
+                        className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
+                      >
+                        Xem trong tab mới
+                      </span>
+                    </div>
+
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={handleDownloadCV}
+                        aria-label="Tải về"
+                        className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                      </button>
+                      <span
+                        role="tooltip"
+                        className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
+                      >
+                        Tải về
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3 bg-white/70 dark:bg-[#25262b] border border-dashed border-slate-300 dark:border-slate-700 rounded-xl flex items-center gap-2.5 text-slate-400 dark:text-slate-500">
+                  <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                    description
+                  </span>
+                  <span className="text-xs font-semibold">Chưa có</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -931,161 +918,6 @@ LỊCH SỬ HOẠT ĐỘNG:
                 alt={previewImg.title}
                 className="w-full h-auto object-contain max-h-[60vh]"
               />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CV DOCUMENT PREVIEW MODAL */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    previewDoc.isPdf
-                      ? "bg-red-50 text-red-600 border border-red-200"
-                      : "bg-blue-50 text-blue-600 border border-blue-200"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {previewDoc.isPdf ? "picture_as_pdf" : "description"}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff]">
-                    {previewDoc.fileName}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    {previewDoc.fileSize} • Hồ sơ đính kèm của CTV
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={handleDownloadCV}
-                    aria-label="Tải file về máy"
-                    className="text-[#1b365d] hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:text-indigo-200 dark:hover:bg-indigo-950/50 p-1.5 rounded-full transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">download</span>
-                  </button>
-                  <span
-                    role="tooltip"
-                    className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
-                  >
-                    Tải file về máy
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDoc(null)}
-                  aria-label="Đóng cửa sổ xem CV"
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 p-1.5 rounded-full transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Document Content Simulation Viewer (Single Clean Border) */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-[#1e1f23] rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 space-y-5 font-sans text-xs">
-              {/* CV Header */}
-              <div className="border-b border-slate-200 dark:border-slate-700 pb-4 flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-bold text-[#1b365d] dark:text-white uppercase tracking-wide">
-                    {account.name}
-                  </h2>
-                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">
-                    Vị trí ứng tuyển: Cộng tác viên{" "}
-                    {account.cctvCode ? `(${account.cctvCode})` : ""}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Buồng làm việc:{" "}
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {assignedWorkRoom}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right text-[11px] text-slate-500 space-y-0.5 shrink-0">
-                  <p>📧 {account.email}</p>
-                  <p>📞 {account.phone}</p>
-                  <p>📍 {account.address || "TP. Hồ Chí Minh"}</p>
-                </div>
-              </div>
-
-              {/* Section 1: Thông tin cá nhân */}
-              <div>
-                <h4 className="text-xs font-bold text-[#1b365d] dark:text-indigo-300 uppercase tracking-wider mb-2 border-b border-slate-100 dark:border-slate-800 pb-1">
-                  1. Thông tin chung
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <p>
-                    <span className="text-slate-500">Ngày sinh:</span>{" "}
-                    <span className="font-medium">{account.dob || "Chưa cập nhật"}</span>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Giới tính:</span>{" "}
-                    <span className="font-medium">{account.gender || "Nam"}</span>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Số CCCD:</span>{" "}
-                    <span className="font-medium">{account.cccd || "Đã xác thực"}</span>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Ngày tham gia:</span>{" "}
-                    <span className="font-medium">
-                      {account.joinDate || account.registerDate || "01/12/2023"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Section 2: Kỹ năng & Chuyên môn */}
-              <div>
-                <h4 className="text-xs font-bold text-[#1b365d] dark:text-indigo-300 uppercase tracking-wider mb-2 border-b border-slate-100 dark:border-slate-800 pb-1">
-                  2. Kỹ năng & Chuyên môn
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {(
-                    account.skills || [
-                      "Tin học văn phòng",
-                      "Giao tiếp cơ bản",
-                      "Hỗ trợ sự kiện",
-                      "Làm việc nhóm",
-                    ]
-                  ).map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-[10px] font-medium"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section 3: Quá trình hoạt động */}
-              <div>
-                <h4 className="text-xs font-bold text-[#1b365d] dark:text-indigo-300 uppercase tracking-wider mb-2 border-b border-slate-100 dark:border-slate-800 pb-1">
-                  3. Lịch sử & Đánh giá công việc
-                </h4>
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-[11px] space-y-1">
-                  <p>
-                    • <strong>Số ca đã hoàn thành:</strong> {account.shiftsCompleted || 0} ca trực
-                  </p>
-                  <p>
-                    • <strong>Đánh giá hiệu suất:</strong> {account.rating || 5.0} / 5.0 ⭐ (Đạt
-                    chuẩn)
-                  </p>
-                  <p>
-                    • <strong>Tình trạng hồ sơ:</strong> Đã kiểm tra & phê duyệt hợp lệ
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

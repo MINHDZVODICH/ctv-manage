@@ -15,6 +15,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,9 +45,21 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setShowOldPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Đổi mật khẩu thất bại');
+      const msg = err.message || '';
+      if (msg.includes('Current password is incorrect') || msg.includes('INVALID_PASSWORD') || msg.includes('không chính xác')) {
+        setErrorMsg('Mật khẩu hiện tại không chính xác');
+      } else if (msg.includes('Account not found') || msg.includes('NOT_FOUND')) {
+        setErrorMsg('Không tìm thấy tài khoản');
+      } else if (msg.includes('Validation failed') || msg.includes('VALIDATION_ERROR')) {
+        setErrorMsg('Dữ liệu nhập không hợp lệ');
+      } else {
+        setErrorMsg(msg || 'Đổi mật khẩu thất bại, vui lòng thử lại');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -57,7 +72,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           <h3 className="text-lg font-bold text-[#1a1b1e]">Đổi mật khẩu</h3>
           <button
             onClick={onClose}
-            className="text-[#74777f] hover:text-[#1a1b1e] p-1 rounded-full hover:bg-gray-200 transition-colors"
+            className="text-[#74777f] hover:text-[#1a1b1e] p-1 rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
@@ -75,57 +90,84 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
               Mật khẩu hiện tại
             </label>
-            <input
-              type="password"
-              required
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showOldPassword ? "text" : "password"}
+                required
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowOldPassword(!showOldPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                title={showOldPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {showOldPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
               Mật khẩu mới
             </label>
-            <input
-              type="password"
-              required
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                title={showNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {showNewPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
               Xác nhận mật khẩu mới
             </label>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3 py-2 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-[#002046] outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {showConfirmPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-[#E2E8F0] rounded text-xs font-semibold text-[#44474e] hover:bg-gray-100 transition-colors"
-            >
-              Hủy
-            </button>
+          <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-end">
             <button
               type="submit"
-              className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-accent hover:opacity-90 disabled:opacity-50 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
             >
-              Đổi mật khẩu
+              {isSubmitting ? "Đang cập nhật..." : "Đổi mật khẩu"}
             </button>
           </div>
         </form>

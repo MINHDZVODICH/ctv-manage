@@ -110,6 +110,8 @@ export async function syncWorkHistory(upToExclusiveYmd = todayInBangkok()) {
   }
 
   const cutoff = parseYmdToUtcDate(upToExclusiveYmd);
+
+  // Fast check: find completed assignments before cutoff
   const completedAssignments = await prisma.shiftAssignment.findMany({
     where: {
       status: 'ACTIVE',
@@ -120,8 +122,17 @@ export async function syncWorkHistory(upToExclusiveYmd = todayInBangkok()) {
 
   if (completedAssignments.length === 0) return { processedCount: 0 };
 
+  const existingHistoryRecords = await prisma.workHistory.findMany({
+    where: { sourceAssignmentId: { not: null } },
+    select: { sourceAssignmentId: true },
+  });
+  const syncedIds = new Set(existingHistoryRecords.map((r) => r.sourceAssignmentId));
+
+  const unSynced = completedAssignments.filter((a) => !syncedIds.has(a.id));
+  if (unSynced.length === 0) return { processedCount: 0 };
+
   await prisma.$transaction(
-    completedAssignments.map((assignment) =>
+    unSynced.map((assignment) =>
       prisma.workHistory.upsert({
         where: {
           accountId_workDate_period: {
@@ -143,7 +154,7 @@ export async function syncWorkHistory(upToExclusiveYmd = todayInBangkok()) {
     ),
   );
 
-  return { processedCount: completedAssignments.length };
+  return { processedCount: unSynced.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +240,6 @@ export async function upsertRegistration(accountId: string, input: UpsertRegistr
   const endDate = parseYmdToUtcDate(endYmd);
 
   // Build set of desired workDate+period keys for quick comparison
-  // We need to know which (workDate, period) pairs are expected from the new pattern.
   const desiredKeys = new Set<string>(); // "YYYY-MM-DD:PERIOD"
   const desiredByDate = new Map<string, Set<string>>(); // ymd -> Set<period>
   {
@@ -246,6 +256,19 @@ export async function upsertRegistration(accountId: string, input: UpsertRegistr
           desiredByDate.get(ymd)!.add(s.period);
         }
       }
+    }
+  }
+
+  // Pre-resolve/create all required shifts outside transaction to minimize SQLite lock hold time
+  const requiredShifts: { shiftId: string; workDate: Date; period: string }[] = [];
+  for (const [ymd, periods] of desiredByDate.entries()) {
+    const workDate = parseYmdToUtcDate(ymd);
+    for (const period of periods) {
+      let shift = await prisma.shift.findUnique({ where: { workDate_period: { workDate, period } } });
+      if (!shift) {
+        shift = await prisma.shift.create({ data: { workDate, period } });
+      }
+      requiredShifts.push({ shiftId: shift.id, workDate, period });
     }
   }
 
@@ -271,85 +294,67 @@ export async function upsertRegistration(accountId: string, input: UpsertRegistr
         include: { patternSlots: true },
       });
 
-      // Upsert Shifts for each date/period matching the new pattern and ensure assignments
-      for (const [ymd, periods] of desiredByDate.entries()) {
-        const workDate = parseYmdToUtcDate(ymd);
-        for (const period of periods) {
-          let shift = await tx.shift.findUnique({ where: { workDate_period: { workDate, period } } });
-          if (!shift) {
-            shift = await tx.shift.create({ data: { workDate, period } });
-          }
-          // Ensure ACTIVE assignment exists for this registration+shift
-          const existingAssignment = await tx.shiftAssignment.findFirst({
-            where: { shiftId: shift.id, registrationId: registration.id },
-          });
-          if (!existingAssignment) {
-            // There is also a unique constraint on (shiftId, accountId). If an assignment
-            // already exists for this account+shift but linked to a different registration,
-            // it would have been cancelled/expired previously. We handle by finding by shiftId+accountId.
-            const byAccount = await tx.shiftAssignment.findUnique({
-              where: { shiftId_accountId: { shiftId: shift.id, accountId } },
-            }).catch(() => null);
-            // If found but belongs to old registration and is CANCELLED we can recreate only if no unique conflict on (shiftId, accountId)
-            // Prisma unique on (shiftId, accountId) prevents duplicates regardless of status,
-            // so we must update if exists.
-            if (byAccount) {
-              if (byAccount.registrationId !== registration.id) {
-                // If the existing assignment is CANCELLED we can reactivate it under new registration
-                // by updating registrationId, status, etc. If ACTIVE, it would mean same shift already assigned.
-                await tx.shiftAssignment.update({
-                  where: { id: byAccount.id },
-                  data: {
-                    registrationId: registration.id,
-                    roomCode: input.roomCode,
-                    status: 'ACTIVE',
-                    cancelledAt: null,
-                    cancellationReason: null,
-                  },
-                });
-              } else if (byAccount.status === 'CANCELLED') {
-                await tx.shiftAssignment.update({
-                  where: { id: byAccount.id },
-                  data: {
-                    roomCode: input.roomCode,
-                    status: 'ACTIVE',
-                    cancelledAt: null,
-                    cancellationReason: null,
-                  },
-                });
-              } else {
-                // ACTIVE same registration: just update roomCode if needed
-                if (byAccount.roomCode !== input.roomCode) {
-                  await tx.shiftAssignment.update({
-                    where: { id: byAccount.id },
-                    data: { roomCode: input.roomCode },
-                  });
-                }
-              }
-            } else {
-              await tx.shiftAssignment.create({
+      // Ensure assignments for all required shifts
+      for (const req of requiredShifts) {
+        const existingAssignment = await tx.shiftAssignment.findFirst({
+          where: { shiftId: req.shiftId, registrationId: registration.id },
+        });
+        if (!existingAssignment) {
+          const byAccount = await tx.shiftAssignment.findUnique({
+            where: { shiftId_accountId: { shiftId: req.shiftId, accountId } },
+          }).catch(() => null);
+          if (byAccount) {
+            if (byAccount.registrationId !== registration.id) {
+              await tx.shiftAssignment.update({
+                where: { id: byAccount.id },
                 data: {
-                  shiftId: shift.id,
-                  accountId,
                   registrationId: registration.id,
                   roomCode: input.roomCode,
                   status: 'ACTIVE',
-                },
-              });
-            }
-          } else {
-            // Assignment exists for this registration+shift - ensure ACTIVE and roomCode updated
-            if (existingAssignment.status === 'CANCELLED' || existingAssignment.roomCode !== input.roomCode) {
-              await tx.shiftAssignment.update({
-                where: { id: existingAssignment.id },
-                data: {
-                  status: 'ACTIVE',
-                  roomCode: input.roomCode,
                   cancelledAt: null,
                   cancellationReason: null,
                 },
               });
+            } else if (byAccount.status === 'CANCELLED') {
+              await tx.shiftAssignment.update({
+                where: { id: byAccount.id },
+                data: {
+                  roomCode: input.roomCode,
+                  status: 'ACTIVE',
+                  cancelledAt: null,
+                  cancellationReason: null,
+                },
+              });
+            } else {
+              if (byAccount.roomCode !== input.roomCode) {
+                await tx.shiftAssignment.update({
+                  where: { id: byAccount.id },
+                  data: { roomCode: input.roomCode },
+                });
+              }
             }
+          } else {
+            await tx.shiftAssignment.create({
+              data: {
+                shiftId: req.shiftId,
+                accountId,
+                registrationId: registration.id,
+                roomCode: input.roomCode,
+                status: 'ACTIVE',
+              },
+            });
+          }
+        } else {
+          if (existingAssignment.status === 'CANCELLED' || existingAssignment.roomCode !== input.roomCode) {
+            await tx.shiftAssignment.update({
+              where: { id: existingAssignment.id },
+              data: {
+                status: 'ACTIVE',
+                roomCode: input.roomCode,
+                cancelledAt: null,
+                cancellationReason: null,
+              },
+            });
           }
         }
       }
@@ -369,7 +374,6 @@ export async function upsertRegistration(accountId: string, input: UpsertRegistr
             data: { status: 'CANCELLED', cancelledAt: new Date() },
           });
         } else {
-          // Also ensure roomCode is synced for retained assignments (in case room changed)
           if (a.roomCode !== input.roomCode) {
             await tx.shiftAssignment.update({
               where: { id: a.id },
@@ -396,38 +400,30 @@ export async function upsertRegistration(accountId: string, input: UpsertRegistr
         include: { patternSlots: true },
       });
 
-      for (const [ymd, periods] of desiredByDate.entries()) {
-        const workDate = parseYmdToUtcDate(ymd);
-        for (const period of periods) {
-          let shift = await tx.shift.findUnique({ where: { workDate_period: { workDate, period } } });
-          if (!shift) {
-            shift = await tx.shift.create({ data: { workDate, period } });
-          }
-          // Handle existing assignment for same shift+account (should not exist for new registration, but defensive)
-          const byAccount = await tx.shiftAssignment.findUnique({
-            where: { shiftId_accountId: { shiftId: shift.id, accountId } },
-          }).catch(() => null);
-          if (byAccount) {
-            await tx.shiftAssignment.update({
-              where: { id: byAccount.id },
-              data: {
-                registrationId: registration.id,
-                roomCode: input.roomCode,
-                status: 'ACTIVE',
-                cancelledAt: null,
-              },
-            });
-          } else {
-            await tx.shiftAssignment.create({
-              data: {
-                shiftId: shift.id,
-                accountId,
-                registrationId: registration.id,
-                roomCode: input.roomCode,
-                status: 'ACTIVE',
-              },
-            });
-          }
+      for (const req of requiredShifts) {
+        const byAccount = await tx.shiftAssignment.findUnique({
+          where: { shiftId_accountId: { shiftId: req.shiftId, accountId } },
+        }).catch(() => null);
+        if (byAccount) {
+          await tx.shiftAssignment.update({
+            where: { id: byAccount.id },
+            data: {
+              registrationId: registration.id,
+              roomCode: input.roomCode,
+              status: 'ACTIVE',
+              cancelledAt: null,
+            },
+          });
+        } else {
+          await tx.shiftAssignment.create({
+            data: {
+              shiftId: req.shiftId,
+              accountId,
+              registrationId: registration.id,
+              roomCode: input.roomCode,
+              status: 'ACTIVE',
+            },
+          });
         }
       }
     }
@@ -543,32 +539,9 @@ export async function getShiftForUser(shiftId: string, accountId: string, isAdmi
   }
 
   return {
-    shift: {
-      id: shift.id,
-      workDate: formatUtcDateToYmd(shift.workDate),
-      period: shift.period,
-    },
-    assignments: assignments.map((a) => ({
-      id: a.id,
-      accountId: a.accountId,
-      displayName: (a as any).account.displayName,
-      phone: (a as any).account.phone ?? null,
-      roomCode: a.roomCode,
-      status: a.status,
-    })),
-  };
-}
-
-export async function getShiftDetailAdmin(shiftId: string) {
-  const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
-  if (!shift) throw Errors.notFound('Shift not found');
-
-  const assignments = await prisma.shiftAssignment.findMany({
-    where: { shiftId, status: 'ACTIVE' },
-    include: { account: true },
-  });
-
-  return {
+    id: shift.id,
+    workDate: formatUtcDateToYmd(shift.workDate),
+    period: shift.period,
     shift: {
       id: shift.id,
       workDate: formatUtcDateToYmd(shift.workDate),

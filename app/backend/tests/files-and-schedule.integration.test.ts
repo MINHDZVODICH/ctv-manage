@@ -35,6 +35,22 @@ describe('private files and schedule workflows', () => {
     expect(uploaded.status).toBe(201);
     const fileId = uploaded.body.file.fileId;
 
+    const profile = await request(app).get('/api/v1/users/me').set('Cookie', ownerCookie);
+    expect(profile.status).toBe(200);
+    expect(profile.body.user.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'AVATAR',
+          fileId,
+          file: expect.objectContaining({
+            originalName: 'avatar.png',
+            mimeType: 'image/png',
+            sizeBytes: validPng.length,
+          }),
+        }),
+      ]),
+    );
+
     expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status).toBe(200);
     expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', adminCookie)).status).toBe(200);
     expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', otherCookie)).status).toBe(403);
@@ -44,6 +60,11 @@ describe('private files and schedule workflows', () => {
       .set('Cookie', ownerCookie);
     expect(removed.status).toBe(204);
     expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status).toBe(403);
+
+    const profileAfterDelete = await request(app).get('/api/v1/users/me').set('Cookie', ownerCookie);
+    expect(profileAfterDelete.body.user.files).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'AVATAR' })]),
+    );
   });
 
   test('creates a CTV schedule, enforces ownership, summarizes and cancels an assignment', async () => {

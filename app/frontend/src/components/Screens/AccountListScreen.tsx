@@ -2,9 +2,19 @@ import React, { useState } from "react";
 import { UserAccount, UserRole } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
 import { ResetPasswordModal } from "../Modals/ResetPasswordModal";
+import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface AccountListScreenProps {
   accounts: UserAccount[];
+  total: number;
+  page: number;
+  pageSize: number;
+  searchTerm: string;
+  loading: boolean;
+  error: string | null;
+  onSearchChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onResetFilters: () => void;
   onCreateAccount?: () => void;
   onToggleAccountStatus: (id: string) => void;
   onDeleteAccount: (id: string) => void;
@@ -15,51 +25,38 @@ interface AccountListScreenProps {
 
 export const AccountListScreen: React.FC<AccountListScreenProps> = ({
   accounts,
+  total,
+  page,
+  pageSize,
+  searchTerm,
+  loading,
+  error,
+  onSearchChange,
+  onPageChange,
+  onResetFilters,
   onToggleAccountStatus,
   onDeleteAccount,
   onViewAccountDetail,
   onResetPassword,
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const { t, language } = useSystemSettings();
 
   // Confirm Modals state
   const [accountToToggle, setAccountToToggle] = useState<UserAccount | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<UserAccount | null>(null);
   const [accountToResetPassword, setAccountToResetPassword] = useState<UserAccount | null>(null);
 
-  // Filter out Admin accounts strictly (Only display Cộng tác viên accounts)
-  const ctvAccounts = accounts.filter((acc) => acc.role !== "Admin");
-
-  // Filter CTV accounts by search term
-  const filteredAccounts = ctvAccounts.filter((acc) => {
-    const matchSearch =
-      acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.phone.includes(searchTerm);
-
-    return matchSearch;
-  });
-
-  const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentItems = filteredAccounts.slice(startIndex, startIndex + itemsPerPage);
-
-  const handleResetFilters = () => {
-    setSearchTerm("");
-    setCurrentPage(1);
-  };
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize;
 
   return (
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">Danh sách tài khoản</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("nav_accounts")}</h2>
           <p className="text-sm text-[#44474e] mt-1">
-            Tổng số <span className="font-semibold text-[#1a1b1e]">{ctvAccounts.length}</span> tài
-            khoản
+            {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{total}</span> {t("ctv_unit")}
           </p>
         </div>
       </div>
@@ -76,10 +73,9 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
+                onSearchChange(e.target.value);
               }}
-              placeholder="Tìm theo họ tên, email, sđt..."
+              placeholder={t("search_placeholder")}
               className="w-full pl-10 pr-4 py-2 h-[40px] border border-[#E2E8F0] rounded text-sm bg-white text-[#1a1b1e] focus:border-[#1b365d] focus:ring-1 focus:ring-[#1b365d] outline-none"
             />
           </div>
@@ -87,11 +83,11 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
           {/* Reset Action */}
           <div className="md:col-span-2 flex items-center justify-end">
             <button
-              onClick={handleResetFilters}
+              onClick={onResetFilters}
               className="text-[#44474e] hover:text-[#1b365d] font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-              <span>Đặt lại</span>
+              <span>{t("refresh")}</span>
             </button>
           </div>
         </div>
@@ -104,31 +100,41 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  STT
+                  {language === "Tiếng Anh" ? "No." : "STT"}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Họ và tên
+                  {t("full_name")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Số điện thoại
+                  {t("phone_number")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  Ngày đăng ký
+                  {t("registration_date")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider text-right">
-                  Thao tác
+                  {t("actions")}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {currentItems.length === 0 ? (
+              {loading && accounts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.
+                    {language === "Tiếng Anh" ? "Loading accounts..." : "Đang tải danh sách tài khoản..."}
+                  </td>
+                </tr>
+              ) : error && accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#DC2626] text-sm">{error}</td>
+                </tr>
+              ) : accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
+                    {language === "Tiếng Anh" ? "No accounts found matching search criteria." : "Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm."}
                   </td>
                 </tr>
               ) : (
-                currentItems.map((acc, index) => (
+                accounts.map((acc, index) => (
                   <tr
                     key={acc.id}
                     className="hover:bg-[#f4f3f7] transition-colors group cursor-default h-[64px] border-b border-[#E2E8F0]"
@@ -210,8 +216,8 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
         <div className="flex items-center justify-end p-4 border-t border-[#E2E8F0] bg-white h-[61px]">
           <div className="flex items-center gap-1">
             <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1 || loading}
+              onClick={() => onPageChange(Math.max(page - 1, 1))}
               className="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-[#44474e] hover:bg-[#f4f3f7] transition-colors disabled:opacity-40 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -220,9 +226,9 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
               <button
                 key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
+                onClick={() => onPageChange(pageNum)}
                 className={`w-8 h-8 flex items-center justify-center rounded text-xs font-semibold transition-colors cursor-pointer ${
-                  currentPage === pageNum
+                  page === pageNum
                     ? "bg-accent text-white"
                     : "border border-[#E2E8F0] dark:border-slate-700 text-[#44474e] dark:text-slate-200 hover:bg-[#f4f3f7] dark:hover:bg-slate-800"
                 }`}
@@ -232,8 +238,8 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             ))}
 
             <button
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages || loading}
+              onClick={() => onPageChange(Math.min(page + 1, totalPages))}
               className="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-[#44474e] hover:bg-[#f4f3f7] transition-colors disabled:opacity-40 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_right</span>

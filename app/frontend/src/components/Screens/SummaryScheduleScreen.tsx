@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ShiftSlot, UserAccount, AssignedCTV } from "../../types";
 import { getAssignedCTVsForDate } from "../../utils/scheduleSelectors";
 import { formatRoomLabel } from "../../utils/rooms";
 import { summaryToSlots, ApiSummaryCell } from "../../shared/mappers";
 import * as api from "../../shared/api";
+import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface SummaryScheduleScreenProps {
   shifts: ShiftSlot[];
-  accounts: UserAccount[];
-  onViewAccountDetail?: (account: UserAccount) => void;
+  onViewAccountDetail?: (accountId: string) => void;
   onShowToast?: (msg: string) => void;
   currentUser?: UserAccount;
   userRole?: "Admin" | "Cộng tác viên";
@@ -57,10 +57,9 @@ const getCurrentCalendarDate = () => {
 
 export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   shifts: initialShifts,
-  accounts,
   onViewAccountDetail,
-  onShowToast,
 }) => {
+  const { t, language } = useSystemSettings();
   const today = startOfDay(getCurrentCalendarDate());
   const todayISO = toISODate(today);
 
@@ -69,6 +68,8 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const [scheduleShifts, setScheduleShifts] = useState<ShiftSlot[]>(initialShifts);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+  const monthRequestController = useRef<AbortController | null>(null);
+  const monthRequestSequence = useRef(0);
 
   // Sync when parent reloads (e.g. after admin toggles status)
   useEffect(() => {
@@ -77,13 +78,18 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
 
   const fetchMonth = useCallback(async (date: Date, source: SummaryView) => {
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    monthRequestController.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++monthRequestSequence.current;
+    monthRequestController.current = controller;
     setIsLoadingMonth(true);
     try {
       const endpoint =
         source === "history"
           ? `/api/v1/work-history?month=${month}`
           : `/api/v1/schedule-summary?month=${month}`;
-      const res: any = await api.apiGet(endpoint);
+      const res: any = await api.apiGet(endpoint, { signal: controller.signal });
+      if (sequence !== monthRequestSequence.current) return;
       const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
       const slots = summaryToSlots(cells);
       if (source === "history") {
@@ -104,15 +110,18 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
         }
         return merged.sort((a, b) => (a.workDate ?? "").localeCompare(b.workDate ?? ""));
       });
-    } catch {
-      // silent - keep existing shifts
+    } catch (error) {
+      if (!api.isRequestAborted(error)) {
+        // Keep the prior month visible if its replacement cannot be loaded.
+      }
     } finally {
-      setIsLoadingMonth(false);
+      if (sequence === monthRequestSequence.current) setIsLoadingMonth(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchMonth(calendarDate, view);
+    void fetchMonth(calendarDate, view);
+    return () => monthRequestController.current?.abort();
   }, [calendarDate, fetchMonth, view]);
 
   const [selectedShiftDetail, setSelectedShiftDetail] = useState<{
@@ -125,13 +134,29 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
 
   const visibleShifts = view === "history" ? historyShifts : scheduleShifts;
   const getAssignedCTVs = (workDate: string, type: "morning" | "afternoon") =>
-    getAssignedCTVsForDate(visibleShifts, accounts, workDate, type);
+    getAssignedCTVsForDate(visibleShifts, workDate, type);
   const getScheduledCTVs = (workDate: string, type: "morning" | "afternoon") =>
-    getAssignedCTVsForDate(scheduleShifts, accounts, workDate, type);
+    getAssignedCTVsForDate(scheduleShifts, workDate, type);
 
-  // ---- week derived ----
-  const weekStart = startOfWeek(calendarDate);
-  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  // Aggregate weekly schedule across all CTVs for Monday-Friday (dayIndex 0..4)
+  const getWeeklySummaryCTVs = (dayIndex: number, type: "morning" | "afternoon"): AssignedCTV[] => {
+    const uniqueMap = new Map<string, AssignedCTV>();
+    scheduleShifts
+      .filter((s) => s.dayIndex === dayIndex && s.shiftType === type)
+      .forEach((s) => {
+        (s.assignedCTVs || []).forEach((ctv) => {
+          const key = ctv.id || ctv.name.trim().toLowerCase();
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, {
+              ...ctv,
+              room: formatRoomLabel(ctv.room || s.room),
+              taskContent: ctv.taskContent || s.workContent,
+            });
+          }
+        });
+      });
+    return Array.from(uniqueMap.values());
+  };
 
   // ---- month derived (for history) ----
   const monthStart = startOfMonth(calendarDate);
@@ -176,12 +201,26 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const todayData = getTodayCTVList();
 
   const handleCTVClick = (ctv: AssignedCTV) => {
-    if (!onViewAccountDetail) return;
-    const matched = accounts.find(
-      (a) => a.id === ctv.id || a.name.toLowerCase() === ctv.name.toLowerCase(),
-    );
-    if (matched) onViewAccountDetail(matched);
-    else onShowToast?.(`Không tìm thấy hồ sơ tài khoản của ${ctv.name}.`);
+    if (ctv.id) onViewAccountDetail?.(ctv.id);
+  };
+
+  const handleOpenWeekdayShiftDetail = (
+    dayName: string,
+    shiftName: "Ca Sáng" | "Ca Chiều",
+    ctvList: AssignedCTV[],
+  ) => {
+    const enriched = ctvList.map((ctv) => ({
+      ...ctv,
+      roomDisplay: formatRoomLabel(ctv.room) || "Chưa cập nhật",
+      taskDisplay: ctv.taskContent || "Chưa cập nhật",
+    }));
+    setSelectedShiftDetail({
+      dayName,
+      dateFormatted: "Lịch tuần",
+      shiftName,
+      shiftTimeLabel: shiftName === "Ca Sáng" ? "08:00 - 12:00" : "13:30 - 17:30",
+      ctvList: enriched,
+    });
   };
 
   const handleOpenShiftDetail = (
@@ -208,34 +247,34 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   return (
     <div className="space-y-5 pb-8 animate-in fade-in duration-200">
       <h2 className="text-2xl font-bold text-[#1a1b1e] dark:text-slate-100 tracking-tight">
-        Lịch làm việc tổng hợp
+        {t("summary_schedule_title")}
       </h2>
 
       {/* Card: Danh sách CTV đăng ký hôm nay */}
       <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center font-bold">
               <span className="material-symbols-outlined text-[20px]">badge</span>
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                <span>Danh sách CTV đăng ký hôm nay</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                <span>{t("today_ctv_list")}</span>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-accent/10 text-accent dark:bg-accent/20 dark:text-blue-200 font-bold">
                   {todayData.dayLabel}
                 </span>
               </h3>
             </div>
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Tổng số: <strong className="text-slate-800 dark:text-slate-200">{todayData.list.length}</strong> Cộng tác viên
+            {t("total_label")} <strong className="text-slate-800 dark:text-slate-200">{todayData.list.length}</strong> {t("ctv_unit")}
           </span>
         </div>
 
         {todayData.list.length === 0 ? (
           <div className="text-center py-6 text-slate-400">
             <span className="material-symbols-outlined text-[32px] block mb-1 opacity-50">person_off</span>
-            <p className="text-sm font-medium">Chưa có CTV nào đăng ký hôm nay</p>
+            <p className="text-sm font-medium">{t("no_ctv_today")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -257,7 +296,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                     <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-accent transition-colors truncate">{ctv.name}</h4>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 ${sfs.length > 1 ? "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300" : sfs[0] === "Ca Sáng" ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300" : "bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300"}`}>
-                        <span className="whitespace-nowrap">{sfs.map((s) => s.replace("Ca ", "")).join(", ")}</span>
+                        <span className="whitespace-nowrap">{sfs.map((s) => (language === "Tiếng Anh" ? (s === "Ca Sáng" ? "Morning" : "Afternoon") : s.replace("Ca ", ""))).join(", ")}</span>
                       </span>
                     </div>
                   </div>
@@ -272,7 +311,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#25262b]">
         {/* Tabs bar - same layout as CTV */}
         <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/35">
-          <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" role="group" aria-label="Chế độ xem lịch tổng hợp">
+          <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" role="group" aria-label={t("nav_summary")}>
             {(["week", "history"] as SummaryView[]).map((v) => (
               <button
                 key={v}
@@ -281,7 +320,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 aria-pressed={view === v}
                 className={`min-h-11 rounded-lg px-4 text-xs font-bold transition-colors duration-200 ${view === v ? "bg-accent text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}
               >
-                {v === "week" ? "Lịch tuần tổng hợp" : "Lịch sử tổng hợp"}
+                {v === "week" ? t("tab_weekly_summary") : t("tab_history_summary")}
               </button>
             ))}
           </div>
@@ -291,53 +330,89 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
           <div className="space-y-4 p-4 sm:p-5">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_view_week</span>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Lịch tuần tổng hợp</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_weekly_summary")}</h3>
             </div>
 
             <div className="overflow-x-auto">
               <div className="min-w-[700px] space-y-3">
                 {/* Header Mon-Fri */}
                 <div className="grid grid-cols-5 gap-3">
-                  {WEEKDAYS.map((wd) => (
-                    <div key={wd.index} className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      <span>{wd.label}</span>
-                    </div>
-                  ))}
+                  {WEEKDAYS.map((wd) => {
+                    const isToday = ((today.getDay() + 6) % 7) === wd.index;
+                    const dayLabel = language === "Tiếng Anh" ? ["Mon", "Tue", "Wed", "Thu", "Fri"][wd.index] : wd.label;
+                    return (
+                      <div
+                        key={wd.index}
+                        className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200 flex items-center justify-center gap-1.5"
+                      >
+                        <span>{dayLabel}</span>
+                        {isToday && (
+                          <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white normal-case tracking-normal leading-tight">
+                            {t("today")}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Day cards - admin shows N CTV clickable, else placeholder */}
+                {/* Day cards - aggregated from weekly schedule of all CTVs */}
                 <div className="grid grid-cols-5 gap-3">
-                  {weekDays.map((date) => {
-                    const dateISO = toISODate(date);
-                    const dateFormatted = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-                    const isToday = dateISO === todayISO;
-                    const dayName = WEEKDAYS[date.getDay() - 1]?.label ?? `Thứ ${date.getDay()}`;
-                    const morningCTVs = getAssignedCTVs(dateISO, "morning");
-                    const afternoonCTVs = getAssignedCTVs(dateISO, "afternoon");
+                  {WEEKDAYS.map((wd) => {
+                    const isToday = ((today.getDay() + 6) % 7) === wd.index;
+                    const morningCTVs = getWeeklySummaryCTVs(wd.index, "morning");
+                    const afternoonCTVs = getWeeklySummaryCTVs(wd.index, "afternoon");
 
                     return (
-                      <div key={dateISO} className={`rounded-2xl border-2 p-3 min-h-[110px] shadow-2xs transition-colors ${isToday ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"}`}>
-                        <div className="flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 pb-1.5 mb-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                            <span>{formatShortDate(date)}</span>
-                            {isToday && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">Hôm nay</span>}
-                          </span>
-                        </div>
-                        <div className="space-y-1.5 flex flex-col justify-start min-h-[58px]">
+                      <div
+                        key={wd.index}
+                        className={`rounded-2xl border-2 p-3 min-h-[110px] shadow-2xs transition-colors ${
+                          isToday
+                            ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25"
+                            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                        }`}
+                      >
+                        <div className="space-y-2 flex flex-col justify-start">
                           {morningCTVs.length > 0 ? (
-                            <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Sáng", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca sáng">
-                              <span className="flex items-center text-amber-800 dark:text-amber-300"><span className="material-symbols-outlined text-[16px]">wb_sunny</span></span>
-                              <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{morningCTVs.length} CTV</span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenWeekdayShiftDetail(wd.label, "Ca Sáng", morningCTVs)}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group"
+                              title="Bấm xem danh sách CTV ca sáng"
+                            >
+                              <span className="flex items-center text-amber-800 dark:text-amber-300">
+                                <span className="material-symbols-outlined text-[18px]">wb_sunny</span>
+                              </span>
+                              <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">
+                                {morningCTVs.length} CTV
+                              </span>
                             </button>
-                          ) : afternoonCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
+                          ) : afternoonCTVs.length > 0 ? (
+                            <div className="h-[32px]" aria-hidden="true" />
+                          ) : null}
+
                           {afternoonCTVs.length > 0 ? (
-                            <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Chiều", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca chiều">
-                              <span className="flex items-center text-purple-800 dark:text-purple-300"><span className="material-symbols-outlined text-[16px]">wb_twilight</span></span>
-                              <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{afternoonCTVs.length} CTV</span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenWeekdayShiftDetail(wd.label, "Ca Chiều", afternoonCTVs)}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group"
+                              title="Bấm xem danh sách CTV ca chiều"
+                            >
+                              <span className="flex items-center text-purple-800 dark:text-purple-300">
+                                <span className="material-symbols-outlined text-[18px]">wb_twilight</span>
+                              </span>
+                              <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">
+                                {afternoonCTVs.length} CTV
+                              </span>
                             </button>
-                          ) : morningCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
+                          ) : morningCTVs.length > 0 ? (
+                            <div className="h-[32px]" aria-hidden="true" />
+                          ) : null}
+
                           {morningCTVs.length === 0 && afternoonCTVs.length === 0 && (
-                            <div className="flex-1 flex items-center justify-center py-2"><span className="text-[11px] text-slate-400">—</span></div>
+                            <div className="flex-1 flex items-center justify-center py-5">
+                              <span className="text-[11px] text-slate-400 font-medium">—</span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -352,19 +427,19 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             <div className="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Lịch sử tổng hợp</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_history_summary")}</h3>
               </div>
               {isLoadingMonth && (
                 <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
                   <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                  <span>Đang tải...</span>
+                  <span>{t("updating")}</span>
                 </div>
               )}
               <div className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" aria-label="Chuyển tháng">
                 <button type="button" onClick={() => changeMonth(-1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng trước">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
                 </button>
-                <span className="min-w-[112px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100" aria-live="polite">Tháng {monthStart.getMonth() + 1}, {monthStart.getFullYear()}</span>
+                <span className="min-w-[112px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100" aria-live="polite">{t("month")} {monthStart.getMonth() + 1}, {monthStart.getFullYear()}</span>
                 <button type="button" onClick={() => changeMonth(1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng sau">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span>
                 </button>
@@ -375,7 +450,9 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
               <div className="min-w-[700px] space-y-3">
                 <div className="grid grid-cols-5 gap-3">
                   {WEEKDAYS.map((d) => (
-                    <div key={d.index} className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200">{d.label}</div>
+                    <div key={d.index} className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {language === "Tiếng Anh" ? ["Mon", "Tue", "Wed", "Thu", "Fri"][d.index] : d.label}
+                    </div>
                   ))}
                 </div>
                 <div className="space-y-3">
@@ -396,7 +473,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             <div className="flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 pb-1.5 mb-2">
                               <span className="flex items-center justify-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">
                                 <span>{formatShortDate(date)}</span>
-                                {isToday && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">Hôm nay</span>}
+                                {isToday && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">{t("today")}</span>}
                               </span>
                             </div>
                             <div className="space-y-1.5 min-h-[58px] flex flex-col justify-start">
