@@ -6,8 +6,33 @@ import type {
   UserRole,
   AccountStatus,
   RequestStatus,
+  ShiftType,
+  WeeklyPattern,
+  ApiScheduleSlot,
+  ApiScheduleData,
+  ScheduleResponse,
+  ApiShiftAssignment,
+  ApiSummaryCell,
+  ApiWeeklySummaryCell,
+  WeeklySummaryResponse,
+  ApiHistoryCell,
+  HistoryResponse,
 } from '../types';
 import { formatRoomLabel } from '../utils/rooms';
+
+export type {
+  ShiftType,
+  WeeklyPattern,
+  ApiScheduleSlot,
+  ApiScheduleData,
+  ScheduleResponse,
+  ApiShiftAssignment,
+  ApiSummaryCell,
+  ApiWeeklySummaryCell,
+  WeeklySummaryResponse,
+  ApiHistoryCell,
+  HistoryResponse,
+};
 
 // ---------------------------------------------------------------------------
 // Backend DTO shapes (mirrors backend controllers)
@@ -284,32 +309,79 @@ export function myShiftsToSlots(
 }
 
 // ---------------------------------------------------------------------------
-// Schedule summary (admin) -> ShiftSlot[]
+// Schedule -> WeeklyPattern
 // ---------------------------------------------------------------------------
 
-export interface ApiSummaryCell {
-  shiftId: string;
-  workDate: string;
-  period: string;
-  count: number;
-  shiftAssignments: { id: string; accountId: string; displayName: string; phone?: string | null; roomCode?: string | null; status: string }[];
+export function scheduleToPattern(
+  slotsOrData?:
+    | ApiScheduleSlot[]
+    | ApiScheduleData
+    | ScheduleResponse
+    | { shifts?: ApiScheduleSlot[]; patternSlots?: ApiScheduleSlot[] }
+    | null,
+): WeeklyPattern {
+  const pattern: WeeklyPattern = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+  if (!slotsOrData) return pattern;
+
+  let slots: ApiScheduleSlot[] = [];
+  if (Array.isArray(slotsOrData)) {
+    slots = slotsOrData;
+  } else if ('data' in slotsOrData && slotsOrData.data && Array.isArray((slotsOrData.data as ApiScheduleData).shifts)) {
+    slots = (slotsOrData.data as ApiScheduleData).shifts;
+  } else if ('shifts' in slotsOrData && Array.isArray(slotsOrData.shifts)) {
+    slots = slotsOrData.shifts;
+  } else if ('patternSlots' in slotsOrData && Array.isArray(slotsOrData.patternSlots)) {
+    slots = slotsOrData.patternSlots;
+  }
+
+  for (const slot of slots) {
+    if (!slot || typeof slot.weekday !== 'number') continue;
+    // Backend weekday is 1 (Monday) .. 5 (Friday).
+    // UI dayIndex is 0 (Monday) .. 4 (Friday).
+    let dayIndex = slot.weekday;
+    if (dayIndex >= 1 && dayIndex <= 5) {
+      dayIndex = dayIndex - 1;
+    } else if (dayIndex < 0 || dayIndex > 4) {
+      continue;
+    }
+
+    const shiftType: ShiftType = mapPeriodToShiftType(slot.period);
+    if (!pattern[dayIndex].includes(shiftType)) {
+      pattern[dayIndex].push(shiftType);
+    }
+  }
+
+  return pattern;
 }
 
+export const scheduleToWeeklyPattern = scheduleToPattern;
+
+// ---------------------------------------------------------------------------
+// Schedule summary & Work history -> ShiftSlot[]
+// ---------------------------------------------------------------------------
+
 export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
-  return cells.map((cell) => {
+  return (cells ?? []).map((cell) => {
     const shiftType = mapPeriodToShiftType(cell.period);
+    const dayIndex = cell.workDate
+      ? dayIndexFromYmd(cell.workDate)
+      : (typeof cell.weekday === 'number' ? cell.weekday - 1 : 0);
+    const dayName = DAY_NAMES[dayIndex] ?? '';
+    const dateStr = cell.workDate ? dateStrFromYmd(cell.workDate) : '';
+
     return {
-      id: cell.shiftId,
-      dayIndex: dayIndexFromYmd(cell.workDate),
-      dayName: DAY_NAMES[dayIndexFromYmd(cell.workDate)] ?? '',
-      dateStr: dateStrFromYmd(cell.workDate),
+      id: cell.shiftId || (cell.workDate ? `${cell.workDate}-${cell.period}` : `weekly-${cell.weekday}-${cell.period}`),
+      dayIndex,
+      dayName,
+      dateStr,
       shiftType,
       shiftTimeLabel: shiftTimeLabel(cell.period),
       status: cell.count > 0 ? ('Đã đăng ký' as const) : ('Chưa đăng ký' as const),
       allowRegister: false,
-      assignedCTVs: cell.shiftAssignments.map((a) => ({
+      assignedCTVs: (cell.shiftAssignments || []).map((a) => ({
         id: a.accountId,
         name: a.displayName,
+        initials: initialsOf(a.displayName),
         phone: a.phone ?? undefined,
         status: 'Đã duyệt' as const,
         room: formatRoomLabel(a.roomCode),
@@ -318,3 +390,7 @@ export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
     };
   });
 }
+
+export const weeklySummaryToSlots = summaryToSlots;
+export const historyCellsToSlots = summaryToSlots;
+export const historyToSlots = summaryToSlots;

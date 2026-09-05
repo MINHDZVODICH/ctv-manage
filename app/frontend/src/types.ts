@@ -139,4 +139,71 @@ export interface MeetingItem {
   isOnline?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Schedule, Shift and Work History types (DB redesign)
+// ---------------------------------------------------------------------------
+
+export type ShiftPeriod = "MORNING" | "AFTERNOON";
+export type ShiftType = "morning" | "afternoon";
+export type WeeklyPattern = { [dayIndex: number]: ShiftType[] };
+
+export interface ApiScheduleSlot {
+  weekday: number; // 1 = Monday .. 5 = Friday
+  period: "MORNING" | "AFTERNOON" | string;
+}
+
+export interface ApiScheduleData {
+  id?: string;
+  accountId?: string;
+  roomCode: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  shifts: ApiScheduleSlot[];
+  patternSlots?: ApiScheduleSlot[];
+}
+
+export interface ScheduleResponse {
+  data: ApiScheduleData;
+}
+
+export interface ApiShiftAssignment {
+  id: string;
+  accountId: string;
+  displayName: string;
+  phone?: string | null;
+  roomCode?: string | null;
+  status: string;
+}
+
+export interface ApiSummaryCell {
+  shiftId?: string;
+  weekday?: number;
+  workDate?: string;
+  period: "MORNING" | "AFTERNOON" | string;
+  count: number;
+  shiftAssignments: ApiShiftAssignment[];
+}
+
+export type ApiWeeklySummaryCell = ApiSummaryCell;
+
+export interface WeeklySummaryResponse {
+  cells: ApiSummaryCell[];
+  data?: { cells: ApiSummaryCell[] };
+}
+
+export interface ApiHistoryCell {
+  shiftId: string;
+  workDate: string;
+  period: "MORNING" | "AFTERNOON" | string;
+  count: number;
+  shiftAssignments: ApiShiftAssignment[];
+}
+
+export interface HistoryResponse {
+  month: string;
+  cells: ApiHistoryCell[];
+  data?: { month: string; cells: ApiHistoryCell[] };
+}
+
 export * from "./utils/formatters";
