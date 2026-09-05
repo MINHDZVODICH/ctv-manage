@@ -40,17 +40,11 @@ describe('Phase C — Resilience, Integrity & Timezone Boundaries Suite', () => 
       .send({ status: 'DISABLED', expectedVersion: ctv.version });
     expect(disableRes.status).toBe(200);
 
-    // Active schedule registrations are cancelled
-    const reg = await prisma.scheduleRegistration.findFirst({
+    // Active schedule is cleared when account is disabled
+    const reg = await prisma.schedule.findFirst({
       where: { accountId: ctv.id },
     });
-    expect(reg?.status).toBe('CANCELLED');
-
-    // All active future assignments are cancelled
-    const activeAssignments = await prisma.shiftAssignment.count({
-      where: { accountId: ctv.id, status: 'ACTIVE' },
-    });
-    expect(activeAssignments).toBe(0);
+    expect(reg).toBeNull();
   });
 
   test('Transaction atomicity: Failed file upload rolls back all asset records and disk files', async () => {

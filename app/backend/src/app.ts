@@ -9,6 +9,7 @@ import registrationRouter from './modules/registration/registration.routes.js';
 import { fileRouter, myFileRouter, accountFileRouter } from './modules/files/files.routes.js';
 import {
   myScheduleRouter,
+  scheduleRouter,
   shiftRouter,
   summaryRouter,
   workHistoryRouter,
@@ -50,6 +51,7 @@ export function createApp() {
   app.use('/api/v1/registration-requests', registrationRouter);
   app.use('/api/v1/files', fileRouter);
   app.use('/api/v1/shifts', shiftRouter);
+  app.use('/api/v1/schedule', scheduleRouter);
   app.use('/api/v1/schedule-summary', summaryRouter);
   app.use('/api/v1/work-history', workHistoryRouter);
 

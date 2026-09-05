@@ -7,16 +7,6 @@ import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
 // helpers
 // ---------------------------------------------------------------------------
 
-function bangkokStartOfTodayUtc(): Date {
-  const nowMs = Date.now();
-  const bkkMs = nowMs + 7 * 3600 * 1000;
-  const bkk = new Date(bkkMs);
-  const y = bkk.getUTCFullYear();
-  const m = bkk.getUTCMonth(); // 0-indexed
-  const d = bkk.getUTCDate();
-  // Bangkok 00:00 ICT = UTC y-m-d 00:00 minus 7h
-  return new Date(Date.UTC(y, m, d, 0, 0, 0, 0) - 7 * 3600 * 1000);
-}
 
 function mapAccountFiles(a: any) {
   return (a.accountFiles ?? [])
@@ -98,31 +88,9 @@ async function revokeSessions(accountId: string) {
   });
 }
 
-async function cancelActiveRegistrations(accountId: string) {
-  const now = new Date();
-  await prisma.scheduleRegistration.updateMany({
-    where: { accountId, status: 'ACTIVE' },
-    data: { status: 'CANCELLED', cancelledAt: now },
-  });
-}
-
-async function cancelFutureAssignments(accountId: string) {
-  const bkkStart = bangkokStartOfTodayUtc();
-  const now = new Date();
-  await prisma.shiftAssignment.updateMany({
-    where: {
-      accountId,
-      status: 'ACTIVE',
-      shift: { workDate: { gte: bkkStart } },
-    },
-    data: { status: 'CANCELLED', cancelledAt: now, cancellationReason: 'ACCOUNT_DISABLED' },
-  });
-}
-
 async function disableSideEffects(accountId: string) {
   await revokeSessions(accountId);
-  await cancelActiveRegistrations(accountId);
-  await cancelFutureAssignments(accountId);
+  await prisma.schedule.deleteMany({ where: { accountId } });
 }
 
 // ---------------------------------------------------------------------------

@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "typecheck": "tsc --noEmit",
     "seed": "tsx prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test:prepare": "node -e \"const fs=require('fs'); ['acceptance.db','acceptance.db-shm','acceptance.db-wal'].forEach(f=>{try{fs.rmSync('prisma/'+f,{force:true})}catch{}})\" && set DATABASE_URL=file:./acceptance.db&& prisma db push --skip-generate",
-    "test": "npm.cmd run test:prepare && set DATABASE_URL=file:./acceptance.db&& set FILE_STORAGE_ROOT=.acceptance-uploads&& set NODE_ENV=test&& vitest run --no-file-parallelism"
+    "prisma:deploy": "prisma migrate deploy",
+    "db:migrate-sqlite": "node scripts/migrate-sqlite-to-postgres.mjs",
+    "db:summary": "node scripts/database-summary.mjs",
+    "test:prepare": "node scripts/run-integration-tests.mjs --prepare-only",
+    "test": "node scripts/run-integration-tests.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

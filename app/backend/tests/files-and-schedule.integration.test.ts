@@ -126,18 +126,13 @@ describe('private files and schedule workflows', () => {
 
     const registrationId = created.body.data.id as string;
     const pastWorkDate = new Date('2024-01-08T00:00:00.000Z');
-    const pastShift = await prisma.shift.upsert({
-      where: { workDate_period: { workDate: pastWorkDate, period: 'MORNING' } },
-      update: {},
-      create: { workDate: pastWorkDate, period: 'MORNING' },
-    });
-    const pastAssignment = await prisma.shiftAssignment.create({
+    const storedHistory = await prisma.history.create({
       data: {
-        shiftId: pastShift.id,
         accountId: ctv.id,
-        registrationId,
+        workDate: pastWorkDate,
+        period: 'MORNING',
         roomCode: 'ROOM_1',
-        status: 'ACTIVE',
+        status: 'COMPLETED',
       },
     });
 
@@ -151,14 +146,7 @@ describe('private files and schedule workflows', () => {
       });
     expect(updated.status).toBe(200);
 
-    const storedPastAssignment = await prisma.shiftAssignment.findUniqueOrThrow({
-      where: { id: pastAssignment.id },
-    });
-    expect(storedPastAssignment.status).toBe('ACTIVE');
-    expect(storedPastAssignment.roomCode).toBe('ROOM_1');
-    expect(storedPastAssignment.cancelledAt).toBeNull();
-
-    const storedHistory = await prisma.workHistory.findUniqueOrThrow({
+    const checkedHistory = await prisma.history.findUniqueOrThrow({
       where: {
         accountId_workDate_period: {
           accountId: ctv.id,
@@ -167,15 +155,8 @@ describe('private files and schedule workflows', () => {
         },
       },
     });
-    expect(storedHistory.roomCode).toBe('ROOM_1');
-    expect(storedHistory.status).toBe('COMPLETED');
-    expect(storedHistory.sourceAssignmentId).toBe(pastAssignment.id);
-
-    const cannotCancelHistory = await request(app)
-      .delete(`/api/v1/users/me/shift-assignments/${pastAssignment.id}`)
-      .set('Cookie', ctvCookie);
-    expect(cannotCancelHistory.status).toBe(400);
-    expect(cannotCancelHistory.body.error.code).toBe('CANNOT_CANCEL_PAST');
+    expect(checkedHistory.roomCode).toBe('ROOM_1');
+    expect(checkedHistory.status).toBe('COMPLETED');
 
     const ownHistory = await request(app)
       .get('/api/v1/users/me/work-history?month=2024-01')

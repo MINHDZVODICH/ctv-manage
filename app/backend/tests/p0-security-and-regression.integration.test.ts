@@ -27,27 +27,19 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
       .set('Cookie', ctvCookie)
       .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
 
-    const shifts = await prisma.shift.findMany({
-      where: { assignments: { some: { account: { email: 'ctv.active@ctv.local' } } } },
-      include: { assignments: true },
-    });
-    expect(shifts.length).toBeGreaterThan(0);
-    const targetShift = shifts[0];
-
-    // 1. Admin can view shift detail with all assignments
-    const adminRes = await request(app).get(`/api/v1/shifts/${targetShift.id}`).set('Cookie', adminCookie);
+    // 1. Admin can view schedule of CTV
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const adminRes = await request(app).get(`/api/v1/accounts/${ctv.id}/schedule`).set('Cookie', adminCookie);
     expect(adminRes.status).toBe(200);
-    expect(adminRes.body.data).toBeDefined();
-    expect(adminRes.body.data.id).toBe(targetShift.id);
+    expect(adminRes.body.data.roomCode).toBe('ROOM_1');
 
-    // 2. Assigned CTV can view shift detail
-    const assignedRes = await request(app).get(`/api/v1/shifts/${targetShift.id}`).set('Cookie', ctvCookie);
+    // 2. Assigned CTV can view own schedule
+    const assignedRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
     expect(assignedRes.status).toBe(200);
-    expect(assignedRes.body.data).toBeDefined();
-    expect(assignedRes.body.data.id).toBe(targetShift.id);
+    expect(assignedRes.body.data.roomCode).toBe('ROOM_1');
 
-    // 3. Unassigned CTV is forbidden from viewing other CTV shift detail
-    const unassignedRes = await request(app).get(`/api/v1/shifts/${targetShift.id}`).set('Cookie', otherCookie);
+    // 3. Unassigned CTV is forbidden from viewing other CTV schedule via admin endpoint
+    const unassignedRes = await request(app).get(`/api/v1/accounts/${ctv.id}/schedule`).set('Cookie', otherCookie);
     expect(unassignedRes.status).toBe(403);
   });
 
@@ -201,56 +193,33 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
   test('RISK-07 / CAN-005 / HIST-001..003: Finalized work history is immutable to future cancellations', async () => {
     const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
 
-    // Seed historical assignment and snapshot
-    const pastShift = await prisma.shift.create({
-      data: {
-        workDate: new Date('2026-08-01T00:00:00.000Z'),
-        period: 'MORNING',
-      },
-    });
-
-    const reg = await prisma.scheduleRegistration.create({
-      data: {
-        accountId: ctv.id,
-        roomCode: 'ROOM_1',
-        startDate: new Date('2026-08-01T00:00:00.000Z'),
-        endDate: new Date('2026-08-31T00:00:00.000Z'),
-        status: 'ACTIVE',
-      },
-    });
-
-    const pastAssignment = await prisma.shiftAssignment.create({
-      data: {
-        shiftId: pastShift.id,
-        accountId: ctv.id,
-        registrationId: reg.id,
-        roomCode: 'ROOM_1',
-        status: 'ACTIVE',
-      },
-    });
-
-    const historyRecord = await prisma.workHistory.create({
+    // Seed historical history snapshot
+    const historyRecord = await prisma.history.create({
       data: {
         accountId: ctv.id,
         workDate: new Date('2026-08-01T00:00:00.000Z'),
         period: 'MORNING',
         roomCode: 'ROOM_1',
         status: 'COMPLETED',
-        sourceAssignmentId: pastAssignment.id,
       },
     });
 
-    // CTV cancels future/today schedule series
+    // CTV updates schedule
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
     await request(app)
-      .delete(`/api/v1/users/me/schedule-registrations/${reg.id}/series?weekday=5&period=MORNING&fromDate=2026-08-15`)
-      .set('Cookie', ctvCookie);
+      .put('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie)
+      .send({
+        roomCode: 'ROOM_3',
+        slots: [{ weekday: 2, period: 'AFTERNOON' }],
+      });
 
     // Verify past history snapshot is completely intact
-    const afterHistory = await prisma.workHistory.findUnique({
+    const afterHistory = await prisma.history.findUnique({
       where: { id: historyRecord.id },
     });
     expect(afterHistory).not.toBeNull();
+    expect(afterHistory?.roomCode).toBe('ROOM_1');
     expect(afterHistory?.status).toBe('COMPLETED');
   });
 

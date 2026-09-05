@@ -9,11 +9,9 @@ export const TEST_PASSWORD = 'Test@123456';
 let passwordHash: string | undefined;
 
 export async function resetDatabase() {
-  await prisma.workHistory.deleteMany();
-  await prisma.shiftAssignment.deleteMany();
+  await prisma.history.deleteMany();
   await prisma.shift.deleteMany();
-  await prisma.schedulePatternSlot.deleteMany();
-  await prisma.scheduleRegistration.deleteMany();
+  await prisma.schedule.deleteMany();
   await prisma.accountFile.deleteMany();
   await prisma.registrationRequestFile.deleteMany();
   await prisma.fileAsset.deleteMany();

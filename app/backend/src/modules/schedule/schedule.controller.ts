@@ -9,7 +9,7 @@ import * as service from './schedule.service.js';
 const roomCodeEnum = z.enum(['ROOM_1', 'ROOM_2', 'ROOM_3', 'ROOM_4']);
 const periodEnum = z.enum(['MORNING', 'AFTERNOON']);
 
-const putRegistrationSchema = z.object({
+const putScheduleSchema = z.object({
   roomCode: roomCodeEnum,
   slots: z
     .array(
@@ -22,22 +22,55 @@ const putRegistrationSchema = z.object({
   expectedVersion: z.number().int().optional(),
 });
 
-const getShiftsQuerySchema = z
-  .object({
-    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
-  })
-  .refine(
-    (d) => !(d.month && (d.from || d.to)),
-    { message: 'Use either month or from/to, not both', path: ['month'] },
-  );
-
-const deleteSeriesQuerySchema = z.object({
-  weekday: z.coerce.number().int().min(1).max(5),
-  period: periodEnum,
-  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+const workHistoryQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  accountId: z.string().min(1).optional(),
 });
+
+const getShiftsQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+
+export async function getMySchedule(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const data = await service.getMySchedule(user.id);
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export const getMyRegistration = getMySchedule;
+
+export async function putMySchedule(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const parsed = putScheduleSchema.parse(req.body);
+    const data = await service.upsertSchedule(user.id, parsed);
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export const putMyRegistration = putMySchedule;
+
+export async function getAccountSchedule(req: Request, res: Response, next: NextFunction) {
+  try {
+    const accountId = req.params.id || req.params.accountId;
+    const data = await service.getAccountSchedule(accountId);
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
 
 const summaryQuerySchema = z
   .object({
@@ -47,70 +80,33 @@ const summaryQuerySchema = z
     accountId: z.string().min(1).optional(),
   })
   .refine(
-    (d) => !!(d.month || (d.from && d.to)),
-    { message: 'Provide either month or from+to', path: ['month'] },
-  )
-  .refine(
     (d) => !(d.month && (d.from || d.to)),
     { message: 'Use either month or from/to, not both', path: ['month'] },
+  )
+  .refine(
+    (d) => {
+      if (d.from && d.to) {
+        return d.from <= d.to;
+      }
+      return true;
+    },
+    { message: 'from must be <= to', path: ['from'] },
   );
 
-const workHistoryQuerySchema = z.object({
-  month: z.string().regex(/^\d{4}-\d{2}$/),
-  accountId: z.string().min(1).optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
-
-export async function getMyRegistration(req: Request, res: Response, next: NextFunction) {
+export async function getWeeklySummary(_req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
-    const reg = await service.getMyRegistration(user.id);
-    if (!reg) {
-      res.json({ data: null });
-      return;
-    }
-    res.json({
-      data: {
-        id: reg.id,
-        accountId: reg.accountId,
-        startDate: (reg.startDate as Date).toISOString().slice(0, 10),
-        endDate: (reg.endDate as Date).toISOString().slice(0, 10),
-        timeZone: reg.timeZone,
-        roomCode: reg.roomCode,
-        version: reg.version,
-        status: reg.status,
-        patternSlots: reg.patternSlots,
-      },
-    });
+    const result = await service.getWeeklySummary();
+    res.json({ data: result, ...result });
   } catch (e) {
     next(e);
   }
 }
 
-export async function putMyRegistration(req: Request, res: Response, next: NextFunction) {
+export async function getSummary(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
-    const parsed = putRegistrationSchema.parse(req.body);
-    const result = await service.upsertRegistration(user.id, {
-      roomCode: parsed.roomCode,
-      slots: parsed.slots,
-      expectedVersion: parsed.expectedVersion,
-    });
-    res.json({ data: result });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export async function getMyShifts(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as any).user;
-    const q = getShiftsQuerySchema.parse(req.query);
-    const data = await service.listMyShifts(user.id, q);
-    res.json({ data });
+    summaryQuerySchema.parse(req.query);
+    const result = await service.getWeeklySummary();
+    res.json({ data: result, ...result });
   } catch (e) {
     next(e);
   }
@@ -120,7 +116,32 @@ export async function getMyWorkHistory(req: Request, res: Response, next: NextFu
   try {
     const user = (req as any).user;
     const q = workHistoryQuerySchema.pick({ month: true }).parse(req.query);
-    const data = await service.getWorkHistory({ month: q.month, accountId: user.id });
+    const result = await service.getWorkHistory({ month: q.month, accountId: user.id });
+    res.json({ data: result, ...result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getWorkHistory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = workHistoryQuerySchema.parse(req.query);
+    const result = await service.getWorkHistory(q);
+    res.json({ data: result, ...result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy routes support
+// ---------------------------------------------------------------------------
+
+export async function getMyShifts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const q = getShiftsQuerySchema.parse(req.query);
+    const data = await service.listMyShifts(user.id, q);
     res.json({ data });
   } catch (e) {
     next(e);
@@ -154,29 +175,8 @@ export async function deleteSeries(req: Request, res: Response, next: NextFuncti
   try {
     const user = (req as any).user;
     const { registrationId } = req.params;
-    const q = deleteSeriesQuerySchema.parse(req.query);
-    const result = await service.cancelSeries(user.id, registrationId, q);
+    const result = await service.cancelSeries(user.id, registrationId, req.query as any);
     res.json({ data: result });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export async function getSummary(req: Request, res: Response, next: NextFunction) {
-  try {
-    const q = summaryQuerySchema.parse(req.query);
-    const data = await service.getScheduleSummary(q as any);
-    res.json({ data });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export async function getWorkHistory(req: Request, res: Response, next: NextFunction) {
-  try {
-    const q = workHistoryQuerySchema.parse(req.query);
-    const data = await service.getWorkHistory(q);
-    res.json({ data });
   } catch (e) {
     next(e);
   }

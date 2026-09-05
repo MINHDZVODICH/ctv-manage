@@ -103,8 +103,7 @@ describe('registration approval and account administration', () => {
     expect(approved.body.request.status).toBe('APPROVED');
     expect(approved.body.request.approvedAccount.ctvCode).toMatch(/^CTV-\d{4}-\d{3}$/);
     const approvedAccountId = approved.body.request.approvedAccount.id;
-    expect(await prisma.scheduleRegistration.count({ where: { accountId: approvedAccountId } })).toBe(0);
-    expect(await prisma.shiftAssignment.count({ where: { accountId: approvedAccountId } })).toBe(0);
+    expect(await prisma.schedule.count({ where: { accountId: approvedAccountId } })).toBe(0);
 
     const repeated = await request(app)
       .patch(`/api/v1/registration-requests/${requestId}`)
