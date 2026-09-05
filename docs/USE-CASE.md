@@ -839,7 +839,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- Mẫu tuần mới được lưu và lặp lại không giới hạn cho đến khi CTV cập nhật mẫu khác, registration bị hủy hoặc tài khoản bị vô hiệu hóa.
+- Mẫu tuần mới được lưu và lặp lại không giới hạn cho đến khi CTV cập nhật mẫu khác hoặc tài khoản bị vô hiệu hóa. CTV có thể đăng ký hoặc cập nhật bất kỳ số ca nào trong tuần (từ 0 đến 10 ca).
 
 *d. Kịch bản thành công chính*
 
@@ -847,13 +847,13 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 |---|---|---|
 | 1 | CTV chọn **Lịch làm việc** trên thanh điều hướng | Hệ thống tải registration hiện hành và các assignment `ACTIVE` của chính CTV. |
 | 2 | CTV chọn **Đăng ký lịch làm việc** | Hệ thống mở biểu mẫu, focus bộ chọn buồng và để trống toàn bộ 10 ô mẫu ca, kể cả khi CTV đã có lịch. |
-| 3 | CTV chọn buồng và ít nhất một ô ca từ Thứ 2 đến Thứ 6 | Hệ thống hiển thị ngày bắt đầu, thông báo mẫu sẽ lặp lại hằng tuần và cảnh báo lần lưu này thay thế toàn bộ mẫu hiện tại. |
+| 3 | CTV chọn buồng và các ô ca mong muốn từ Thứ 2 đến Thứ 6 (có thể để trống 0 ca) | Hệ thống hiển thị ngày bắt đầu, thông báo mẫu sẽ lặp lại hằng tuần và cảnh báo lần lưu này thay thế toàn bộ mẫu hiện tại. |
 | 4 | CTV chọn **Đăng ký** | Hệ thống kiểm tra dữ liệu, lưu bằng `expectedVersion`, tạo cửa sổ assignment ban đầu và tăng version. |
 | 5 | | Hệ thống đóng biểu mẫu, hiển thị mẫu cố định trên **Lịch tuần**, tải lại ca thực tế và thông báo **Đăng ký thành công**. |
 
 *e. Các trường hợp khác*
 
-- Nếu không chọn ca, hệ thống giữ biểu mẫu mở và yêu cầu chọn ít nhất một ca.
+- Nếu không chọn ca nào (0 slot), hệ thống vẫn cho phép lưu mẫu tuần rỗng (không phân ca nào trong tuần).
 - Nếu version đã thay đổi ở phiên khác hoặc bị thiếu khi cập nhật, backend trả `409 VERSION_CONFLICT`; frontend tải registration mới nhất và yêu cầu CTV kiểm tra trước khi đăng ký lại.
 - Không thể đóng biểu mẫu bằng nền mờ hoặc phím Escape trong lúc request lưu đang chạy.
 

@@ -372,63 +372,19 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(forbiddenRes.status).toBe(403);
   });
 
-  test('Test 8: DELETE /api/v1/users/me/schedule removes schedule and shifts with version check and removed stubs return 404', async () => {
+  test('Test 8: DELETE schedule endpoints are not exposed and old fake endpoints return 404', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
 
-    // 1. Delete non-existent schedule returns 404
-    const delNonExistent = await request(app)
+    const scheduleDelete = await request(app)
       .delete('/api/v1/users/me/schedule')
       .set('Cookie', ctvCookie);
-    expect(delNonExistent.status).toBe(404);
+    expect(scheduleDelete.status).toBe(404);
 
-    // 2. Create schedule
-    const putRes = await request(app)
-      .put('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie)
-      .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
-    expect(putRes.status).toBe(200);
-    const scheduleId = putRes.body.data.id;
-    const version = putRes.body.data.version;
-
-    // 3. Delete with mismatched expectedVersion returns 409
-    const conflictRes = await request(app)
-      .delete('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie)
-      .send({ expectedVersion: 999 });
-    expect(conflictRes.status).toBe(409);
-
-    // 4. Delete with matching version succeeds (200)
-    const delRes = await request(app)
-      .delete('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie)
-      .send({ expectedVersion: version });
-    expect(delRes.status).toBe(200);
-    expect(delRes.body.data.success).toBe(true);
-
-    // 5. Get schedule returns null and shifts are removed
-    const getRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
-    expect(getRes.body.data).toBeNull();
-
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
-    const dbSchedule = await prisma.schedule.findUnique({ where: { accountId: ctv.id } });
-    expect(dbSchedule).toBeNull();
-    const dbShifts = await prisma.shift.findMany({ where: { scheduleId } });
-    expect(dbShifts).toHaveLength(0);
-
-    // 6. Test delete with query parameter expectedVersion on freshly created schedule
-    const putRes2 = await request(app)
-      .put('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie)
-      .send({ roomCode: 'ROOM_2', slots: [{ weekday: 2, period: 'AFTERNOON' }] });
-    expect(putRes2.status).toBe(200);
-
-    const delQueryRes = await request(app)
-      .delete('/api/v1/users/me/schedule?expectedVersion=1')
+    const legacyDelete = await request(app)
+      .delete('/api/v1/users/me/schedule-registration')
       .set('Cookie', ctvCookie);
-    expect(delQueryRes.status).toBe(200);
-    expect(delQueryRes.body.data.success).toBe(true);
+    expect(legacyDelete.status).toBe(404);
 
-    // 7. Verify removed stub endpoints return 404
     const fakeAssignmentDel = await request(app)
       .delete('/api/v1/users/me/shift-assignments/any-id')
       .set('Cookie', ctvCookie);
@@ -443,5 +399,38 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       .delete('/api/v1/users/me/schedule-registrations/any-id/series')
       .set('Cookie', ctvCookie);
     expect(fakeRegSeriesDel.status).toBe(404);
+  });
+
+  test('Test 9: PUT schedule allows an empty weekly pattern (0 slots)', async () => {
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+
+    // 1. Create schedule with 1 shift
+    const putRes = await request(app)
+      .put('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie)
+      .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
+    expect(putRes.status).toBe(200);
+    const version = putRes.body.data.version;
+
+    // 2. Update with empty slots []
+    const res = await request(app)
+      .put('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie)
+      .send({
+        roomCode: 'ROOM_1',
+        slots: [],
+        expectedVersion: version,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.shifts).toHaveLength(0);
+    expect(res.body.data.version).toBe(version + 1);
+
+    // 3. Verify GET returns schedule with empty shifts
+    const getRes = await request(app)
+      .get('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.data.shifts).toHaveLength(0);
   });
 });

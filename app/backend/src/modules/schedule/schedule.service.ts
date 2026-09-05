@@ -84,8 +84,8 @@ function validateScheduleInput(input: UpsertScheduleInput) {
   if (!ROOM_CODES.includes(input.roomCode as RoomCode)) {
     throw Errors.badRequest('INVALID_ROOM_CODE', `roomCode must be one of ${ROOM_CODES.join(', ')}`);
   }
-  if (!Array.isArray(input.slots) || input.slots.length === 0) {
-    throw Errors.badRequest('INVALID_SLOTS', 'At least 1 slot is required');
+  if (!Array.isArray(input.slots)) {
+    throw Errors.badRequest('INVALID_SLOTS', 'slots must be an array');
   }
   for (const s of input.slots) {
     if (!Number.isInteger(s.weekday) || s.weekday < 1 || s.weekday > 5) {
@@ -224,13 +224,15 @@ export async function upsertSchedule(accountId: string, input: UpsertScheduleInp
         where: { scheduleId: existing.id },
       });
 
-      await tx.shift.createMany({
-        data: slots.map((s) => ({
-          scheduleId: existing.id,
-          weekday: s.weekday,
-          period: s.period,
-        })),
-      });
+      if (slots.length > 0) {
+        await tx.shift.createMany({
+          data: slots.map((s) => ({
+            scheduleId: existing.id,
+            weekday: s.weekday,
+            period: s.period,
+          })),
+        });
+      }
     } else {
       if (input.expectedVersion !== undefined) {
         throw Errors.conflict(
@@ -244,12 +246,12 @@ export async function upsertSchedule(accountId: string, input: UpsertScheduleInp
           accountId,
           roomCode: input.roomCode,
           version: 1,
-          shifts: {
+          shifts: slots.length > 0 ? {
             create: slots.map((s) => ({
               weekday: s.weekday,
               period: s.period,
             })),
-          },
+          } : undefined,
         },
       });
     }
@@ -269,38 +271,6 @@ export async function upsertSchedule(accountId: string, input: UpsertScheduleInp
 
 export const upsertRegistration = upsertSchedule;
 
-export async function deleteMySchedule(accountId: string, expectedVersion?: number) {
-  return await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${accountId}))`;
-
-    const existing = await tx.schedule.findUnique({
-      where: { accountId },
-    });
-
-    if (!existing) {
-      throw Errors.notFound('Không tìm thấy lịch làm việc');
-    }
-
-    if (expectedVersion !== undefined && existing.version !== expectedVersion) {
-      throw Errors.conflict(
-        'VERSION_CONFLICT',
-        'Lịch làm việc đã được cập nhật ở phiên khác. Vui lòng tải lại.',
-      );
-    }
-
-    await tx.shift.deleteMany({
-      where: { scheduleId: existing.id },
-    });
-
-    await tx.schedule.delete({
-      where: { id: existing.id },
-    });
-
-    return { success: true };
-  });
-}
-
-export const deleteMyRegistration = deleteMySchedule;
 
 // ---------------------------------------------------------------------------
 // Weekly Summary

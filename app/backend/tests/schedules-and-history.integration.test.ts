@@ -51,14 +51,14 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
     );
   });
 
-  test('SCH-003: Invalid schedule slot validations (invalid weekday, invalid period, empty slots)', async () => {
+  test('SCH-003: Invalid schedule slot validations (invalid weekday, invalid period, non-array slots)', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
 
-    // Empty slots array
+    // Non-array slots
     const res1 = await request(app)
       .put('/api/v1/users/me/schedule-registration')
       .set('Cookie', ctvCookie)
-      .send({ roomCode: 'ROOM_1', slots: [] });
+      .send({ roomCode: 'ROOM_1', slots: 'not-an-array' });
     expect(res1.status).toBe(400);
 
     // Invalid weekday (Sunday = 0, Saturday = 6)

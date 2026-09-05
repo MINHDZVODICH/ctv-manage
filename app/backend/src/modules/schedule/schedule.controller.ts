@@ -11,20 +11,15 @@ const periodEnum = z.enum(['MORNING', 'AFTERNOON']);
 
 const putScheduleSchema = z.object({
   roomCode: roomCodeEnum,
-  slots: z
-    .array(
-      z.object({
-        weekday: z.number().int().min(1).max(5),
-        period: periodEnum,
-      }),
-    )
-    .min(1),
+  slots: z.array(
+    z.object({
+      weekday: z.number().int().min(1).max(5),
+      period: periodEnum,
+    }),
+  ),
   expectedVersion: z.number().int().optional(),
 });
 
-const deleteScheduleSchema = z.object({
-  expectedVersion: z.number().int().optional(),
-});
 
 const workHistoryQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
@@ -66,21 +61,6 @@ export async function putMySchedule(req: Request, res: Response, next: NextFunct
 
 export const putMyRegistration = putMySchedule;
 
-export async function deleteMySchedule(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as any).user;
-    const bodyVersion = req.body?.expectedVersion;
-    const queryVersion = req.query?.expectedVersion ? Number(req.query.expectedVersion) : undefined;
-    const expectedVersion = bodyVersion !== undefined ? bodyVersion : queryVersion;
-    const parsed = deleteScheduleSchema.parse({ expectedVersion });
-    const data = await service.deleteMySchedule(user.id, parsed.expectedVersion);
-    res.json({ data });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export const deleteMyRegistration = deleteMySchedule;
 
 export async function getAccountSchedule(req: Request, res: Response, next: NextFunction) {
   try {

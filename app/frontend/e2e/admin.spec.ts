@@ -162,6 +162,30 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   const ctv = await getActiveCtv(page);
   const workDate = todayInBangkok();
 
+  const weeklySummaryPayload = {
+    data: {
+      cells: [{
+        weekday: 1,
+        period: 'MORNING',
+        count: 1,
+        shiftAssignments: [{
+          id: 'assignment-room-summary',
+          accountId: ctv.id,
+          displayName: ctv.displayName,
+          phone: ctv.phone,
+          roomCode: 'ROOM_2',
+          status: 'ACTIVE',
+        }],
+      }],
+    },
+  };
+  await page.route('**/api/v1/schedule/weekly-summary*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(weeklySummaryPayload),
+    });
+  });
   await page.route('**/api/v1/schedule-summary?*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -200,10 +224,20 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   const todayCard = todayHeading.locator('xpath=ancestor::div[contains(@class, "rounded-2xl")][1]');
   await expect(todayHeading).toContainText(todayLabelInBangkok());
   await expect(todayHeading).not.toContainText('Hôm nay (');
-  await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
+
+  const dow = (new Date().getDay() + 6) % 7;
+  if (dow <= 4) {
+    await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
+  } else {
+    await expect(todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true })).toBeVisible();
+  }
 
   await page.getByRole('button', { name: 'Lịch sử tổng hợp', exact: true }).click();
-  await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
+  if (dow <= 4) {
+    await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
+  } else {
+    await expect(todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true })).toBeVisible();
+  }
 
   await page.getByRole('button', { name: 'Lịch tuần tổng hợp', exact: true }).click();
   await page.getByTitle('Bấm xem danh sách CTV ca sáng').click();

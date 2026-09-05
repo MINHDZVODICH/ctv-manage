@@ -22,6 +22,11 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
 
   const dialog = page.getByRole('dialog', { name: 'Đăng ký lịch làm việc' });
   await expect(dialog).toBeVisible();
+  const patternButtons = dialog.locator('fieldset button');
+  await expect(patternButtons).toHaveCount(10);
+  await expect(dialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
+  await expect(dialog.getByLabel('Buồng làm việc')).toBeFocused();
+
   await dialog.getByLabel('Buồng làm việc').selectOption({ label: 'Buồng 1' });
   await dialog.getByRole('button', { name: /Chọn Ca sáng Thứ 2/ }).click();
   await dialog.getByRole('button', { name: /Chọn Ca chiều Thứ 3/ }).click();
@@ -43,44 +48,12 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
   await expect(page.getByText('Chưa có ca làm việc đã hoàn thành trong tháng này.')).toHaveCount(0);
 });
 
-test('Mẫu ca làm việc theo tuần mặc định rỗng mỗi khi mở đăng ký', async ({ page, loginAs }) => {
+test('Mẫu ca làm việc theo tuần điền sẵn ca đã đăng ký và cho phép lưu khi không chọn ca nào (0 ca)', async ({ page, loginAs }) => {
   await loginAs('ctv');
 
-  // Đảm bảo ban đầu chưa có lịch
-  await page.evaluate(async () => {
-    await fetch('/api/v1/users/me/schedule', { method: 'DELETE' });
-  });
-  await page.reload();
-
-  const registerBtn = page.getByRole('button', {
-    name: 'Đăng ký lịch làm việc',
-    exact: true,
-  });
-  const regDialog = page.getByRole('dialog', { name: 'Đăng ký lịch làm việc' });
-  const patternButtons = regDialog.locator('fieldset button');
-
-  // 1. Khi chưa có lịch, modal mở rỗng
-  await registerBtn.click();
-  await expect(regDialog).toBeVisible();
-  await expect(patternButtons).toHaveCount(10);
-  await expect(regDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
-  await expect(regDialog.getByText(/thay thế mẫu hiện tại/)).toHaveCount(0);
-  await expect(regDialog.getByText(/lặp lại hằng tuần/)).toHaveCount(0);
-  await expect(regDialog.getByLabel('Buồng làm việc')).toBeFocused();
-
-  // Đăng ký lịch: Buồng 1, T2 sáng, T3 chiều
-  await regDialog.getByLabel('Buồng làm việc').selectOption({ label: 'Buồng 1' });
-  await regDialog.getByRole('button', { name: /Chọn Ca sáng Thứ 2/ }).click();
-  await regDialog.getByRole('button', { name: /Chọn Ca chiều Thứ 3/ }).click();
-  await expect(regDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(2);
-  await regDialog.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-
-  await expect(page.getByText('Đăng ký thành công', { exact: true })).toBeVisible();
-  await expect(regDialog).toBeHidden();
-
-  // 2. Khi đã có lịch, nút đổi thành "Cập nhật lịch làm việc" và modal điền sẵn ca đã đăng ký
+  // 1. Khi đã có lịch, nút đổi thành "Cập nhật" và modal điền sẵn ca đã đăng ký
   const updateBtn = page.getByRole('button', {
-    name: 'Cập nhật lịch làm việc',
+    name: 'Cập nhật',
     exact: true,
   });
   await expect(updateBtn).toBeVisible();
@@ -91,8 +64,27 @@ test('Mẫu ca làm việc theo tuần mặc định rỗng mỗi khi mở đăn
   await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(2);
   await expect(updateDialog.getByLabel('Buồng làm việc')).toHaveValue('Buồng 1');
 
-  // 3. Bỏ chọn ca T3 chiều, cập nhật buồng sang Buồng 2, và lưu thành công
+  // 2. Không còn nút "Xóa toàn bộ lịch"
+  await expect(updateDialog.getByRole('button', { name: /Xóa toàn bộ lịch/ })).toHaveCount(0);
+
+  // 3. Bỏ chọn tất cả ca và bấm lưu -> lưu thành công 0 ca
+  await updateDialog.getByRole('button', { name: /Bỏ chọn Ca sáng Thứ 2/ }).click();
   await updateDialog.getByRole('button', { name: /Bỏ chọn Ca chiều Thứ 3/ }).click();
+  await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
+  await updateDialog.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
+  await expect(page.getByText('Cập nhật lịch làm việc thành công', { exact: true })).toBeVisible();
+  await expect(updateDialog).toBeHidden();
+
+  // Kiểm tra lịch tuần không còn ca nào
+  const weeklySchedule = page.getByTestId('weekly-schedule');
+  await expect(weeklySchedule.getByText('Ca Sáng', { exact: true })).toHaveCount(0);
+  await expect(weeklySchedule.getByText('Ca Chiều', { exact: true })).toHaveCount(0);
+
+  // 4. Mở lại "Cập nhật", chọn lại T2 sáng, cập nhật buồng sang Buồng 2, và lưu thành công
+  await updateBtn.click();
+  await expect(updateDialog).toBeVisible();
+  await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
+  await updateDialog.getByRole('button', { name: /Chọn Ca sáng Thứ 2/ }).click();
   await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(1);
   await updateDialog.getByLabel('Buồng làm việc').selectOption({ label: 'Buồng 2' });
   await updateDialog.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
@@ -100,17 +92,16 @@ test('Mẫu ca làm việc theo tuần mặc định rỗng mỗi khi mở đăn
   await expect(page.getByText('Cập nhật lịch làm việc thành công', { exact: true })).toBeVisible();
   await expect(updateDialog).toBeHidden();
 
-  const weeklySchedule = page.getByTestId('weekly-schedule');
   await expect(weeklySchedule.getByText('Ca Sáng', { exact: true })).toHaveCount(1);
   await expect(weeklySchedule.getByText('Ca Chiều', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Buồng 2', { exact: true }).first()).toBeVisible();
 
-  // Mở lại để kiểm tra thay đổi được lưu bền vững
+  // Mở lại để kiểm tra thay đổi được lưu bền vững và đóng bằng nút X
   await updateBtn.click();
   await expect(updateDialog).toBeVisible();
   await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(1);
   await expect(updateDialog.getByLabel('Buồng làm việc')).toHaveValue('Buồng 2');
-  await updateDialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+  await updateDialog.getByRole('button', { name: 'Đóng cửa sổ đăng ký', exact: true }).click();
   await expect(updateDialog).toBeHidden();
 });
 

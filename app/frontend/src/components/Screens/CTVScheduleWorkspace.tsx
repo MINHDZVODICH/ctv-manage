@@ -327,43 +327,6 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     return addDays(rangeStart, offset);
   };
 
-  const handleDeleteSchedule = async () => {
-    if (isSubmitting) return;
-    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch làm việc không?")) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const query =
-        currentRegistrationVersion !== undefined
-          ? `?expectedVersion=${currentRegistrationVersion}`
-          : "";
-      await api.apiDelete(`/api/v1/users/me/schedule${query}`);
-      setWeeklyPattern(createEmptyWeeklyPattern());
-      setRegistrationPattern(createEmptyWeeklyPattern());
-      setCurrentRegistrationVersion(undefined);
-      closeRegistration(true);
-      if (onReload) {
-        try {
-          await onReload();
-        } catch {
-          // ignore reload error
-        }
-      }
-      onShowToast("Đã xóa lịch làm việc thành công");
-    } catch (err: any) {
-      if (err.code === "VERSION_CONFLICT") {
-        await loadCurrentRegistration().catch(() => undefined);
-        onShowToast("Lịch đã thay đổi ở phiên khác. Dữ liệu mới nhất đã được tải; vui lòng thử lại.");
-        return;
-      }
-      onShowToast(err.message || "Xóa lịch làm việc thất bại");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleRegisterSchedule = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -373,17 +336,6 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       for (const p of registrationPattern[d] || []) {
         slots.push({ weekday: d + 1, period: p === "morning" ? "MORNING" : "AFTERNOON" });
       }
-    }
-
-    if (slots.length === 0) {
-      if (hasWeeklyShifts || currentRegistrationVersion !== undefined) {
-        if (window.confirm("Bạn chưa chọn ca nào. Bạn có muốn xóa toàn bộ lịch làm việc không?")) {
-          await handleDeleteSchedule();
-          return;
-        }
-      }
-      onShowToast("Vui lòng chọn ít nhất một ca trong tuần hoặc xóa lịch làm việc.");
-      return;
     }
 
     const roomCode = roomLabelToCode(modalRoom);
@@ -411,7 +363,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           return;
         }
       }
-      onShowToast(hasWeeklyShifts ? "Cập nhật lịch làm việc thành công" : "Đăng ký thành công");
+      onShowToast(currentRegistrationVersion !== undefined ? "Cập nhật lịch làm việc thành công" : "Đăng ký thành công");
     } catch (err: any) {
       if (err.code === "VERSION_CONFLICT") {
         await loadCurrentRegistration().catch(() => undefined);
@@ -443,8 +395,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
               edit_calendar
             </span>
-            {hasWeeklyShifts
-              ? (language === "Tiếng Anh" ? "Update Shift Schedule" : "Cập nhật lịch làm việc")
+            {currentRegistrationVersion !== undefined || hasWeeklyShifts
+              ? (language === "Tiếng Anh" ? "Update" : "Cập nhật")
               : (language === "Tiếng Anh" ? "Register Shift Schedule" : "Đăng ký lịch làm việc")}
           </button>
         </div>
@@ -832,7 +784,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     id="registration-title"
                     className="text-xl font-bold text-slate-950 dark:text-white"
                   >
-                    {hasWeeklyShifts
+                    {currentRegistrationVersion !== undefined || hasWeeklyShifts
                       ? (language === "Tiếng Anh" ? "Update Shift Schedule" : "Cập nhật lịch làm việc")
                       : (language === "Tiếng Anh" ? "Register Shift Schedule" : "Đăng ký lịch làm việc")}
                   </h3>
@@ -950,42 +902,18 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 </fieldset>
               </div>
 
-              <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-[#25262b]/95">
-                <div>
-                  {(hasWeeklyShifts || currentRegistrationVersion !== undefined) && (
-                    <button
-                      type="button"
-                      onClick={handleDeleteSchedule}
-                      disabled={isSubmitting}
-                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-100 hover:border-rose-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 disabled:opacity-50 disabled:cursor-not-allowed dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                        delete
-                      </span>
-                      {language === "Tiếng Anh" ? "Delete Schedule" : "Xóa toàn bộ lịch"}
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-col-reverse sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => closeRegistration()}
-                    disabled={isSubmitting}
-                    className="min-h-11 rounded-xl px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-                  >
-                    {language === "Tiếng Anh" ? "Close" : "Đóng"}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400 dark:focus-visible:ring-offset-slate-900 cursor-pointer"
-                  >
+              <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end dark:border-slate-700 dark:bg-[#25262b]/95">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400 dark:focus-visible:ring-offset-slate-900 cursor-pointer"
+                >
                     {isSubmitting ? (
                       <>
                         <span className="material-symbols-outlined animate-spin text-[19px]" aria-hidden="true">
                           progress_activity
                         </span>
-                        {hasWeeklyShifts
+                        {currentRegistrationVersion !== undefined || hasWeeklyShifts
                           ? (language === "Tiếng Anh" ? "Saving..." : "Đang lưu...")
                           : (language === "Tiếng Anh" ? "Registering..." : "Đang đăng ký...")}
                       </>
@@ -994,13 +922,12 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                         <span className="material-symbols-outlined text-[19px]" aria-hidden="true">
                           event_available
                         </span>
-                        {hasWeeklyShifts
+                        {currentRegistrationVersion !== undefined || hasWeeklyShifts
                           ? (language === "Tiếng Anh" ? "Save Changes" : "Lưu thay đổi")
                           : (language === "Tiếng Anh" ? "Register" : "Đăng ký")}
                       </>
                     )}
                   </button>
-                </div>
               </div>
             </form>
           </div>
