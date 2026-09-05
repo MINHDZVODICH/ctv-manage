@@ -161,22 +161,17 @@ describe('private files and schedule workflows', () => {
       .get('/api/v1/users/me/work-history?month=2024-01')
       .set('Cookie', ctvCookie);
     expect(ownHistory.status).toBe(200);
-    expect(ownHistory.body.data.cells).toEqual(
+    expect(ownHistory.body.data.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          id: storedHistory.id,
           workDate: '2024-01-08',
           period: 'MORNING',
-          shiftAssignments: expect.arrayContaining([
-            expect.objectContaining({
-              id: storedHistory.id,
-              accountId: ctv.id,
-              roomCode: 'ROOM_1',
-              status: 'COMPLETED',
-            }),
-          ]),
+          roomCode: 'ROOM_1',
         }),
       ]),
     );
+    expect(ownHistory.body.data.cells).toBeUndefined();
 
     const adminHistory = await request(app)
       .get(`/api/v1/work-history?month=2024-01&accountId=${ctv.id}`)

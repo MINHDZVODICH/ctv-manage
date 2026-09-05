@@ -447,7 +447,27 @@ export const syncDailyHistory = snapshotTodayWorkHistory;
 // ---------------------------------------------------------------------------
 
 export async function getMyWorkHistory(accountId: string, month: string) {
-  return await getWorkHistory({ month, accountId });
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw Errors.badRequest('INVALID_MONTH', 'month must be YYYY-MM');
+  }
+
+  const range = monthRangeToUtcDates(month);
+  const rows = await prisma.history.findMany({
+    where: {
+      accountId,
+      workDate: { gte: range.from, lte: range.to },
+    },
+    orderBy: [{ workDate: 'asc' }, { period: 'asc' }],
+  });
+
+  const entries = rows.map((row) => ({
+    id: row.id,
+    workDate: formatUtcDateToYmd(row.workDate),
+    period: row.period,
+    roomCode: row.roomCode,
+  }));
+
+  return { month, entries };
 }
 
 export async function getWorkHistory(params: { month: string; accountId?: string }) {

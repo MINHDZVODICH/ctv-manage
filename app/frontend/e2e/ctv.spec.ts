@@ -174,7 +174,7 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
   await page.route('**/api/v1/users/me/work-history?*', async (route) => {
     const month = new URL(route.request().url()).searchParams.get('month');
     if (month !== targetMonth) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { cells: [] } }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { month, entries: [] } }) });
       return;
     }
     targetMonthAttempts += 1;
@@ -187,18 +187,12 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          cells: [{
-            shiftId: 'history-shift-1',
+          month: targetMonth,
+          entries: [{
+            id: 'history-shift-1',
             workDate,
             period: 'MORNING',
-            count: 1,
-            shiftAssignments: [{
-              id: 'history-assignment-1',
-              accountId,
-              displayName: 'CTV Active',
-              roomCode: 'ROOM_1',
-              status: 'COMPLETED',
-            }],
+            roomCode: 'ROOM_1',
           }],
         },
       }),

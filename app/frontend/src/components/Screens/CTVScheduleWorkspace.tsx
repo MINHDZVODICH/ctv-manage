@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShiftSlot, UserAccount } from "../../types";
 import * as api from "../../shared/api";
-import { ApiSummaryCell, summaryToSlots, scheduleToPattern } from "../../shared/mappers";
+import {
+  ApiHistoryEntry,
+  ApiSummaryCell,
+  historyEntriesToSlots,
+  summaryToSlots,
+  scheduleToPattern,
+} from "../../shared/mappers";
 import { formatRoomLabel, ROOM_OPTIONS, roomLabelToCode } from "../../utils/rooms";
 import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface CTVScheduleWorkspaceProps {
-  shifts: ShiftSlot[];
   currentUser: UserAccount;
-  onUpdateShifts: (updatedShifts: ShiftSlot[]) => void;
   onShowToast: (message: string) => void;
   onReload?: () => void | Promise<void>;
 }
@@ -147,9 +151,7 @@ const ShiftBadge: React.FC<ShiftBadgeProps> = ({ shiftType, ariaLabel, language 
 const getDayIndex = (date: Date) => (date.getDay() + 6) % 7;
 
 export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
-  shifts: _shifts,
   currentUser,
-  onUpdateShifts: _onUpdateShifts,
   onShowToast,
   onReload,
 }) => {
@@ -228,8 +230,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       .apiGet(`/api/v1/users/me/work-history?month=${month}`)
       .then((response: any) => {
         if (cancelled) return;
-        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
-        setHistoryShifts(summaryToSlots(cells));
+        const entries: ApiHistoryEntry[] | undefined = response.data?.entries ?? response.entries;
+        if (Array.isArray(entries)) {
+          setHistoryShifts(historyEntriesToSlots(entries));
+        } else {
+          const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
+          setHistoryShifts(summaryToSlots(cells));
+        }
       })
       .catch(() => {
         if (!cancelled) setHistoryError("Không thể tải lịch sử làm việc.");

@@ -4,7 +4,7 @@ import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
 import {
-  syncDailyHistory,
+  snapshotTodayWorkHistory,
 } from '../src/modules/schedule/schedule.service.js';
 
 const app = createApp();
@@ -185,8 +185,8 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       },
     });
 
-    // 2. Run syncDailyHistory
-    await syncDailyHistory();
+    // 2. Run snapshotTodayWorkHistory
+    await snapshotTodayWorkHistory();
 
     const historyItems = await prisma.history.findMany({
       where: { accountId: ctv.id },
@@ -195,8 +195,8 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
 
     const countBefore = historyItems.length;
 
-    // 3. Run syncDailyHistory again (idempotency check)
-    await syncDailyHistory();
+    // 3. Run snapshotTodayWorkHistory again (idempotency check)
+    await snapshotTodayWorkHistory();
 
     const countAfter = await prisma.history.count({
       where: { accountId: ctv.id },
@@ -209,7 +209,8 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .set('Cookie', ctvCookie);
     expect(histApiRes.status).toBe(200);
     expect(histApiRes.body.data).toBeDefined();
-    expect(histApiRes.body.data.cells.length).toBeGreaterThanOrEqual(1);
+    expect(histApiRes.body.data.entries.length).toBeGreaterThanOrEqual(1);
+    expect(histApiRes.body.data.cells).toBeUndefined();
   });
 
   test('SYNC-001..004: Cross-view synchronization for Schedule, Shift, and History (4 weekly views + 3 history views)', async () => {
@@ -268,15 +269,15 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
     // 6. Test History Views before 17:30
     // Wednesday 2026-09-02 at 10:00 UTC (17:00 Asia/Bangkok, before 17:30 cutoff)
     const beforeCutoff = new Date('2026-09-02T10:00:00.000Z');
-    await syncDailyHistory(beforeCutoff);
+    await snapshotTodayWorkHistory(beforeCutoff);
 
     const ctvHistBefore = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
     expect(ctvHistBefore.status).toBe(200);
     // 2026-09-02 must NOT be recorded before 17:30
-    const todayCellsBefore = ctvHistBefore.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
-    expect(todayCellsBefore).toHaveLength(0);
+    const todayEntriesBefore = (ctvHistBefore.body.data.entries ?? []).filter((e: any) => e.workDate === '2026-09-02');
+    expect(todayEntriesBefore).toHaveLength(0);
 
     // 7. Add Wednesday shift for CTV and test History Views after 17:30
     await request(app)
@@ -294,18 +295,19 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
 
     // Run snapshot at 18:00 Asia/Bangkok on 2026-09-02
     const afterCutoff = new Date('2026-09-02T11:00:00.000Z');
-    await syncDailyHistory(afterCutoff);
+    await snapshotTodayWorkHistory(afterCutoff);
 
     // View 1: Personal History (CTV)
     const ctvHistAfter = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
     expect(ctvHistAfter.status).toBe(200);
-    const ctvTodayCells = ctvHistAfter.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
-    expect(ctvTodayCells).toHaveLength(1);
-    expect(ctvTodayCells[0].workDate).toBe('2026-09-02');
-    expect(ctvTodayCells[0].period).toBe('MORNING');
-    expect(ctvTodayCells[0].shiftAssignments[0].roomCode).toBe('ROOM_1');
+    const ctvTodayEntries = (ctvHistAfter.body.data.entries ?? []).filter((e: any) => e.workDate === '2026-09-02');
+    expect(ctvTodayEntries).toHaveLength(1);
+    expect(ctvTodayEntries[0].workDate).toBe('2026-09-02');
+    expect(ctvTodayEntries[0].period).toBe('MORNING');
+    expect(ctvTodayEntries[0].roomCode).toBe('ROOM_1');
+    expect(ctvHistAfter.body.data.cells).toBeUndefined();
 
     // View 2: Account History (Admin viewing CTV)
     const adminHistCtv = await request(app)

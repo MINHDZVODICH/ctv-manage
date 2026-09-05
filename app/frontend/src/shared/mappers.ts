@@ -395,3 +395,29 @@ export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
 export const weeklySummaryToSlots = summaryToSlots;
 export const historyCellsToSlots = summaryToSlots;
 export const historyToSlots = summaryToSlots;
+
+export interface ApiHistoryEntry {
+  id: string;
+  workDate: string;
+  period: 'MORNING' | 'AFTERNOON' | string;
+  roomCode: string;
+}
+
+export function historyEntriesToSlots(entries: ApiHistoryEntry[]): ShiftSlot[] {
+  return (entries ?? []).map((entry) => {
+    const shiftType = mapPeriodToShiftType(entry.period);
+    const dayIndex = dayIndexFromYmd(entry.workDate);
+    return {
+      id: entry.id,
+      dayIndex,
+      dayName: DAY_NAMES[dayIndex] ?? '',
+      dateStr: dateStrFromYmd(entry.workDate),
+      shiftType,
+      shiftTimeLabel: shiftTimeLabel(entry.period),
+      status: 'Đã đăng ký',
+      allowRegister: false,
+      assignedCTVs: [],
+      workDate: entry.workDate,
+    };
+  });
+}

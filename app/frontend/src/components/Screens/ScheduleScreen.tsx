@@ -409,9 +409,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   if (isCTV) {
     return (
       <CTVScheduleWorkspace
-        shifts={shifts}
         currentUser={ctvUser}
-        onUpdateShifts={onUpdateShifts}
         onShowToast={onShowToast}
         onReload={onReload}
       />

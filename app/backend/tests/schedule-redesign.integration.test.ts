@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
-import { syncDailyHistory, snapshotTodayWorkHistory, parseYmdToUtcDate } from '../src/modules/schedule/schedule.service.js';
+import { snapshotTodayWorkHistory, parseYmdToUtcDate } from '../src/modules/schedule/schedule.service.js';
 
 const app = createApp();
 
@@ -246,10 +246,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const workHistoryResBefore = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
-    expect(workHistoryResBefore.status).toBe(200);
-    const cellsBefore = workHistoryResBefore.body.data?.cells ?? workHistoryResBefore.body.cells;
-    const todayCellsBefore = cellsBefore.filter((c: any) => c.workDate === targetDateStr);
-    expect(todayCellsBefore).toHaveLength(0);
+    const entriesBefore = workHistoryResBefore.body.data?.entries ?? workHistoryResBefore.body.entries;
+    const todayEntriesBefore = (entriesBefore || []).filter((e: any) => e.workDate === targetDateStr);
+    expect(todayEntriesBefore).toHaveLength(0);
 
     // 2. Run snapshotTodayWorkHistory on a weekend (Saturday 2026-09-05 at 11:00 UTC / 18:00 Bangkok)
     const weekendDate = new Date('2026-09-05T11:00:00.000Z');
@@ -291,14 +290,14 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(dataAfter.entries).toHaveLength(2);
     expect(dataAfter.entries).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ workDate: targetDateStr, period: 'MORNING', roomCode: 'ROOM_3' }),
-        expect.objectContaining({ workDate: targetDateStr, period: 'AFTERNOON', roomCode: 'ROOM_3' }),
+        { id: expect.any(String), workDate: targetDateStr, period: 'MORNING', roomCode: 'ROOM_3' },
+        { id: expect.any(String), workDate: targetDateStr, period: 'AFTERNOON', roomCode: 'ROOM_3' },
       ]),
     );
-
-    const cellsAfter = dataAfter.cells;
-    const todayCellsAfter = cellsAfter.filter((c: any) => c.workDate === targetDateStr);
-    expect(todayCellsAfter).toHaveLength(2);
+    // Dedicated CTV DTO: No cells, no status exposed, no accountId/displayName/phone
+    expect(dataAfter.cells).toBeUndefined();
+    expect(dataAfter.entries[0].status).toBeUndefined();
+    expect(dataAfter.entries[0].accountId).toBeUndefined();
   });
 
   test('Test 6: Changing schedule does NOT alter existing History', async () => {

@@ -878,14 +878,14 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | 1        | CTV chọn **Lịch làm việc**                           | Hệ thống mặc định hiển thị một **Lịch tuần** cố định gồm Thứ 2–Thứ 6 và các ca trong mẫu hiện hành. |
 | 2        | CTV xem Lịch tuần                                   | Các ca làm việc được hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`) với biểu tượng ca sáng (`wb_sunny`) và ca chiều (`wb_twilight`), không thể nhấp vào và không có modal chi tiết ca riêng lẻ. Mọi chỉnh sửa chỉ thực hiện qua nút **Cập nhật**. |
 | 3        | CTV chọn **Lịch sử làm việc**                        | Hệ thống gọi lịch sử của tài khoản trong session và hiển thị lưới tháng dưới dạng huy hiệu chỉ đọc, chỉ gồm các ngày quá khứ đã được chốt lúc 17:30. |
-| 4        | CTV dùng nút chuyển tháng                            | Hệ thống tải và hiển thị dữ liệu lịch sử làm việc của tháng mới (gồm `entries` và `cells`). |
+| 4        | CTV dùng nút chuyển tháng                            | Hệ thống tải và hiển thị dữ liệu lịch sử làm việc của tháng mới qua DTO chuyên biệt chỉ gồm danh sách ca của chính CTV (`entries`: `id`, `workDate`, `period`, `roomCode`; không chứa `cells`, `shiftAssignments`, thông tin CTV khác hay trường `status` kỹ thuật). |
 
 *e. Các trường hợp khác*
 
 - Nếu màn hình hẹp, lưới năm ngày giữ nguyên cấu trúc và cho phép cuộn ngang để xem đầy đủ.
 - Khi tháng không có ca đã hoàn thành, hệ thống hiển thị trạng thái rỗng rõ ràng.
 - Khi tải lịch sử thất bại, hệ thống hiển thị lỗi và nút **Thử lại**; dữ liệu cũ của tháng trước không được giữ lại như thể thuộc tháng mới.
-- Không hiển thị trạng thái kỹ thuật (như `COMPLETED`) trên giao diện làm việc của CTV.
+- Không hiển thị trạng thái kỹ thuật (như `COMPLETED`) trên giao diện làm việc của CTV, và API lịch sử làm việc cá nhân của CTV (`/users/me/work-history`) cũng không để lộ trường `status` này.
 
 #### 2.3. Chốt lịch sử làm việc tự động vào 17:30
 
