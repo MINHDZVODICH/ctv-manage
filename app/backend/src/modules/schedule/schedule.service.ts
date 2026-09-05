@@ -440,8 +440,6 @@ export async function snapshotTodayWorkHistory(now = new Date()): Promise<{
   return { processedCount: result.count };
 }
 
-export const syncDailyHistory = snapshotTodayWorkHistory;
-
 // ---------------------------------------------------------------------------
 // getWorkHistory & getMyWorkHistory
 // ---------------------------------------------------------------------------
@@ -601,5 +599,3 @@ export async function getShiftForUser(shiftId: string, accountId: string, isAdmi
 
   return { id: shiftId, shiftId, assignments };
 }
-
-export const syncWorkHistory = syncDailyHistory;

@@ -9,6 +9,7 @@ import {
   scheduleToPattern,
 } from "../../shared/mappers";
 import { formatRoomLabel, ROOM_OPTIONS, roomLabelToCode } from "../../utils/rooms";
+import { getMsUntilPostCutoffRefresh } from "../../utils/scheduleSelectors";
 import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface CTVScheduleWorkspaceProps {
@@ -218,37 +219,84 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     });
   }, [currentUser.id, loadCurrentRegistration]);
 
-  useEffect(() => {
-    if (calendarView !== "month") return;
+  const historyRequestController = useRef<AbortController | null>(null);
+  const historyRequestSequence = useRef(0);
+
+  const fetchWorkHistory = useCallback(async () => {
     const month = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, "0")}`;
-    let cancelled = false;
+    historyRequestController.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++historyRequestSequence.current;
+    historyRequestController.current = controller;
+
     setIsHistoryLoading(true);
     setHistoryError("");
-    setHistoryShifts([]);
 
-    void api
-      .apiGet(`/api/v1/users/me/work-history?month=${month}`)
-      .then((response: any) => {
-        if (cancelled) return;
-        const entries: ApiHistoryEntry[] | undefined = response.data?.entries ?? response.entries;
-        if (Array.isArray(entries)) {
-          setHistoryShifts(historyEntriesToSlots(entries));
-        } else {
-          const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
-          setHistoryShifts(summaryToSlots(cells));
+    try {
+      const response: any = await api.apiGet(
+        `/api/v1/users/me/work-history?month=${month}`,
+        { signal: controller.signal },
+      );
+      if (sequence !== historyRequestSequence.current) return;
+      const entries: ApiHistoryEntry[] | undefined = response.data?.entries ?? response.entries;
+      if (Array.isArray(entries)) {
+        setHistoryShifts(historyEntriesToSlots(entries));
+      } else {
+        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
+        setHistoryShifts(summaryToSlots(cells));
+      }
+    } catch (error) {
+      if (!api.isRequestAborted(error)) {
+        if (sequence === historyRequestSequence.current) {
+          setHistoryError("Không thể tải lịch sử làm việc.");
         }
-      })
-      .catch(() => {
-        if (!cancelled) setHistoryError("Không thể tải lịch sử làm việc.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsHistoryLoading(false);
-      });
+      }
+    } finally {
+      if (sequence === historyRequestSequence.current) {
+        setIsHistoryLoading(false);
+      }
+    }
+  }, [calendarDate]);
+
+  useEffect(() => {
+    if (calendarView === "month") {
+      void fetchWorkHistory();
+    }
+    return () => historyRequestController.current?.abort();
+  }, [calendarDate, calendarView, fetchWorkHistory, historyRetryKey]);
+
+  useEffect(() => {
+    if (calendarView !== "month") return;
+
+    const handleFocus = () => {
+      void fetchWorkHistory();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchWorkHistory();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [calendarDate, calendarView, historyRetryKey]);
+  }, [calendarView, fetchWorkHistory]);
+
+  useEffect(() => {
+    if (calendarView !== "month") return;
+    const delay = getMsUntilPostCutoffRefresh();
+    if (delay === null) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchWorkHistory();
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [calendarDate, calendarView, fetchWorkHistory]);
 
   useEffect(() => {
     if (!isRegistrationOpen) return;
@@ -630,9 +678,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
                         const dateISO = toISODate(date);
                         const isToday = dateISO === todayISO;
-                        const isPastOrToday = dateISO <= todayISO;
-                        const morningShift = isPastOrToday ? getHistoryShift(date, "morning") : null;
-                        const afternoonShift = isPastOrToday ? getHistoryShift(date, "afternoon") : null;
+                        const morningShift = getHistoryShift(date, "morning");
+                        const afternoonShift = getHistoryShift(date, "afternoon");
 
                         return (
                           <div

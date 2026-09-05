@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ShiftSlot, UserAccount, AssignedCTV } from "../../types";
-import { getAssignedCTVsForDate } from "../../utils/scheduleSelectors";
+import {
+  getAssignedCTVsForDate,
+  getMsUntilPostCutoffRefresh,
+} from "../../utils/scheduleSelectors";
 import { formatRoomLabel } from "../../utils/rooms";
 import { summaryToSlots, ApiSummaryCell } from "../../shared/mappers";
 import * as api from "../../shared/api";
@@ -16,7 +19,6 @@ interface SummaryScheduleScreenProps {
 
 type SummaryView = "week" | "history";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const APP_TIME_ZONE = "Asia/Bangkok";
 
 const WEEKDAYS = [
@@ -27,23 +29,12 @@ const WEEKDAYS = [
   { index: 4, label: "Thứ 6" },
 ] as const;
 
-// date helpers
-const startOfDay = (d: Date) => {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
+const startOfDay = (date: Date) => {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
 };
-const addDays = (d: Date, n: number) => new Date(startOfDay(d).getTime() + n * DAY_MS);
-const startOfWeek = (d: Date) => {
-  const n = startOfDay(d);
-  const off = (n.getDay() + 6) % 7;
-  return addDays(n, -off);
-};
-const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
-const toISODate = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const formatShortDate = (d: Date) =>
-  `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+
 const getCurrentCalendarDate = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: APP_TIME_ZONE,
@@ -51,22 +42,33 @@ const getCurrentCalendarDate = () => {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
 };
 
-const isAfterCutoffTime = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: APP_TIME_ZONE,
-    hour: "numeric",
-    minute: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  return hour > 17 || (hour === 17 && minute >= 30);
+const addDays = (date: Date, amount: number) => {
+  const result = startOfDay(date);
+  result.setDate(result.getDate() + amount);
+  return result;
 };
+
+const startOfWeek = (date: Date) => {
+  const normalized = startOfDay(date);
+  const mondayOffset = (normalized.getDay() + 6) % 7;
+  return addDays(normalized, -mondayOffset);
+};
+
+const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1);
+
+const toISODate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatShortDate = (date: Date) =>
+  `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
 
 export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   shifts: initialShifts,
@@ -157,6 +159,39 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       void fetchHistoryMonth(calendarDate);
     }
     return () => monthRequestController.current?.abort();
+  }, [calendarDate, fetchHistoryMonth, view]);
+
+  useEffect(() => {
+    if (view !== "history") return;
+
+    const handleFocus = () => {
+      void fetchHistoryMonth(calendarDate);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchHistoryMonth(calendarDate);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [calendarDate, fetchHistoryMonth, view]);
+
+  useEffect(() => {
+    if (view !== "history") return;
+    const delay = getMsUntilPostCutoffRefresh();
+    if (delay === null) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchHistoryMonth(calendarDate);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
   }, [calendarDate, fetchHistoryMonth, view]);
 
   const [selectedShiftDetail, setSelectedShiftDetail] = useState<{
@@ -505,11 +540,10 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         if (!date) return <div key={di} className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 opacity-40 dark:border-slate-800/60 dark:bg-[#1f2023]/30" aria-hidden="true" />;
                         const dateISO = toISODate(date);
                         const isToday = dateISO === todayISO;
-                        const isHistorical = dateISO < todayISO || (isToday && isAfterCutoffTime());
                         const dateFormatted = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
                         const dayName = WEEKDAYS[di]?.label ?? `Thứ ${di + 2}`;
-                        const morningCTVs = isHistorical ? getAssignedCTVs(dateISO, "morning") : [];
-                        const afternoonCTVs = isHistorical ? getAssignedCTVs(dateISO, "afternoon") : [];
+                        const morningCTVs = getAssignedCTVs(dateISO, "morning");
+                        const afternoonCTVs = getAssignedCTVs(dateISO, "afternoon");
 
                         return (
                           <div key={dateISO} className={`flex min-h-[110px] flex-col rounded-2xl border-2 p-3 shadow-2xs transition-colors ${isToday ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"}`}>
@@ -520,25 +554,19 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                               </span>
                             </div>
                             <div className="space-y-1.5 min-h-[58px] flex flex-col justify-start">
-                              {isHistorical ? (
-                                <>
-                                  {morningCTVs.length > 0 ? (
-                                    <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Sáng", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca sáng">
-                                      <span className="flex items-center text-amber-800 dark:text-amber-300"><span className="material-symbols-outlined text-[16px]">wb_sunny</span></span>
-                                      <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{morningCTVs.length} CTV</span>
-                                    </button>
-                                  ) : afternoonCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
-                                  {afternoonCTVs.length > 0 ? (
-                                    <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Chiều", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca chiều">
-                                      <span className="flex items-center text-purple-800 dark:text-purple-300"><span className="material-symbols-outlined text-[16px]">wb_twilight</span></span>
-                                      <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{afternoonCTVs.length} CTV</span>
-                                    </button>
-                                  ) : morningCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
-                                  {morningCTVs.length === 0 && afternoonCTVs.length === 0 && <div className="flex-1 flex items-center justify-center py-2"><span className="text-[11px] text-slate-400">—</span></div>}
-                                </>
-                              ) : (
-                                <div className="flex-1 flex items-center justify-center py-2"><span className="text-[11px] text-slate-400">—</span></div>
-                              )}
+                              {morningCTVs.length > 0 ? (
+                                <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Sáng", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca sáng">
+                                  <span className="flex items-center text-amber-800 dark:text-amber-300"><span className="material-symbols-outlined text-[16px]">wb_sunny</span></span>
+                                  <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{morningCTVs.length} CTV</span>
+                                </button>
+                              ) : afternoonCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
+                              {afternoonCTVs.length > 0 ? (
+                                <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Chiều", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca chiều">
+                                  <span className="flex items-center text-purple-800 dark:text-purple-300"><span className="material-symbols-outlined text-[16px]">wb_twilight</span></span>
+                                  <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{afternoonCTVs.length} CTV</span>
+                                </button>
+                              ) : morningCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
+                              {morningCTVs.length === 0 && afternoonCTVs.length === 0 && <div className="flex-1 flex items-center justify-center py-2"><span className="text-[11px] text-slate-400">—</span></div>}
                             </div>
                           </div>
                         );

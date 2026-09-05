@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { UserAccount, ShiftSlot } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
 import { formatRoomLabel } from "../../utils/rooms";
+import { getMsUntilPostCutoffRefresh } from "../../utils/scheduleSelectors";
 import {
   ApiScheduleData,
   ScheduleResponse,
@@ -121,37 +122,81 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     };
   }, [account?.id, account?.role]);
 
-  useEffect(() => {
+  const accountHistoryController = useRef<AbortController | null>(null);
+  const accountHistorySequence = useRef(0);
+
+  const fetchAccountHistory = useCallback(async () => {
     if (!showWorkHistory || !account || account.role === "Admin") return;
 
     const month = `${historyDate.getFullYear()}-${String(historyDate.getMonth() + 1).padStart(2, "0")}`;
-    let cancelled = false;
+    accountHistoryController.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++accountHistorySequence.current;
+    accountHistoryController.current = controller;
+
     setIsHistoryLoading(true);
     setHistoryError("");
-    setHistoryShifts([]);
 
-    void api
-      .apiGet(
+    try {
+      const response: any = await api.apiGet(
         `/api/v1/work-history?month=${month}&accountId=${encodeURIComponent(account.id)}`,
-      )
-      .then((response: any) => {
-        if (cancelled) return;
-        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
-        setHistoryShifts(summaryToSlots(cells));
-      })
-      .catch(() => {
-        if (!cancelled) {
+        { signal: controller.signal },
+      );
+      if (sequence !== accountHistorySequence.current) return;
+      const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
+      setHistoryShifts(summaryToSlots(cells));
+    } catch (error) {
+      if (!api.isRequestAborted(error)) {
+        if (sequence === accountHistorySequence.current) {
           setHistoryError("Không thể tải lịch sử làm việc. Vui lòng thử lại.");
         }
-      })
-      .finally(() => {
-        if (!cancelled) setIsHistoryLoading(false);
-      });
+      }
+    } finally {
+      if (sequence === accountHistorySequence.current) {
+        setIsHistoryLoading(false);
+      }
+    }
+  }, [account, historyDate, showWorkHistory]);
+
+  useEffect(() => {
+    if (showWorkHistory && account && account.role !== "Admin") {
+      void fetchAccountHistory();
+    }
+    return () => accountHistoryController.current?.abort();
+  }, [fetchAccountHistory, showWorkHistory, account?.id, account?.role, historyDate]);
+
+  useEffect(() => {
+    if (!showWorkHistory || !account || account.role === "Admin") return;
+
+    const handleFocus = () => {
+      void fetchAccountHistory();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchAccountHistory();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [showWorkHistory, account?.id, account?.role, historyDate]);
+  }, [fetchAccountHistory, showWorkHistory, account?.id, account?.role]);
+
+  useEffect(() => {
+    if (!showWorkHistory || !account || account.role === "Admin") return;
+    const delay = getMsUntilPostCutoffRefresh();
+    if (delay === null) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchAccountHistory();
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchAccountHistory, showWorkHistory, account?.id, account?.role]);
 
   // Compute registered start date for this CTV
   const userRegisteredStartDateISO = useMemo(() => {
