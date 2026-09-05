@@ -89,21 +89,22 @@ sequenceDiagram
     end
 ```
 
-### 2.1 Các thành phần chính trong Frontend
-1. **`main.tsx`**: Điểm vào (entrypoint) khởi động React DOM, gắn kết `SystemSettingsProvider` (giao diện sáng/tối, màu nhấn) và `AuthProvider` (quản lý trạng thái phiên đăng nhập người dùng).
-2. **`shared/AuthContext.tsx`**: Lưu trữ trạng thái `user`, `loading`, cung cấp các hàm `login()`, `logout()`, `register()`. Khi ứng dụng mở lần đầu, `AuthContext` tự động gọi `GET /api/v1/auth/sessions/me` để phục hồi phiên đăng nhập từ cookie hiện có.
-3. **`app/App.tsx`**: Điều phối hiển thị dựa trên trạng thái xác thực và phân quyền:
-   - Nếu chưa đăng nhập: hiển thị `LoginScreen`.
-   - Nếu đã đăng nhập: hiển thị thanh điều hướng bên (`Sidebar`), thanh tiêu đề (`TopBar`) và màn hình tương ứng với vai trò (`ADMIN` hoặc `CTV`).
-4. **Màn hình và Modal theo nghiệp vụ**:
-   - Quản trị viên (`ADMIN`): `AccountListScreen`, `RequestsScreen`, `SummaryScheduleScreen`, `ViewAccountDetailModal`, `ViewRequestModal`, `CreateUserModal`, `ResetPasswordModal`, `RejectReasonModal`.
-   - Cộng tác viên (`CTV`): `ScheduleScreen` (kết hợp `CTVScheduleWorkspace` và modal cập nhật lịch), `ProfileScreen`, `EditProfileModal`, `ChangePasswordModal`.
-   - Tiện ích hệ thống: `SettingsModal`.
-5. **`shared/api.ts`**: Module HTTP dùng chung cho toàn bộ ứng dụng:
-   - Đính kèm `credentials: 'include'` trên mọi request để trình duyệt tự động gửi cookie phiên.
-   - Chuẩn hóa Content-Type `application/json` hoặc multipart form data.
-   - Chuẩn hóa lỗi API trả về theo định dạng thống nhất `{ error: { code, message } }`.
-   - Hỗ trợ `AbortSignal` để hủy bỏ request khi người dùng chuyển trang hoặc thay đổi điều kiện lọc.
+### 2.1 Các thành phần chính trong Frontend (Kiến trúc Feature-Based)
+1. **`main.tsx` & `app/providers.tsx`**: Điểm vào (entrypoint) khởi động React DOM, gắn kết `AppProviders` bao gồm `SystemSettingsProvider` (giao diện sáng/tối, màu nhấn) và `AuthProvider` (quản lý trạng thái phiên đăng nhập người dùng).
+2. **`shared/auth/AuthContext.tsx`**: Lưu trữ trạng thái `user`, `loading`, cung cấp các hàm `login()`, `logout()`, `register()`. Khi ứng dụng mở lần đầu, `AuthContext` tự động gọi `GET /api/v1/auth/sessions/me` để phục hồi phiên đăng nhập từ cookie hiện có.
+3. **`app/App.tsx`**: Composition root điều phối hiển thị dựa trên trạng thái xác thực và phân quyền:
+   - Nếu chưa đăng nhập: hiển thị `features/auth` (`LoginScreen`).
+   - Nếu đã đăng nhập: hiển thị thanh điều hướng bên (`Sidebar`), thanh tiêu đề (`TopBar`) từ `shared/ui` và màn hình theo vai trò (`ADMIN` hoặc `CTV`).
+4. **Các module nghiệp vụ độc lập (`features/*`)**:
+   - **`features/auth`**: Xác thực, đăng nhập (`LoginScreen`), đăng ký và hook `useAuth()`.
+   - **`features/accounts`**: Quản lý tài khoản và xét duyệt đơn đăng ký (`AccountListScreen`, `RequestsScreen`, `ViewAccountDetailModal`, `ResetPasswordModal`, `ViewRequestModal`, hooks `useAccounts()`, `useRegistrationRequests()`).
+   - **`features/schedule`**: Quản lý ca làm việc, lịch tuần cá nhân, tổng hợp ca toàn viện và lịch sử làm việc (`ScheduleScreen`, `CTVScheduleWorkspace`, `SummaryScheduleScreen`, hooks `useSchedule()`, `useWeeklySummary()`, `useWorkHistory()`).
+   - **`features/profile`**: Quản lý thông tin cá nhân, cập nhật ảnh/CCCD/CV, đổi mật khẩu (`ProfileScreen`, `EditProfileModal`, `ChangePasswordModal`, hook `useProfile()`).
+5. **Tầng dùng chung (`shared/*`)**:
+   - **`shared/api/`**: Client HTTP chuẩn hóa `credentials: 'include'`, Content-Type, abort signals và mapper lỗi API.
+   - **`shared/ui/`**: Các thành phần giao diện dùng chung (`Sidebar`, `TopBar`, `SettingsModal`, `NotificationsPopover`).
+   - **`shared/utils/`**: Các hàm tiện ích định dạng dữ liệu (`formatters`, `rooms`, `scheduleSelectors`).
+   - **`shared/mappers.ts`**: Các hàm chuyển đổi DTO sang ViewModel.
 
 ---
 

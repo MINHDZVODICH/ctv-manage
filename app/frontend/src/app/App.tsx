@@ -1,19 +1,23 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import type { UserAccount, RegistrationRequest, ShiftSlot, ViewTab } from '../types';
-import { Sidebar } from '../components/Navigation/Sidebar';
-import { LoginScreen } from '../components/Screens/LoginScreen';
-import { AccountListScreen } from '../components/Screens/AccountListScreen';
-import { RequestsScreen } from '../components/Screens/RequestsScreen';
-import { ProfileScreen } from '../components/Screens/ProfileScreen';
-import { ScheduleScreen } from '../components/Screens/ScheduleScreen';
-import { SummaryScheduleScreen } from '../components/Screens/SummaryScheduleScreen';
-import { ViewRequestModal } from '../components/Modals/ViewRequestModal';
-import { ViewAccountDetailModal } from '../components/Modals/ViewAccountDetailModal';
-import { EditProfileModal } from '../components/Modals/EditProfileModal';
-import { ChangePasswordModal } from '../components/Modals/ChangePasswordModal';
-import { SettingsModal } from '../components/Modals/SettingsModal';
+import { Sidebar, SettingsModal } from '../shared/ui';
+import { LoginScreen } from '../features/auth';
+import {
+  AccountListScreen,
+  RequestsScreen,
+  ViewAccountDetailModal,
+  ResetPasswordModal,
+  ViewRequestModal,
+} from '../features/accounts';
+import { ScheduleScreen, SummaryScheduleScreen } from '../features/schedule';
+import {
+  ProfileScreen,
+  EditProfileModal,
+  ChangePasswordModal,
+  useProfile,
+} from '../features/profile';
 import { useSystemSettings } from '../context/SystemSettingsContext';
-import { useAuth } from '../shared/AuthContext';
+import { useAuth } from '../shared/auth/AuthContext';
 import * as api from '../shared/api';
 import {
   accountToUserAccount,
@@ -402,97 +406,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = async (updated: Partial<UserAccount>) => {
-    if (!currentUser) return;
-    try {
-      // map name -> displayName
-      const payload: any = {};
-      if (updated.name !== undefined) payload.displayName = updated.name;
-      if (updated.phone !== undefined) payload.phone = updated.phone;
-      if (updated.address !== undefined) payload.address = updated.address;
-      if ((updated as any).gender !== undefined) payload.gender = (updated as any).gender;
-      if ((updated as any).dob !== undefined) payload.dateOfBirth = (updated as any).dob;
-      // need version
-      const meRes: any = await api.apiGet('/api/v1/users/me');
-      const version = meRes.user?.version ?? meRes.data?.version;
-      if (version !== undefined) payload.expectedVersion = version;
-      await api.apiPatch('/api/v1/users/me', payload);
-      await refreshCurrentUser();
-      showToast('Đã cập nhật thông tin hồ sơ cá nhân.');
-    } catch (e: any) {
-      showToast(e.message ?? 'Cập nhật hồ sơ thất bại');
-    }
-  };
-
-  const handleUpdateAvatar = async (url: string) => {
-    // This is called with base64 dataUrl from ProfileScreen; upload via file API
-    if (!url) {
-      try {
-        await api.apiDelete('/api/v1/users/me/files/AVATAR');
-        showToast('Đã xóa ảnh đại diện');
-        await refreshCurrentUser();
-      } catch (e: any) {
-        showToast(e.message ?? 'Xóa ảnh thất bại');
-      }
-      return;
-    }
-    try {
-      const blob = await (await fetch(url)).blob();
-      const form = new FormData();
-      form.append('file', blob, 'avatar.png');
-      await api.apiUpload('/api/v1/users/me/files/AVATAR', form, 'PUT');
-      showToast('Đã thay đổi ảnh đại diện thành công');
-      await refreshCurrentUser();
-    } catch (e: any) {
-      showToast(e.message ?? 'Tải ảnh thất bại');
-    }
-  };
-
-  const handleUpdateCccd = async (kind: 'CCCD_FRONT' | 'CCCD_BACK', url: string) => {
-    if (!url) {
-      try {
-        await api.apiDelete(`/api/v1/users/me/files/${kind}`);
-        showToast(`Đã xóa ảnh CCCD ${kind === 'CCCD_FRONT' ? 'mặt trước' : 'mặt sau'}`);
-        await refreshCurrentUser();
-      } catch (e: any) {
-        showToast(e.message ?? 'Xóa ảnh thất bại');
-      }
-      return;
-    }
-    try {
-      const blob = await (await fetch(url)).blob();
-      const form = new FormData();
-      form.append('file', blob, `${kind}.png`);
-      await api.apiUpload(`/api/v1/users/me/files/${kind}`, form, 'PUT');
-      showToast('Đã thay đổi ảnh CCCD thành công');
-      await refreshCurrentUser();
-    } catch (e: any) {
-      showToast(e.message ?? 'Tải ảnh CCCD thất bại');
-    }
-  };
-
-  const handleUpdateCv = async (cvData: { cvFile: string; cvFileName: string; cvFileSize?: string } | null) => {
-    if (!cvData) {
-      try {
-        await api.apiDelete('/api/v1/users/me/files/CV');
-        showToast('Đã xóa file CV');
-        await refreshCurrentUser();
-      } catch (e: any) {
-        showToast(e.message ?? 'Xóa CV thất bại');
-      }
-      return;
-    }
-    try {
-      const blob = await (await fetch(cvData.cvFile)).blob();
-      const form = new FormData();
-      form.append('file', blob, cvData.cvFileName);
-      await api.apiUpload('/api/v1/users/me/files/CV', form, 'PUT');
-      showToast(`Đã cập nhật file CV: ${cvData.cvFileName}`);
-      await refreshCurrentUser();
-    } catch (e: any) {
-      showToast(e.message ?? 'Tải CV thất bại');
-    }
-  };
+  const {
+    saveProfile: handleSaveProfile,
+    updateAvatar: handleUpdateAvatar,
+    updateCccd: handleUpdateCccd,
+    updateCv: handleUpdateCv,
+  } = useProfile({
+    onSuccess: showToast,
+    onError: showToast,
+    onRefreshUser: refreshCurrentUser,
+  });
 
   const handleEndAccountSchedule = async (accountId: string, _startDate: string, endDate: string, reason: string) => {
     // Use schedule summary cancel: not directly supported; cancel future assignments via schedule service
