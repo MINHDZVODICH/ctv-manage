@@ -37,6 +37,13 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
   await expect(page.getByText('Buồng 1', { exact: true }).first()).toBeVisible();
   await expect(weeklySchedule.getByText('Ca Sáng', { exact: true })).toHaveCount(1);
   await expect(weeklySchedule.getByText('Ca Chiều', { exact: true })).toHaveCount(1);
+  // Shift cards are read-only divs, not interactive buttons
+  const morningBadge = weeklySchedule.getByLabel(/Ca Sáng, Thứ 2/);
+  await expect(morningBadge).toBeVisible();
+  await expect(weeklySchedule.getByRole('button', { name: /Ca Sáng, Thứ 2/ })).toHaveCount(0);
+  await morningBadge.click();
+  await expect(page.getByRole('dialog', { name: /Chi tiết ca/ })).toHaveCount(0);
+
   await expect(weeklySchedule.getByText('Lặp lại đến khi bạn cập nhật', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Xem tuần trước' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Xem tuần sau' })).toHaveCount(0);
@@ -202,7 +209,12 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
   await page.getByRole('button', { name: 'Xem tháng trước' }).click();
   await expect(page.getByRole('alert')).toContainText('Không thể tải lịch sử làm việc.');
   await page.getByRole('button', { name: 'Thử lại' }).click();
-  await expect(page.getByLabel(/Ca Sáng,/)).toHaveCount(1);
+  const historyMorning = page.getByLabel(/Ca Sáng,/);
+  await expect(historyMorning).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Ca Sáng,/ })).toHaveCount(0);
+  await historyMorning.click();
+  await expect(page.getByRole('dialog', { name: /Chi tiết ca/ })).toHaveCount(0);
+  await expect(page.getByText('COMPLETED')).toHaveCount(0);
   await expect(page.getByText('Chưa có ca làm việc đã hoàn thành trong tháng này.')).toHaveCount(0);
 });
 

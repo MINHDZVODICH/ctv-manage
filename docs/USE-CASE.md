@@ -28,9 +28,9 @@
     - [1.10. Duyệt yêu cầu đăng ký tài khoản](#110-duyệt-yêu-cầu-đăng-ký-tài-khoản)
     - [1.11. Cài đặt hệ thống](#111-cài-đặt-hệ-thống)
   - [2. Quản lý lịch trình](#2-quản-lý-lịch-trình)
-    - [2.1. Truy cập lịch làm việc của CTV](#21-truy-cập-lịch-làm-việc-của-ctv)
-    - [2.2. Xem lịch tuần và lịch sử làm việc của CTV](#22-xem-lịch-tuần-và-lịch-sử-làm-việc-của-ctv)
-    - [2.3. Xem chi tiết ca làm việc trên giao diện CTV](#23-xem-chi-tiết-ca-làm-việc-trên-giao-diện-ctv)
+    - [2.1. Đăng ký/cập nhật lịch làm việc của CTV](#21-đăng-kýcập-nhật-lịch-làm-việc-của-ctv)
+    - [2.2. Xem lịch tuần và lịch sử làm việc của CTV (Chỉ đọc)](#22-xem-lịch-tuần-và-lịch-sử-làm-việc-của-ctv-chỉ-đọc)
+    - [2.3. Chốt lịch sử làm việc tự động vào 17:30](#23-chốt-lịch-sử-làm-việc-tự-động-vào-1730)
     - [2.4. Xem lịch làm việc tổng hợp](#24-xem-lịch-làm-việc-tổng-hợp)
     - [2.5. Xem chi tiết ca và hồ sơ CTV](#25-xem-chi-tiết-ca-và-hồ-sơ-ctv)
 
@@ -64,9 +64,9 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | **1.10**                                             | Duyệt yêu cầu đăng ký tài khoản   | Admin xem, duyệt hoặc từ chối yêu cầu đăng ký đang chờ.                                                                |
 | **1.11**                                             | Cài đặt hệ thống                  | Người dùng mở bảng cài đặt và thay đổi giao diện, độ tương phản, màu điểm nhấn hoặc ngôn ngữ.                         |
 | **Phân hệ 2 – Quản lý lịch trình**                   |                                   |                                                                                                                        |
-| **2.1**                                              | Đăng ký/cập nhật lịch làm việc của CTV | CTV chọn buồng và mẫu ca cố định Thứ 2–Thứ 6; mẫu lặp lại hằng tuần cho đến khi được cập nhật. |
-| **2.2**                                              | Xem lịch tuần và lịch sử làm việc của CTV | CTV xem ca cá nhân hiện hành theo tuần hoặc các ca đã hoàn thành theo tháng.       |
-| **2.3**                                              | Xem chi tiết và hủy ca làm việc | Backend có API hủy một ca/chuỗi ca, nhưng lịch CTV hiện chưa cung cấp điểm vào thao tác chi tiết/hủy.              |
+| **2.1**                                              | Đăng ký/cập nhật lịch làm việc của CTV | CTV chọn buồng và mẫu ca cố định Thứ 2–Thứ 6; mẫu lặp lại hằng tuần cho đến khi được cập nhật qua nút Cập nhật. |
+| **2.2**                                              | Xem lịch tuần và lịch sử làm việc của CTV (Chỉ đọc) | CTV xem ca cá nhân hiện hành theo tuần hoặc lịch sử làm việc theo tháng hoàn toàn ở chế độ chỉ đọc (Read-only) với huy hiệu ShiftBadge. |
+| **2.3**                                              | Chốt lịch sử làm việc tự động vào 17:30 | Hệ thống tự động snapshot lịch làm việc hôm nay vào History lúc 17:30 Asia/Bangkok hằng ngày (không snapshot cuối tuần, không backfill). |
 | **2.4**                                              | Xem lịch tuần tổng hợp và lịch sử tổng hợp     | Admin xem CTV làm việc hôm nay và lịch tổng hợp theo tuần/tổng hợp lịch sử theo tháng, giống hệt giao diện CTV nhưng mỗi ca hiển thị số lượng CTV và danh sách chi tiết. |
 | **2.5**                                              | Xem chi tiết ca và hồ sơ CTV      | Admin xem danh sách CTV trong ca và mở hồ sơ, CV, lịch trình hoặc ghi chú của từng người.                              |
 
@@ -857,7 +857,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 - Nếu version đã thay đổi ở phiên khác hoặc bị thiếu khi cập nhật, backend trả `409 VERSION_CONFLICT`; frontend tải registration mới nhất và yêu cầu CTV kiểm tra trước khi đăng ký lại.
 - Không thể đóng biểu mẫu bằng nền mờ hoặc phím Escape trong lúc request lưu đang chạy.
 
-#### 2.2. Xem lịch tuần và lịch sử làm việc của CTV
+#### 2.2. Xem lịch tuần và lịch sử làm việc của CTV (Chỉ đọc)
 
 *a. Tác nhân chính*
 
@@ -869,81 +869,48 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *c. Điều kiện đối với kết quả*
 
-- CTV xem được assignment hiện hành của chính mình theo tuần và ảnh chụp lịch sử đã hoàn thành của chính mình theo tháng.
+- CTV xem được lịch tuần hiện hành và lịch sử làm việc đã chốt theo tháng của chính mình hoàn toàn ở chế độ chỉ đọc (Read-only).
 
 *d. Kịch bản thành công chính*
 
 | **Bước** | **Thao tác của tác nhân**                            | **Phản ứng của hệ thống**                                                                                                    |
 |----------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | 1        | CTV chọn **Lịch làm việc**                           | Hệ thống mặc định hiển thị một **Lịch tuần** cố định gồm Thứ 2–Thứ 6 và các ca trong mẫu hiện hành. |
-| 2        | CTV xem Lịch tuần                                   | Không có điều hướng tuần hoặc khoảng ngày; mẫu được hiểu là lặp lại cho đến khi CTV cập nhật. Nếu metadata lỗi, assignment thực tế được dùng làm dữ liệu fallback. |
-| 3        | CTV chọn **Lịch sử làm việc**                        | Hệ thống gọi lịch sử của tài khoản trong session và hiển thị lưới tháng, chỉ gồm các ngày quá khứ đã được chốt. |
-| 4        | CTV dùng nút chuyển tháng                            | Hệ thống tải và hiển thị dữ liệu `WORK_HISTORY` của tháng mới. |
+| 2        | CTV xem Lịch tuần                                   | Các ca làm việc được hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`) với biểu tượng ca sáng (`wb_sunny`) và ca chiều (`wb_twilight`), không thể nhấp vào và không có modal chi tiết ca riêng lẻ. Mọi chỉnh sửa chỉ thực hiện qua nút **Cập nhật**. |
+| 3        | CTV chọn **Lịch sử làm việc**                        | Hệ thống gọi lịch sử của tài khoản trong session và hiển thị lưới tháng dưới dạng huy hiệu chỉ đọc, chỉ gồm các ngày quá khứ đã được chốt lúc 17:30. |
+| 4        | CTV dùng nút chuyển tháng                            | Hệ thống tải và hiển thị dữ liệu lịch sử làm việc của tháng mới (gồm `entries` và `cells`). |
 
 *e. Các trường hợp khác*
 
 - Nếu màn hình hẹp, lưới năm ngày giữ nguyên cấu trúc và cho phép cuộn ngang để xem đầy đủ.
 - Khi tháng không có ca đã hoàn thành, hệ thống hiển thị trạng thái rỗng rõ ràng.
 - Khi tải lịch sử thất bại, hệ thống hiển thị lỗi và nút **Thử lại**; dữ liệu cũ của tháng trước không được giữ lại như thể thuộc tháng mới.
+- Không hiển thị trạng thái kỹ thuật (như `COMPLETED`) trên giao diện làm việc của CTV.
 
-#### 2.3. Xem chi tiết ca làm việc trên giao diện CTV
+#### 2.3. Chốt lịch sử làm việc tự động vào 17:30
 
 *a. Tác nhân chính*
 
-- Cộng tác viên
+- Hệ thống (tiến trình tự động chạy ngầm)
 
 *b. Điều kiện ban đầu*
 
-- Cộng tác viên đã đăng nhập và có một ca hiển thị số lượng trên lịch tổng hợp
+- Máy chủ backend hoạt động và đồng hồ hệ thống theo múi giờ `Asia/Bangkok` (UTC+7).
 
 *c. Điều kiện đối với kết quả*
 
-- Chi tiết ca tổng hợp được hiển thị; không có thao tác hủy ca trên giao diện CTV hiện tại.
+- Ca làm việc của ngày hôm nay được chụp lại (snapshot) bất biến vào bảng dữ liệu lịch sử (`History`).
 
-*d. Kịch bản thành công chính*
+*d. Quy tắc xử lý và kịch bản chính*
 
-<table>
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 39%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><strong>Bước</strong></th>
-<th><strong>Thao tác của tác nhân</strong></th>
-<th><strong>Phản ứng của hệ thống</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>CTV nhấn thẻ số lượng CTV của một ca</td>
-<td></td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td></td>
-<td>Hệ thống mở Chi tiết ca làm việc, hiển thị tên ca, ngày hoặc nhãn “Lịch tuần”, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc.</td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>CTV xem danh sách</td>
-<td>Hệ thống không hiển thị nút Chỉ hủy ca này, Hủy ca định kỳ hoặc chức năng cập nhật phân công.</td>
-</tr>
-<tr class="even">
-<td>4</td>
-<td>CTV nhấn Đóng hoặc biểu tượng X</td>
-<td>Hệ thống đóng cửa sổ chi tiết và giữ nguyên lịch.</td>
-</tr>
-</tbody>
-</table>
-
-*e. Các trường hợp khác*
-
-- Tại bước 1, nếu ô lịch không có số lượng CTV, ô chỉ hiển thị “—” và không mở được chi tiết.
-
-- Luồng đăng ký, cập nhật và hủy ca cá nhân chưa được cung cấp trên giao diện CTV hiện tại; các mô tả tương ứng trong đặc tả trước đây không phản ánh UI thực tế.
+| **Bước** | **Thời điểm / Sự kiện** | **Hành vi xử lý của hệ thống** |
+|---|---|---|
+| 1 | Trước 17:30 Bangkok hằng ngày | Hệ thống không thực hiện snapshot cho ngày hiện tại (bỏ qua với lý do `BEFORE_CUTOFF`). Lịch sử ngày hiện tại để trống. |
+| 2 | Ngày cuối tuần (Thứ 7, Chủ Nhật) | Hệ thống không thực hiện snapshot ca làm việc (bỏ qua với lý do `WEEKEND`). |
+| 3 | Đúng 17:30 Asia/Bangkok (tức 10:30 UTC) Thứ 2–Thứ 6 | Hệ thống kích hoạt hẹn giờ chính xác và chụp lại toàn bộ ca làm việc trong ngày của các CTV đang hoạt động (`ACTIVE`) vào cơ sở dữ liệu. |
+| 4 | Máy chủ khởi động lại sau 17:30 trong ngày làm việc | Hệ thống tự động kích hoạt snapshot ngay khi khởi động để bù đắp ca của ngày hôm nay nếu trước đó máy chủ gián đoạn. |
+| 5 | Ghi nhận dữ liệu và bảo đảm tính bất biến (Idempotent) | Hệ thống thực hiện chèn dữ liệu với cơ chế bỏ qua trùng lặp (`skipDuplicates: true`). Các lần chạy lại sau 17:30 không tạo ra bản ghi thừa và không ghi đè hay thay đổi lịch sử đã chốt. |
+| 6 | Bỏ cơ chế backfill 14 ngày | Hệ thống chỉ snapshot duy nhất ngày hôm nay, không tự động quét ngược (lookback) và không hồi tố lịch làm việc của 14 ngày trước đó. |
 
 #### 2.4. Xem lịch tuần tổng hợp và lịch sử tổng hợp (Admin)
 
