@@ -277,27 +277,28 @@ export async function softDelete(accountId: string) {
 // ---------------------------------------------------------------------------
 
 export async function resetPassword(accountId: string, newPassword: string, mustChangePassword?: boolean) {
-  const account = await prisma.account.findFirst({ where: { id: accountId, deletedAt: null } });
-  if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
-
   const passwordHash = await argon2.hash(newPassword);
   const now = new Date();
 
-  const updated = await prisma.account.update({
-    where: { id: accountId },
-    data: {
-      passwordHash,
-      mustChangePassword: mustChangePassword ?? false,
-      passwordChangedAt: now,
-    },
-    include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
-  });
+  return await prisma.$transaction(async (tx) => {
+    const account = await tx.account.findFirst({ where: { id: accountId, deletedAt: null } });
+    if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
-  // revoke ALL sessions
-  await prisma.session.updateMany({
-    where: { accountId },
-    data: { revokedAt: now },
-  });
+    const updated = await tx.account.update({
+      where: { id: accountId },
+      data: {
+        passwordHash,
+        mustChangePassword: mustChangePassword ?? false,
+        passwordChangedAt: now,
+      },
+      include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
+    });
 
-  return mapAccountDetail(updated);
+    await tx.session.updateMany({
+      where: { accountId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+
+    return mapAccountDetail(updated);
+  });
 }

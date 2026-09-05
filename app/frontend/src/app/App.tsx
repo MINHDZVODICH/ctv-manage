@@ -65,6 +65,8 @@ export const App: React.FC = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [resetResultModal, setResetResultModal] = useState<{ accountName: string; password: string } | null>(null);
+  const [hasCopiedPassword, setHasCopiedPassword] = useState(false);
 
   // ---- helpers ----
   const showToast = useCallback((msg: string) => {
@@ -353,12 +355,12 @@ export const App: React.FC = () => {
   };
 
   const handleResetPassword = async (id: string, newPassword: string, requireChangeOnLogin: boolean) => {
+    const target = accounts.find((a) => a.id === id) ?? (selectedAccountDetail?.id === id ? selectedAccountDetail : null);
+    const accountName = target?.name ?? 'tài khoản';
     try {
       await api.apiPost(`/api/v1/accounts/${id}/password-resets`, { newPassword, mustChangePassword: requireChangeOnLogin });
-      showToast(`Đã đặt lại mật khẩu thành công. Mật khẩu mới: ${newPassword}`);
-      if (selectedAccountDetail?.id === id) {
-        setSelectedAccountDetail((prev) => (prev ? { ...prev, password: newPassword } as any : prev));
-      }
+      showToast('Đã đặt lại mật khẩu thành công');
+      setResetResultModal({ accountName, password: newPassword });
     } catch (e: any) {
       showToast(e.message ?? 'Đặt lại mật khẩu thất bại');
     }
@@ -699,6 +701,89 @@ export const App: React.FC = () => {
       )}
       <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => showToast('Đổi mật khẩu thành công!')} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      {resetResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1e1f22] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#e2e8f0] dark:border-[#2b2d31] animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e2e8f0] dark:border-[#2b2d31]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#16A34A] text-2xl">key</span>
+                <h3 className="text-base font-bold text-[#002046] dark:text-[#d6e3ff]">
+                  Đặt lại mật khẩu thành công
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetResultModal(null);
+                  setHasCopiedPassword(false);
+                }}
+                className="text-[#64748B] hover:text-[#002046] dark:hover:text-white p-1 rounded-lg hover:bg-[#f1f5f9] dark:hover:bg-[#2b2d31] transition-colors"
+                title="Đóng"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-[#475569] dark:text-[#94a3b8]">
+                Mật khẩu mới cho tài khoản <span className="font-semibold text-[#002046] dark:text-white">{resetResultModal.accountName}</span> đã được tạo:
+              </p>
+
+              <div className="bg-[#f8fafc] dark:bg-[#141517] border border-[#e2e8f0] dark:border-[#2b2d31] rounded-xl p-3">
+                <label className="block text-xs font-semibold text-[#64748B] dark:text-[#94a3b8] mb-1.5 uppercase tracking-wider">
+                  Mật khẩu mới
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={resetResultModal.password}
+                    className="flex-1 bg-transparent font-mono text-base font-semibold text-[#002046] dark:text-[#d6e3ff] outline-none select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(resetResultModal.password);
+                        setHasCopiedPassword(true);
+                        setTimeout(() => setHasCopiedPassword(false), 2000);
+                      } catch {
+                        // Fallback
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#002046] hover:bg-[#003166] text-white dark:bg-[#0066ff] dark:hover:bg-[#0052cc] transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {hasCopiedPassword ? 'check' : 'content_copy'}
+                    </span>
+                    <span>{hasCopiedPassword ? 'Đã sao chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <span className="material-symbols-outlined text-base shrink-0 mt-0.5">info</span>
+                <span>
+                  Đây là lần duy nhất mật khẩu này hiển thị. Mật khẩu sẽ bị xóa khỏi bộ nhớ ngay khi đóng hộp thoại này.
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetResultModal(null);
+                  setHasCopiedPassword(false);
+                }}
+                className="px-4 py-2 text-sm font-semibold rounded-xl bg-[#002046] hover:bg-[#003166] text-white dark:bg-[#0066ff] dark:hover:bg-[#0052cc] transition-colors shadow-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

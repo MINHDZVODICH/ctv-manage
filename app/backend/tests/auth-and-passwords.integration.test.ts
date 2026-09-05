@@ -190,4 +190,27 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
     expect(loginRes.status).toBe(201);
     expect(loginRes.body.user.mustChangePassword).toBe(true);
   });
+
+  test('password reset revokes active sessions atomically', async () => {
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+
+    const resetRes = await request(app)
+      .post(`/api/v1/accounts/${ctv.id}/password-resets`)
+      .set('Cookie', adminCookie)
+      .send({ newPassword: 'NewSecretPassword123!', mustChangePassword: true });
+    expect(resetRes.status).toBe(200);
+
+    // Existing session must be revoked
+    const postResetReq = await request(app).get('/api/v1/users/me').set('Cookie', ctvCookie);
+    expect(postResetReq.status).toBe(401);
+
+    // Can log in with new password
+    const newLogin = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ email: 'ctv.active@ctv.local', password: 'NewSecretPassword123!' });
+    expect(newLogin.status).toBe(201);
+    expect(newLogin.body.user.mustChangePassword).toBe(true);
+  });
 });
