@@ -55,6 +55,19 @@ const getCurrentCalendarDate = () => {
   return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
 };
 
+const isAfterCutoffTime = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+  return hour > 17 || (hour === 17 && minute >= 30);
+};
+
 export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   shifts: initialShifts,
   onViewAccountDetail,
@@ -65,18 +78,57 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
 
   const [view, setView] = useState<SummaryView>("week");
   const [calendarDate, setCalendarDate] = useState(today);
-  const [scheduleShifts, setScheduleShifts] = useState<ShiftSlot[]>(initialShifts);
+  const [weeklySummaryCells, setWeeklySummaryCells] = useState<ApiSummaryCell[]>([]);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
+  const [isLoadingWeekly, setIsLoadingWeekly] = useState(false);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+
+  const weeklyRequestController = useRef<AbortController | null>(null);
   const monthRequestController = useRef<AbortController | null>(null);
   const monthRequestSequence = useRef(0);
+  const isFirstRender = useRef(true);
 
-  // Sync when parent reloads (e.g. after admin toggles status)
+  const fetchWeeklySummary = useCallback(async () => {
+    weeklyRequestController.current?.abort();
+    const controller = new AbortController();
+    weeklyRequestController.current = controller;
+    setIsLoadingWeekly(true);
+    try {
+      const res: any = await api.apiGet("/api/v1/schedule/weekly-summary", {
+        signal: controller.signal,
+      });
+      const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
+      setWeeklySummaryCells(cells);
+    } catch (error) {
+      if (!api.isRequestAborted(error)) {
+        // Keep prior cells
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsLoadingWeekly(false);
+      }
+    }
+  }, []);
+
+  // Fetch weekly summary initially on mount
   useEffect(() => {
-    setScheduleShifts(initialShifts);
-  }, [initialShifts]);
+    void fetchWeeklySummary();
+    return () => weeklyRequestController.current?.abort();
+  }, [fetchWeeklySummary]);
 
-  const fetchMonth = useCallback(async (date: Date, source: SummaryView) => {
+  // When switching to weekly view, refresh weekly summary
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (view === "week") {
+      void fetchWeeklySummary();
+    }
+  }, [view, fetchWeeklySummary]);
+
+  // Fetch history when view is history or calendarDate changes
+  const fetchHistoryMonth = useCallback(async (date: Date) => {
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     monthRequestController.current?.abort();
     const controller = new AbortController();
@@ -84,35 +136,16 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     monthRequestController.current = controller;
     setIsLoadingMonth(true);
     try {
-      const endpoint =
-        source === "history"
-          ? `/api/v1/work-history?month=${month}`
-          : `/api/v1/schedule-summary?month=${month}`;
-      const res: any = await api.apiGet(endpoint, { signal: controller.signal });
+      const res: any = await api.apiGet(`/api/v1/work-history?month=${month}`, {
+        signal: controller.signal,
+      });
       if (sequence !== monthRequestSequence.current) return;
       const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
       const slots = summaryToSlots(cells);
-      if (source === "history") {
-        setHistoryShifts(slots);
-        return;
-      }
-      // Merge: replace slots for this month, keep other months' slots
-      setScheduleShifts((prev) => {
-        const other = prev.filter((s) => {
-          if (!s.workDate) return true;
-          return !s.workDate.startsWith(month);
-        });
-        const seen = new Set(other.map((s) => `${s.workDate}:${s.shiftType}`));
-        const merged = [...other];
-        for (const s of slots) {
-          const k = `${s.workDate}:${s.shiftType}`;
-          if (!seen.has(k)) merged.push(s);
-        }
-        return merged.sort((a, b) => (a.workDate ?? "").localeCompare(b.workDate ?? ""));
-      });
+      setHistoryShifts(slots);
     } catch (error) {
       if (!api.isRequestAborted(error)) {
-        // Keep the prior month visible if its replacement cannot be loaded.
+        // Keep prior month
       }
     } finally {
       if (sequence === monthRequestSequence.current) setIsLoadingMonth(false);
@@ -120,9 +153,11 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    void fetchMonth(calendarDate, view);
+    if (view === "history") {
+      void fetchHistoryMonth(calendarDate);
+    }
     return () => monthRequestController.current?.abort();
-  }, [calendarDate, fetchMonth, view]);
+  }, [calendarDate, fetchHistoryMonth, view]);
 
   const [selectedShiftDetail, setSelectedShiftDetail] = useState<{
     dayName: string;
@@ -132,30 +167,35 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     ctvList: Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }>;
   } | null>(null);
 
-  const visibleShifts = view === "history" ? historyShifts : scheduleShifts;
+  const currentWeekStart = startOfWeek(calendarDate);
+  const currentWeekDates = WEEKDAYS.map((day) => addDays(currentWeekStart, day.index));
   const getAssignedCTVs = (workDate: string, type: "morning" | "afternoon") =>
-    getAssignedCTVsForDate(visibleShifts, workDate, type);
-  const getScheduledCTVs = (workDate: string, type: "morning" | "afternoon") =>
-    getAssignedCTVsForDate(scheduleShifts, workDate, type);
+    getAssignedCTVsForDate(historyShifts, workDate, type);
 
   // Aggregate weekly schedule across all CTVs for Monday-Friday (dayIndex 0..4)
-  const getWeeklySummaryCTVs = (dayIndex: number, type: "morning" | "afternoon"): AssignedCTV[] => {
-    const uniqueMap = new Map<string, AssignedCTV>();
-    scheduleShifts
-      .filter((s) => s.dayIndex === dayIndex && s.shiftType === type)
-      .forEach((s) => {
-        (s.assignedCTVs || []).forEach((ctv) => {
-          const key = ctv.id || ctv.name.trim().toLowerCase();
-          if (!uniqueMap.has(key)) {
-            uniqueMap.set(key, {
-              ...ctv,
-              room: formatRoomLabel(ctv.room || s.room),
-              taskContent: ctv.taskContent || s.workContent,
-            });
-          }
-        });
-      });
-    return Array.from(uniqueMap.values());
+  const getWeeklySummaryCTVs = (
+    dayIndex: number,
+    type: "morning" | "afternoon",
+  ): Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }> => {
+    const targetWeekday = dayIndex + 1;
+    const targetPeriod = type === "morning" ? "MORNING" : "AFTERNOON";
+    const cell = weeklySummaryCells.find(
+      (c) => c.weekday === targetWeekday && c.period === targetPeriod,
+    );
+    if (!cell || !cell.shiftAssignments) return [];
+    return cell.shiftAssignments.map((a) => {
+      const roomFormatted = formatRoomLabel(a.roomCode) || "Chưa cập nhật";
+      return {
+        id: a.accountId,
+        name: a.displayName,
+        initials: a.displayName.slice(0, 2).toUpperCase(),
+        phone: a.phone ?? undefined,
+        room: roomFormatted,
+        roomDisplay: roomFormatted,
+        taskDisplay: "Chưa cập nhật",
+        status: "Đã duyệt" as const,
+      };
+    });
   };
 
   // ---- month derived (for history) ----
@@ -187,8 +227,8 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
     const dayLabel = `${dayNameStr} - ${dateStr}`;
     const isWeekday = dow >= 0 && dow <= 4;
-    const morningList = isWeekday ? getScheduledCTVs(todayISO, "morning") : [];
-    const afternoonList = isWeekday ? getScheduledCTVs(todayISO, "afternoon") : [];
+    const morningList = isWeekday ? getWeeklySummaryCTVs(dow, "morning") : [];
+    const afternoonList = isWeekday ? getWeeklySummaryCTVs(dow, "afternoon") : [];
     type Item = { ctv: AssignedCTV; shifts: ("Ca Sáng" | "Ca Chiều")[] };
     const map = new Map<string, Item>();
     morningList.forEach((ctv) => map.set(ctv.id, { ctv, shifts: ["Ca Sáng"] }));
@@ -207,19 +247,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const handleOpenWeekdayShiftDetail = (
     dayName: string,
     shiftName: "Ca Sáng" | "Ca Chiều",
-    ctvList: AssignedCTV[],
+    ctvList: Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }>,
   ) => {
-    const enriched = ctvList.map((ctv) => ({
-      ...ctv,
-      roomDisplay: formatRoomLabel(ctv.room) || "Chưa cập nhật",
-      taskDisplay: ctv.taskContent || "Chưa cập nhật",
-    }));
     setSelectedShiftDetail({
       dayName,
       dateFormatted: "Lịch tuần",
       shiftName,
       shiftTimeLabel: shiftName === "Ca Sáng" ? "08:00 - 12:00" : "13:30 - 17:30",
-      ctvList: enriched,
+      ctvList,
     });
   };
 
@@ -328,9 +363,17 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
 
         {view === "week" ? (
           <div className="space-y-4 p-4 sm:p-5">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_view_week</span>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_weekly_summary")}</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_view_week</span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_weekly_summary")}</h3>
+              </div>
+              {isLoadingWeekly && (
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <span>{t("updating")}</span>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -462,11 +505,11 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         if (!date) return <div key={di} className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 opacity-40 dark:border-slate-800/60 dark:bg-[#1f2023]/30" aria-hidden="true" />;
                         const dateISO = toISODate(date);
                         const isToday = dateISO === todayISO;
-                        const isPast = dateISO < todayISO;
+                        const isHistorical = dateISO < todayISO || (isToday && isAfterCutoffTime());
                         const dateFormatted = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
                         const dayName = WEEKDAYS[di]?.label ?? `Thứ ${di + 2}`;
-                        const morningCTVs = isPast ? getAssignedCTVs(dateISO, "morning") : [];
-                        const afternoonCTVs = isPast ? getAssignedCTVs(dateISO, "afternoon") : [];
+                        const morningCTVs = isHistorical ? getAssignedCTVs(dateISO, "morning") : [];
+                        const afternoonCTVs = isHistorical ? getAssignedCTVs(dateISO, "afternoon") : [];
 
                         return (
                           <div key={dateISO} className={`flex min-h-[110px] flex-col rounded-2xl border-2 p-3 shadow-2xs transition-colors ${isToday ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"}`}>
@@ -477,7 +520,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                               </span>
                             </div>
                             <div className="space-y-1.5 min-h-[58px] flex flex-col justify-start">
-                              {isPast ? (
+                              {isHistorical ? (
                                 <>
                                   {morningCTVs.length > 0 ? (
                                     <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Sáng", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca sáng">
