@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
-import { syncDailyHistory, parseYmdToUtcDate } from '../src/modules/schedule/schedule.service.js';
+import { syncDailyHistory, snapshotTodayWorkHistory, parseYmdToUtcDate } from '../src/modules/schedule/schedule.service.js';
 
 const app = createApp();
 
@@ -208,7 +208,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(aliasCells.length).toBe(10);
   });
 
-  test('Test 4 & 5: syncDailyHistory behavior before 17:30 (empty) vs after 17:30 (recorded)', async () => {
+  test('Test 4 & 5: snapshotTodayWorkHistory behavior before 17:30 (skipped) vs weekend (skipped) vs at 17:30 (recorded & idempotent)', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
     const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
 
@@ -228,9 +228,10 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const targetDateStr = '2026-09-02';
     const targetDateUtc = parseYmdToUtcDate(targetDateStr);
 
-    // Test 4: Run syncDailyHistory at 10:00 UTC (17:00 Asia/Bangkok, BEFORE 17:30) on 2026-09-02
+    // 1. Run snapshotTodayWorkHistory at 10:00 UTC (17:00 Asia/Bangkok, BEFORE 17:30) on 2026-09-02
     const beforeCutoff = new Date('2026-09-02T10:00:00.000Z');
-    await syncDailyHistory(beforeCutoff);
+    const beforeRes = await snapshotTodayWorkHistory(beforeCutoff);
+    expect(beforeRes).toEqual({ processedCount: 0, skipped: true, reason: 'BEFORE_CUTOFF' });
 
     // Verify 2026-09-02 is NOT recorded in History
     const historyBefore = await prisma.history.findMany({
@@ -241,7 +242,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     });
     expect(historyBefore).toHaveLength(0);
 
-    // Verify work history API returns empty cells for 2026-09-02
+    // Verify work history API returns empty cells & entries for 2026-09-02
     const workHistoryResBefore = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
@@ -250,9 +251,19 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const todayCellsBefore = cellsBefore.filter((c: any) => c.workDate === targetDateStr);
     expect(todayCellsBefore).toHaveLength(0);
 
-    // Test 5: Run syncDailyHistory at 11:00 UTC (18:00 Asia/Bangkok, AFTER 17:30) on 2026-09-02
-    const afterCutoff = new Date('2026-09-02T11:00:00.000Z');
-    await syncDailyHistory(afterCutoff);
+    // 2. Run snapshotTodayWorkHistory on a weekend (Saturday 2026-09-05 at 11:00 UTC / 18:00 Bangkok)
+    const weekendDate = new Date('2026-09-05T11:00:00.000Z');
+    const weekendRes = await snapshotTodayWorkHistory(weekendDate);
+    expect(weekendRes).toEqual({ processedCount: 0, skipped: true, reason: 'WEEKEND' });
+
+    // 3. Run snapshotTodayWorkHistory at exactly 10:30 UTC (17:30 Asia/Bangkok) on Wednesday 2026-09-02
+    const atCutoff = new Date('2026-09-02T10:30:00.000Z');
+    const snapshotRes = await snapshotTodayWorkHistory(atCutoff);
+    expect(snapshotRes.processedCount).toBe(2);
+
+    // 4. Run snapshotTodayWorkHistory again at 11:00 UTC on 2026-09-02 -> Idempotent, 0 new rows
+    const duplicateRes = await snapshotTodayWorkHistory(new Date('2026-09-02T11:00:00.000Z'));
+    expect(duplicateRes.processedCount).toBe(0);
 
     // Verify 2026-09-02 IS recorded in History with roomCode = ROOM_3 and status = COMPLETED
     const historyAfter = await prisma.history.findMany({
@@ -270,12 +281,22 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(historyAfter[1].roomCode).toBe('ROOM_3');
     expect(historyAfter[1].status).toBe('COMPLETED');
 
-    // Verify work history API now returns these cells
+    // Verify work history API now returns entries and cells
     const workHistoryResAfter = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
     expect(workHistoryResAfter.status).toBe(200);
-    const cellsAfter = workHistoryResAfter.body.data?.cells ?? workHistoryResAfter.body.cells;
+    const dataAfter = workHistoryResAfter.body.data ?? workHistoryResAfter.body;
+    expect(dataAfter.entries).toBeDefined();
+    expect(dataAfter.entries).toHaveLength(2);
+    expect(dataAfter.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ workDate: targetDateStr, period: 'MORNING', roomCode: 'ROOM_3' }),
+        expect.objectContaining({ workDate: targetDateStr, period: 'AFTERNOON', roomCode: 'ROOM_3' }),
+      ]),
+    );
+
+    const cellsAfter = dataAfter.cells;
     const todayCellsAfter = cellsAfter.filter((c: any) => c.workDate === targetDateStr);
     expect(todayCellsAfter).toHaveLength(2);
   });
@@ -295,7 +316,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(regRes.status).toBe(200);
 
     // 2. Snapshot Wednesday 2026-09-02 after 17:30
-    await syncDailyHistory(new Date('2026-09-02T11:00:00.000Z'));
+    await snapshotTodayWorkHistory(new Date('2026-09-02T11:00:00.000Z'));
 
     const originalHistory = await prisma.history.findFirstOrThrow({
       where: {
@@ -317,8 +338,8 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       });
     expect(updateRes.status).toBe(200);
 
-    // 4. Run syncDailyHistory again
-    await syncDailyHistory(new Date('2026-09-02T12:00:00.000Z'));
+    // 4. Run snapshotTodayWorkHistory again
+    await snapshotTodayWorkHistory(new Date('2026-09-02T12:00:00.000Z'));
 
     // 5. Existing History MUST NOT be changed or removed!
     const unchangedHistory = await prisma.history.findFirstOrThrow({

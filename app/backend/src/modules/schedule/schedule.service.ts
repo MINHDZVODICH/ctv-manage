@@ -357,13 +357,15 @@ export async function getScheduleSummary(_params?: any) {
 }
 
 // ---------------------------------------------------------------------------
-// syncDailyHistory (17:30 Asia/Bangkok snapshot cutoff)
+// ---------------------------------------------------------------------------
+// snapshotTodayWorkHistory (17:30 Asia/Bangkok snapshot cutoff)
 // ---------------------------------------------------------------------------
 
-export async function syncDailyHistory(
-  now = new Date(),
-  options?: { fromDate?: Date | string },
-) {
+export async function snapshotTodayWorkHistory(now = new Date()): Promise<{
+  processedCount: number;
+  skipped?: boolean;
+  reason?: string;
+}> {
   // Asia/Bangkok is UTC+7 (no DST)
   const bkkMs = now.getTime() + 7 * 3600 * 1000;
   const bkkDate = new Date(bkkMs);
@@ -372,34 +374,21 @@ export async function syncDailyHistory(
   const d = bkkDate.getUTCDate();
   const hours = bkkDate.getUTCHours();
   const minutes = bkkDate.getUTCMinutes();
+  const jsDay = bkkDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
-  const isAfterCutoff = hours > 17 || (hours === 17 && minutes >= 30);
+  // If before 17:30 Bangkok time, do nothing
+  if (hours < 17 || (hours === 17 && minutes < 30)) {
+    return { processedCount: 0, skipped: true, reason: 'BEFORE_CUTOFF' };
+  }
+
+  // If weekend (Sunday = 0, Saturday = 6), do nothing
+  if (jsDay === 0 || jsDay === 6) {
+    return { processedCount: 0, skipped: true, reason: 'WEEKEND' };
+  }
+
+  // Only snapshot today (Monday-Friday: jsDay 1..5)
   const todayYmd = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   const todayUtc = parseYmdToUtcDate(todayYmd);
-
-  // If before 17:30, only sync dates < today (today is empty!).
-  // If at or after 17:30, sync dates <= today (today is included!).
-  let maxDate: Date;
-  if (isAfterCutoff) {
-    maxDate = todayUtc;
-  } else {
-    maxDate = parseYmdToUtcDate(addDays(todayYmd, -1));
-  }
-
-  let minDate: Date;
-  if (options?.fromDate) {
-    minDate =
-      typeof options.fromDate === 'string'
-        ? parseYmdToUtcDate(options.fromDate)
-        : options.fromDate;
-  } else {
-    // Default lookback of 14 days
-    minDate = parseYmdToUtcDate(addDays(todayYmd, -14));
-  }
-
-  if (minDate > maxDate) {
-    return { processedCount: 0 };
-  }
 
   const activeCtvs = await prisma.account.findMany({
     where: {
@@ -417,50 +406,49 @@ export async function syncDailyHistory(
     },
   });
 
-  let processedCount = 0;
+  const historyEntries: Array<{
+    accountId: string;
+    workDate: Date;
+    period: string;
+    roomCode: string;
+    status: string;
+  }> = [];
 
-  for (
-    let cur = new Date(minDate);
-    cur.getTime() <= maxDate.getTime();
-    cur.setUTCDate(cur.getUTCDate() + 1)
-  ) {
-    const wd = weekdayUtc(cur); // 1 = Mon .. 7 = Sun
-    if (wd < 1 || wd > 5) continue; // Only weekdays Monday to Friday
-
-    const workDate = new Date(cur); // UTC midnight
-
-    for (const ctv of activeCtvs) {
-      if (!ctv.schedule) continue;
-      const matchingShifts = ctv.schedule.shifts.filter((s) => s.weekday === wd);
-      for (const shift of matchingShifts) {
-        await prisma.history.upsert({
-          where: {
-            accountId_workDate_period: {
-              accountId: ctv.id,
-              workDate,
-              period: shift.period,
-            },
-          },
-          update: {}, // DO NOT update existing history; immutable snapshot!
-          create: {
-            accountId: ctv.id,
-            workDate,
-            period: shift.period,
-            roomCode: ctv.schedule.roomCode,
-            status: 'COMPLETED',
-          },
-        });
-        processedCount++;
-      }
+  for (const ctv of activeCtvs) {
+    if (!ctv.schedule) continue;
+    const matchingShifts = ctv.schedule.shifts.filter((s) => s.weekday === jsDay);
+    for (const shift of matchingShifts) {
+      historyEntries.push({
+        accountId: ctv.id,
+        workDate: todayUtc,
+        period: shift.period,
+        roomCode: ctv.schedule.roomCode,
+        status: 'COMPLETED',
+      });
     }
   }
 
-  return { processedCount };
+  if (historyEntries.length === 0) {
+    return { processedCount: 0 };
+  }
+
+  const result = await prisma.history.createMany({
+    data: historyEntries,
+    skipDuplicates: true,
+  });
+
+  return { processedCount: result.count };
 }
 
+export const syncDailyHistory = snapshotTodayWorkHistory;
+
 // ---------------------------------------------------------------------------
-// getWorkHistory
+// getWorkHistory & getMyWorkHistory
 // ---------------------------------------------------------------------------
+
+export async function getMyWorkHistory(accountId: string, month: string) {
+  return await getWorkHistory({ month, accountId });
+}
 
 export async function getWorkHistory(params: { month: string; accountId?: string }) {
   if (!/^\d{4}-\d{2}$/.test(params.month)) {
@@ -476,6 +464,15 @@ export async function getWorkHistory(params: { month: string; accountId?: string
     include: { account: true },
     orderBy: [{ workDate: 'asc' }, { period: 'asc' }, { accountId: 'asc' }],
   });
+
+  const entries = rows.map((row) => ({
+    id: row.id,
+    accountId: row.accountId,
+    workDate: formatUtcDateToYmd(row.workDate),
+    period: row.period,
+    roomCode: row.roomCode,
+    status: row.status,
+  }));
 
   const grouped = new Map<
     string,
@@ -521,7 +518,7 @@ export async function getWorkHistory(params: { month: string; accountId?: string
     cell.count = cell.shiftAssignments.length;
   }
 
-  return { month: params.month, cells: [...grouped.values()] };
+  return { month: params.month, entries, cells: [...grouped.values()] };
 }
 
 // ---------------------------------------------------------------------------

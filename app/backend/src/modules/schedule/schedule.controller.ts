@@ -116,7 +116,7 @@ export async function getMyWorkHistory(req: Request, res: Response, next: NextFu
   try {
     const user = (req as any).user;
     const q = workHistoryQuerySchema.pick({ month: true }).parse(req.query);
-    const result = await service.getWorkHistory({ month: q.month, accountId: user.id });
+    const result = await service.getMyWorkHistory(user.id, q.month);
     res.json({ data: result, ...result });
   } catch (e) {
     next(e);
