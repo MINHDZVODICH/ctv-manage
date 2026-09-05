@@ -387,6 +387,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       .set('Cookie', ctvCookie)
       .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
     expect(putRes.status).toBe(200);
+    const scheduleId = putRes.body.data.id;
     const version = putRes.body.data.version;
 
     // 3. Delete with mismatched expectedVersion returns 409
@@ -411,7 +412,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
     const dbSchedule = await prisma.schedule.findUnique({ where: { accountId: ctv.id } });
     expect(dbSchedule).toBeNull();
-    const dbShifts = await prisma.shift.findMany({ where: { scheduleId: ctv.id } });
+    const dbShifts = await prisma.shift.findMany({ where: { scheduleId } });
     expect(dbShifts).toHaveLength(0);
 
     // 6. Test delete with query parameter expectedVersion on freshly created schedule
