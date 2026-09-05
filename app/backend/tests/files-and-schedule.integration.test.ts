@@ -107,8 +107,7 @@ describe('private files and schedule workflows', () => {
     const cancelled = await request(app)
       .delete(`/api/v1/users/me/shift-assignments/${assignment.id}`)
       .set('Cookie', ctvCookie);
-    expect(cancelled.status).toBe(200);
-    expect(cancelled.body.data.affectedCount).toBe(1);
+    expect(cancelled.status).toBe(404);
   });
 
   test('preserves past work history when a CTV updates future schedule', async () => {

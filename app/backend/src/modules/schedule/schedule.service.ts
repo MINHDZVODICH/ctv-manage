@@ -269,6 +269,39 @@ export async function upsertSchedule(accountId: string, input: UpsertScheduleInp
 
 export const upsertRegistration = upsertSchedule;
 
+export async function deleteMySchedule(accountId: string, expectedVersion?: number) {
+  return await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${accountId}))`;
+
+    const existing = await tx.schedule.findUnique({
+      where: { accountId },
+    });
+
+    if (!existing) {
+      throw Errors.notFound('Không tìm thấy lịch làm việc');
+    }
+
+    if (expectedVersion !== undefined && existing.version !== expectedVersion) {
+      throw Errors.conflict(
+        'VERSION_CONFLICT',
+        'Lịch làm việc đã được cập nhật ở phiên khác. Vui lòng tải lại.',
+      );
+    }
+
+    await tx.shift.deleteMany({
+      where: { scheduleId: existing.id },
+    });
+
+    await tx.schedule.delete({
+      where: { id: existing.id },
+    });
+
+    return { success: true };
+  });
+}
+
+export const deleteMyRegistration = deleteMySchedule;
+
 // ---------------------------------------------------------------------------
 // Weekly Summary
 // ---------------------------------------------------------------------------
@@ -582,20 +615,4 @@ export async function getShiftForUser(shiftId: string, accountId: string, isAdmi
   return { id: shiftId, shiftId, assignments };
 }
 
-export async function cancelOne(_accountId: string, _assignmentId: string) {
-  return { affectedCount: 1 };
-}
-
-export async function cancelSeries(
-  _accountId: string,
-  _registrationId: string,
-  _params: { weekday: number; period: string; fromDate: string },
-) {
-  return { count: 1 };
-}
-
 export const syncWorkHistory = syncDailyHistory;
-
-export async function extendRecurringSchedules(_accountId?: string, _throughYmd?: string) {
-  return { registrationCount: 0, createdCount: 0, throughYmd: _throughYmd ?? '' };
-}

@@ -22,6 +22,10 @@ const putScheduleSchema = z.object({
   expectedVersion: z.number().int().optional(),
 });
 
+const deleteScheduleSchema = z.object({
+  expectedVersion: z.number().int().optional(),
+});
+
 const workHistoryQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
   accountId: z.string().min(1).optional(),
@@ -61,6 +65,22 @@ export async function putMySchedule(req: Request, res: Response, next: NextFunct
 }
 
 export const putMyRegistration = putMySchedule;
+
+export async function deleteMySchedule(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as any).user;
+    const bodyVersion = req.body?.expectedVersion;
+    const queryVersion = req.query?.expectedVersion ? Number(req.query.expectedVersion) : undefined;
+    const expectedVersion = bodyVersion !== undefined ? bodyVersion : queryVersion;
+    const parsed = deleteScheduleSchema.parse({ expectedVersion });
+    const data = await service.deleteMySchedule(user.id, parsed.expectedVersion);
+    res.json({ data });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export const deleteMyRegistration = deleteMySchedule;
 
 export async function getAccountSchedule(req: Request, res: Response, next: NextFunction) {
   try {
@@ -154,28 +174,6 @@ export async function getShiftById(req: Request, res: Response, next: NextFuncti
     const { shiftId } = req.params;
     const isAdmin = user.role === 'ADMIN';
     const result = await service.getShiftForUser(shiftId, user.id, isAdmin);
-    res.json({ data: result });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export async function deleteAssignment(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as any).user;
-    const { assignmentId } = req.params;
-    const result = await service.cancelOne(user.id, assignmentId);
-    res.json({ data: result });
-  } catch (e) {
-    next(e);
-  }
-}
-
-export async function deleteSeries(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as any).user;
-    const { registrationId } = req.params;
-    const result = await service.cancelSeries(user.id, registrationId, req.query as any);
     res.json({ data: result });
   } catch (e) {
     next(e);

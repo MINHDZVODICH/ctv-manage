@@ -8,13 +8,12 @@ export const myScheduleRouter = Router();
 myScheduleRouter.use(auth, requireRole('CTV'));
 myScheduleRouter.get('/schedule', ctrl.getMySchedule);
 myScheduleRouter.put('/schedule', ctrl.putMySchedule);
+myScheduleRouter.delete('/schedule', ctrl.deleteMySchedule);
 myScheduleRouter.get('/schedule-registration', ctrl.getMyRegistration);
 myScheduleRouter.put('/schedule-registration', ctrl.putMyRegistration);
+myScheduleRouter.delete('/schedule-registration', ctrl.deleteMyRegistration);
 myScheduleRouter.get('/shifts', ctrl.getMyShifts);
 myScheduleRouter.get('/work-history', ctrl.getMyWorkHistory);
-myScheduleRouter.delete('/shift-assignments/:assignmentId', ctrl.deleteAssignment);
-myScheduleRouter.delete('/schedule-registrations/:registrationId/assignments', ctrl.deleteSeries);
-myScheduleRouter.delete('/schedule-registrations/:registrationId/series', ctrl.deleteSeries);
 
 // /api/v1/schedule/weekly-summary
 export const scheduleRouter = Router();
