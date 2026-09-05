@@ -1,4 +1,4 @@
-# Sequence diagram - Xem lịch tuần và lịch sử làm việc
+# Sequence diagram - Xem lịch tuần và lịch sử làm việc của CTV (Chỉ đọc)
 
 Nguồn nghiệp vụ: Use case 2.2 trong [USE-CASE.md](../USE-CASE.md).
 
@@ -17,59 +17,58 @@ sequenceDiagram
         participant DB as PostgreSQL qua Prisma
     end
 
-    U->>UI: Mở lịch cá nhân
-    UI->>API: GET /api/v1/users/me/schedule-registration
-    API->>C: Xác thực CTV
-    C->>S: getMyRegistration(currentUserId)
-    S->>DB: Đọc registration ACTIVE + patternSlots
-    DB-->>S: Registration hiện hành hoặc null
-    S-->>C: Registration DTO
-    C-->>API: 200 + data
-    API-->>UI: Lưu mẫu tuần cố định, version và buồng
-    UI->>API: GET /api/v1/users/me/shifts
-    API->>C: Xác thực CTV
-    C->>S: listMyShifts(currentUserId, {})
-    S->>DB: Join ACTIVE assignment và SHIFT của CTV
-    DB-->>S: Shift DTOs
-    S-->>C: Danh sách ca
-    C-->>API: 200 + data
-    API-->>UI: Lưu assignment fallback và render mẫu Thứ 2 đến Thứ 6
+    U->>UI: Mở tab Lịch làm việc (mặc định tab: Lịch tuần)
+    UI->>API: GET /api/v1/users/me/schedule
+    API->>C: Xác thực CTV từ cookie session
+    C->>S: getMySchedule(currentUserId)
+    S->>DB: prisma.schedule.findUnique(accountId = currentUserId, include: { shifts: true })
+    DB-->>S: Schedule record kèm mảng Shift hoặc null
+    S-->>C: Schedule DTO (id, accountId, roomCode, version, shifts)
+    C-->>API: 200 + { data: Schedule DTO }
+    API-->>UI: Lưu schedule vào state
+    UI-->>U: Hiển thị lưới Thứ 2 - Thứ 6 với các huy hiệu chỉ đọc (ShiftBadge)
 
-    alt CTV mở lịch sử theo tháng
-        U->>UI: Chọn Lịch sử làm việc
-        UI->>API: GET /api/v1/users/me/work-history?month={month}
-        API->>C: Xác thực CTV; lấy accountId từ session
-        C->>S: getWorkHistory({month, accountId: currentUserId})
-        S->>S: syncWorkHistory(todayInBangkok)
-        S->>DB: Upsert assignment ACTIVE đã qua vào WORK_HISTORY
-        S->>DB: Đọc WORK_HISTORY của currentUserId trong tháng
+    alt CTV chuyển sang tab Lịch sử làm việc
+        U->>UI: Bấm chọn tab "Lịch sử làm việc"
+        UI->>API: GET /api/v1/users/me/work-history?month={YYYY-MM}
+        API->>C: Xác thực CTV; lấy currentUserId từ session
+        C->>S: getMyWorkHistory(currentUserId, month)
+        S->>DB: prisma.history.findMany(accountId = currentUserId, workDate trong tháng)
         DB-->>S: History rows
-        S-->>C: {month, cells}
-        C-->>API: 200 + data
-        API-->>UI: Lưu historyShifts và render lưới tháng
-    else CTV chuyển tháng lịch sử
-        U->>UI: Chọn tháng trước hoặc sau
+        S-->>C: { month, entries: [{ id, workDate, period, roomCode }] }
+        C-->>API: 200 + { month, entries }
+        API-->>UI: Lưu entries vào state và render lưới tháng
+        UI-->>U: Hiển thị danh sách ca đã hoàn thành theo từng ngày trong tháng
+    else CTV chuyển tháng lịch sử (Tháng trước / Tháng sau)
+        U->>UI: Chọn tháng mới
         UI->>API: GET /api/v1/users/me/work-history?month={tháng mới}
+        API->>C: Xác thực CTV
+        C->>S: getMyWorkHistory(currentUserId, tháng mới)
+        S->>DB: prisma.history.findMany(accountId, workDate trong tháng mới)
+        DB-->>S: Rows tháng mới
+        S-->>C: { month, entries }
+        C-->>API: 200 + data
+        API-->>UI: Cập nhật lịch sử tháng mới
+        UI-->>U: Hiển thị ca đã chốt của tháng mới
     end
-    UI-->>U: Hiển thị lịch đã chọn
 
     alt Tải lịch sử thất bại
         API-->>UI: HTTP error
-        UI-->>U: Xóa dữ liệu tháng cũ, hiển thị lỗi và nút Thử lại
-        U->>UI: Chọn Thử lại
+        UI-->>U: Xóa dữ liệu tháng cũ, hiển thị thông báo lỗi và nút Thử lại
+        U->>UI: Bấm nút Thử lại
         UI->>API: GET /api/v1/users/me/work-history?month={month}
-    else Tháng không có dữ liệu
-        API-->>UI: 200 + cells rỗng
-        UI-->>U: Hiển thị trạng thái chưa có ca hoàn thành trong tháng
+    else Tháng chưa có dữ liệu hoàn thành
+        API-->>UI: 200 + { month, entries: [] }
+        UI-->>U: Hiển thị thông báo "Chưa có ca làm việc nào trong tháng này"
     end
 ```
 
 ## Chú thích
 
-- Lịch tuần và lịch sử là hai nguồn riêng: tuần hiển thị mẫu `SCHEDULE_PATTERN_SLOT` cố định; lịch sử đọc ảnh chụp bất biến trong `WORK_HISTORY`.
-- Lịch tuần không có khoảng ngày hoặc điều hướng tuần. `SHIFT_ASSIGNMENT.status=ACTIVE` chỉ được dùng làm fallback nếu metadata mẫu tạm thời không tải được.
-- Trước các truy vấn ca/lịch sử, service bồi cửa sổ assignment của registration `ACTIVE`; registration không tự hết hạn nếu CTV không thay đổi mẫu.
-- Endpoint `/users/me/work-history` luôn lấy `accountId` từ session, nên CTV không thể xem lịch sử của tài khoản khác bằng query string.
-- Lưới lịch sử chỉ gắn ca cho ngày quá khứ; hôm nay và tương lai để trống vì chưa được chốt vào `WORK_HISTORY`.
-- Ngày hiện tại phía frontend và backend đều được xác định theo `Asia/Bangkok` để tránh lệch ngày ở biên nửa đêm.
-- Frontend gọi Shared API Client trực tiếp trong `App` và `CTVScheduleWorkspace`; app hiện không có `Schedule Feature Hook` riêng.
+- Lịch tuần và Lịch sử làm việc là hai luồng dữ liệu độc lập:
+  - Lịch tuần đọc mẫu cấu hình cố định từ bảng `Schedule` và `Shift` qua `GET /api/v1/users/me/schedule`.
+  - Lịch sử làm việc đọc các ảnh chụp bất biến trong bảng `History` qua `GET /api/v1/users/me/work-history?month=YYYY-MM`.
+- Các thẻ ca trên Lịch tuần được hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`), bao gồm biểu tượng ca (Sáng/Chiều) và buồng làm việc. Thẻ ca hoàn toàn không thể bấm để sửa hoặc xóa đơn lẻ.
+- Lịch sử trả về qua DTO chuyên biệt `{ month, entries: [{ id, workDate, period, roomCode }] }`, chỉ chứa các trường cần thiết của chính CTV đó, không chứa thông tin của CTV khác.
+- Endpoint `/users/me/work-history` luôn lấy `accountId` trực tiếp từ session được xác thực ở phía Backend, ngăn chặn triệt để nguy cơ CTV xem trộm lịch sử của tài khoản khác.
+- Phía Frontend tự động đăng ký sự kiện `visibilitychange` và `window focus` để tự động làm mới lịch sử nếu CTV quay lại tab trình duyệt sau mốc 17:30 Bangkok.

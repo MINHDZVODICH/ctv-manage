@@ -76,19 +76,20 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.1. Đăng nhập
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
-
-- Cộng tác viên
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu: Chưa xác thực (Khách vãng lai / Public)
+- Sequence diagram: [01-dang-nhap.md](sequence-diagrams/01-dang-nhap.md)
+- API endpoint: `POST /api/v1/auth/sessions`
 
 *b. Điều kiện ban đầu*
 
-- Người dùng chưa đăng nhập hoặc đã đăng xuất
+- Người dùng chưa đăng nhập hoặc đã đăng xuất khỏi hệ thống.
 
 *c. Điều kiện đối với kết quả*
 
-- Người dùng được đưa vào giao diện hệ thống và nhận thông báo đăng nhập thành công
+- Người dùng được đưa vào giao diện hệ thống và nhận thông báo đăng nhập thành công. Cookie phiên `token` được trình duyệt lưu trữ an toàn.
 
 *d. Kịch bản thành công chính*
 
@@ -155,19 +156,20 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.2. Đăng xuất
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
-
-- Cộng tác viên
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `ADMIN` hoặc `CTV`
+- Sequence diagram: [08-dang-xuat.md](sequence-diagrams/08-dang-xuat.md)
+- API endpoint: `DELETE /api/v1/auth/sessions/current` (hoặc `/api/v1/auth/sessions/me`)
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đã đăng nhập thành công
+- Người dùng đã đăng nhập thành công vào hệ thống.
 
 *c. Điều kiện đối với kết quả*
 
-- Phiên làm việc kết thúc và màn hình Đăng nhập được hiển thị
+- Phiên làm việc trên máy chủ bị thu hồi (`revokedAt = now()`), cookie `token` bị xóa khỏi trình duyệt và màn hình Đăng nhập được hiển thị.
 
 *d. Kịch bản thành công chính*
 
@@ -176,7 +178,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 | 1        | Người dùng nhấn khối thông tin tài khoản ở cuối thanh điều hướng |                                                                                         |
 | 2        |                                                                  | Hệ thống mở menu gồm Hồ sơ cá nhân, Cài đặt hệ thống và Đăng xuất.                      |
 | 3        | Người dùng nhấn Đăng xuất                                        |                                                                                         |
-| 4        |                                                                  | Hệ thống quay về màn hình Đăng nhập và hiển thị thông báo “Đã đăng xuất khỏi hệ thống”. |
+| 4        |                                                                  | Hệ thống gọi API hủy phiên, xóa cookie, quay về màn hình Đăng nhập và thông báo “Đã đăng xuất khỏi hệ thống”. |
 
 *e. Các trường hợp khác*
 
@@ -184,17 +186,20 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.3. Đăng ký tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Người đăng ký tài khoản chưa có tài khoản hệ thống (AC-3)
+- Tác nhân: Người đăng ký tài khoản chưa có tài khoản hệ thống (AC-3)
+- Vai trò yêu cầu: Chưa xác thực (Public)
+- Sequence diagram: [02-dang-ky.md](sequence-diagrams/02-dang-ky.md)
+- API endpoint: `POST /api/v1/registration-requests` (multipart/form-data)
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đang ở màn hình Đăng nhập
+- Người dùng đang ở màn hình Đăng nhập và nhấn nút Tạo tài khoản mới.
 
 *c. Điều kiện đối với kết quả*
 
-- Yêu cầu đăng ký được ghi nhận ở trạng thái Chờ duyệt và giao diện quay về Đăng nhập
+- Yêu cầu đăng ký cùng các tệp CCCD, CV được lưu trữ an toàn ở trạng thái `PENDING` và giao diện thông báo thành công.
 
 *d. Kịch bản thành công chính*
 
@@ -263,17 +268,20 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.4. Quản lý danh sách tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
+- Tác nhân: Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [09-quan-ly-tai-khoan.md](sequence-diagrams/09-quan-ly-tai-khoan.md)
+- API endpoint: `GET /api/v1/accounts?page=&pageSize=&q=&status=&role=`
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đã đăng nhập và đang ở giao diện quản trị
+- Quản trị viên đã đăng nhập thành công và đang ở giao diện quản trị.
 
 *c. Điều kiện đối với kết quả*
 
-- Danh sách phản ánh từ khóa tìm kiếm, trang hiện tại và kết quả sau thao tác đặt lại mật khẩu, khóa/mở khóa hoặc xóa tài khoản
+- Danh sách phản ánh từ khóa tìm kiếm, trang hiện tại và kết quả sau thao tác đặt lại mật khẩu, khóa/mở khóa hoặc xóa tài khoản.
 
 *d. Kịch bản thành công chính*
 
@@ -342,19 +350,21 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.5. Kích hoạt/vô hiệu hóa tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
+- Tác nhân: Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [09-quan-ly-tai-khoan.md](sequence-diagrams/09-quan-ly-tai-khoan.md)
+- API endpoint: `PATCH /api/v1/accounts/:id/status` (body: `{ status, expectedVersion }`)
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đang ở Danh sách tài khoản
-
-- Tài khoản cần thao tác đang hiển thị trong bảng Danh sách tài khoản
+- Quản trị viên đang ở Danh sách tài khoản.
+- Tài khoản cần thao tác đang hiển thị trong bảng Danh sách tài khoản.
 
 *c. Điều kiện đối với kết quả*
 
-- Trạng thái tài khoản được chuyển giữa Kích hoạt và Vô hiệu hóa, đồng thời biểu tượng thao tác trên đúng dòng được cập nhật
+- Trạng thái tài khoản được chuyển giữa `ACTIVE` và `DISABLED`. Khi vô hiệu hóa, toàn bộ phiên làm việc của tài khoản bị thu hồi ngay lập tức. Biểu tượng thao tác trên bảng được cập nhật tương ứng.
 
 *d. Kịch bản thành công chính*
 
@@ -395,7 +405,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="even">
 <td>4</td>
 <td></td>
-<td>Hệ thống đổi trạng thái tài khoản, cập nhật dữ liệu phân công liên quan khi vô hiệu hóa và đóng hộp thoại sau khi xác nhận.</td>
+<td>Hệ thống gửi PATCH status, đổi trạng thái tài khoản, thu hồi phiên khi vô hiệu hóa và đóng hộp thoại sau khi xác nhận.</td>
 </tr>
 <tr class="odd">
 <td>5</td>
@@ -418,19 +428,21 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.6. Xóa tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
+- Tác nhân: Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [09-quan-ly-tai-khoan.md](sequence-diagrams/09-quan-ly-tai-khoan.md)
+- API endpoint: `DELETE /api/v1/accounts/:id`
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đang ở màn hình Danh sách tài khoản
-
-- Tài khoản cần xóa đang được hiển thị trong bảng dữ liệu
+- Quản trị viên đang ở màn hình Danh sách tài khoản.
+- Tài khoản cần xóa đang được hiển thị trong bảng dữ liệu.
 
 *c. Điều kiện đối với kết quả*
 
-- Tài khoản đã xác nhận xóa không còn trong danh sách và tổng số tài khoản được cập nhật
+- Tài khoản được đánh dấu xóa mềm (`deletedAt = now()`), toàn bộ phiên bị thu hồi, dòng tài khoản biến mất khỏi bảng và tổng số tài khoản được cập nhật lại.
 
 *d. Kịch bản thành công chính*
 
@@ -477,7 +489,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="odd">
 <td>5</td>
 <td></td>
-<td>Sau khi xác nhận, hộp thoại đóng và hiển thị thông báo “Đã xóa tài khoản {tên}”.</td>
+<td>Sau khi xác nhận, hệ thống gửi DELETE, hộp thoại đóng và hiển thị thông báo “Đã xóa tài khoản {tên}”.</td>
 </tr>
 <tr class="even">
 <td>6</td>
@@ -495,21 +507,21 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.7. Xem thông tin tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
-
-- Cộng tác viên
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `ADMIN` (xem tài khoản CTV), `CTV` (xem thông tin chính mình)
+- Sequence diagram: [10-xem-cap-nhat-ho-so.md](sequence-diagrams/10-xem-cap-nhat-ho-so.md)
+- API endpoint: `GET /api/v1/accounts/:id`, `GET /api/v1/users/me`
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đã đăng nhập
-
-- Quản trị viên đang ở Danh sách tài khoản hoặc người dùng mở Hồ sơ cá nhân từ menu tài khoản
+- Người dùng đã đăng nhập.
+- Quản trị viên đang ở Danh sách tài khoản hoặc người dùng mở Hồ sơ cá nhân từ menu tài khoản.
 
 *c. Điều kiện đối với kết quả*
 
-- Thông tin cá nhân, hồ sơ đính kèm, lịch trình và thao tác tài khoản liên quan được hiển thị đúng theo ngữ cảnh người dùng
+- Thông tin cá nhân, hồ sơ đính kèm, lịch trình và thao tác tài khoản liên quan được hiển thị đúng theo ngữ cảnh người dùng.
 
 *d. Kịch bản thành công chính*
 
@@ -550,21 +562,20 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.8. Cập nhật thông tin hồ sơ
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên, khi cập nhật hồ sơ cá nhân của chính mình
-
-- Cộng tác viên, khi cập nhật hồ sơ cá nhân của chính mình
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `ADMIN` hoặc `CTV` (cập nhật hồ sơ cá nhân của chính mình)
+- Sequence diagram: [10-xem-cap-nhat-ho-so.md](sequence-diagrams/10-xem-cap-nhat-ho-so.md)
+- API endpoint: `PATCH /api/v1/users/me`, `PUT /api/v1/users/me/files/:category`, `DELETE /api/v1/users/me/files/:category`
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đang ở màn hình Thông tin tài khoản
-
-- Thông tin hồ sơ hiện tại đã được hiển thị
+- Người dùng đang ở màn hình Thông tin tài khoản và thông tin hồ sơ hiện tại đã được hiển thị.
 
 *c. Điều kiện đối với kết quả*
 
-- Họ tên, số điện thoại, ngày sinh, giới tính và địa chỉ mới được hiển thị trên hồ sơ cá nhân; tệp CV, ảnh đại diện và ảnh CCCD phản ánh khi được cập nhật trực tiếp trên các khối tương ứng
+- Họ tên, số điện thoại, ngày sinh, giới tính và địa chỉ mới được cập nhật trong cơ sở dữ liệu và hiển thị trên hồ sơ cá nhân; tệp CV, ảnh đại diện và ảnh CCCD phản ánh khi được cập nhật trực tiếp trên các khối tương ứng.
 
 *d. Kịch bản thành công chính*
 
@@ -610,7 +621,7 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 <tr class="even">
 <td>6</td>
 <td></td>
-<td>Hệ thống cập nhật dữ liệu hồ sơ và đóng hộp thoại.</td>
+<td>Hệ thống gửi PATCH /api/v1/users/me, cập nhật dữ liệu hồ sơ và đóng hộp thoại.</td>
 </tr>
 <tr class="odd">
 <td>7</td>
@@ -626,21 +637,28 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 - Tại bước 5, nếu Họ và tên để trống, ràng buộc bắt buộc của trường ngăn gửi biểu mẫu; các trường còn lại không có thông báo kiểm tra định dạng riêng.
 
-- Tại bước 1, nếu người dùng thao tác trực tiếp trên ảnh đại diện, ảnh CCCD hoặc khối CV thay vì mở Chỉnh sửa thông tin, hệ thống cập nhật tệp tương ứng và hiển thị thông báo ngắn. Các thao tác tệp nằm ngoài hộp thoại chỉnh sửa thông tin.
+- Tại bước 1, nếu người dùng thao tác trực tiếp trên ảnh đại diện, ảnh CCCD hoặc khối CV thay vì mở Chỉnh sửa thông tin, hệ thống cập nhật tệp tương ứng qua `PUT /api/v1/users/me/files/:category` và hiển thị thông báo ngắn. Các thao tác tệp nằm ngoài hộp thoại chỉnh sửa thông tin.
 
 #### 1.9. Đổi/đặt lại mật khẩu
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên và Cộng tác viên
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu:
+  - Tự đổi mật khẩu: `CTV` hoặc `ADMIN` (đổi mật khẩu của chính mình)
+  - Đặt lại mật khẩu cho CTV: `ADMIN`
+- Sequence diagram: [05-doi-va-dat-lai-mat-khau.md](sequence-diagrams/05-doi-va-dat-lai-mat-khau.md)
+- API endpoint:
+  - Tự đổi mật khẩu: `POST /api/v1/users/me/password-changes`
+  - Admin đặt lại mật khẩu: `POST /api/v1/accounts/:id/password-resets`
 
 *b. Điều kiện ban đầu*
 
-- Người dùng đã đăng nhập và đang ở Thông tin tài khoản; hoặc Admin đang ở Danh sách tài khoản khi cần đặt lại mật khẩu cho CTV
+- Người dùng đã đăng nhập và đang ở Thông tin tài khoản; hoặc Admin đang ở Danh sách tài khoản khi cần đặt lại mật khẩu cho CTV.
 
 *c. Điều kiện đối với kết quả*
 
-- Mật khẩu được cập nhật theo đúng ngữ cảnh; hệ thống đóng hộp thoại và hiển thị thông báo thành công
+- Mật khẩu được cập nhật theo đúng ngữ cảnh. Khi tự đổi, các phiên khác bị thu hồi. Khi Admin đặt lại, toàn bộ phiên của CTV bị thu hồi và cờ `mustChangePassword` được bật thành `true`. Hệ thống đóng hộp thoại và hiển thị thông báo thành công.
 
 *d. Kịch bản thành công chính*
 
@@ -705,19 +723,22 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.10. Duyệt yêu cầu đăng ký tài khoản
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
+- Tác nhân: Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [03-duyet-ho-so.md](sequence-diagrams/03-duyet-ho-so.md)
+- API endpoint:
+  - Danh sách yêu cầu chờ duyệt: `GET /api/v1/registration-requests?status=PENDING`
+  - Phê duyệt / Từ chối yêu cầu: `PATCH /api/v1/registration-requests/:requestId` (body: `{ decision: 'APPROVED' | 'REJECTED', expectedStatus: 'PENDING', rejectionReason?: string }`)
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đã đăng nhập
-
-- Có yêu cầu đăng ký ở trạng thái Chờ duyệt
+- Quản trị viên đã đăng nhập và có yêu cầu đăng ký ở trạng thái Chờ duyệt.
 
 *c. Điều kiện đối với kết quả*
 
-- Yêu cầu bị loại khỏi danh sách chờ; nếu phê duyệt thì tạo tài khoản Kích hoạt, nếu từ chối thì loại bỏ hồ sơ mà không tạo tài khoản
+- Yêu cầu bị loại khỏi danh sách chờ. Nếu phê duyệt, tài khoản `Account` mới được tạo với trạng thái `ACTIVE`, các tệp đính kèm chuyển thành `AccountFile`. Nếu từ chối, yêu cầu chuyển sang trạng thái `REJECTED` cùng lý do từ chối.
 
 *d. Kịch bản thành công chính*
 
@@ -796,11 +817,11 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 #### 1.11. Cài đặt hệ thống
 
-*a. Tác nhân chính*
+*a. Tác nhân & Phân quyền*
 
-- Quản trị viên
-
-- Cộng tác viên
+- Tác nhân: Quản trị viên (AC-1), Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `ADMIN` hoặc `CTV`
+- Thành phần chịu trách nhiệm: `SystemSettingsContext` (Client Local State)
 
 *b. Điều kiện ban đầu*
 
@@ -831,159 +852,177 @@ Mỗi tài khoản đã được phê duyệt có đúng một vai trò cố đ�
 
 *a. Tác nhân chính*
 
-- Cộng tác viên
+- Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `CTV`
+- Sequence diagram: [04-dang-ky-cap-nhat-lich-lam-viec.md](sequence-diagrams/04-dang-ky-cap-nhat-lich-lam-viec.md)
+- API endpoint: `GET /api/v1/users/me/schedule`, `PUT /api/v1/users/me/schedule`
 
 *b. Điều kiện ban đầu*
 
-- Cộng tác viên đã đăng nhập
+- Cộng tác viên đã đăng nhập thành công với vai trò `CTV` và tài khoản ở trạng thái `ACTIVE`.
 
 *c. Điều kiện đối với kết quả*
 
-- Mẫu tuần mới được lưu và lặp lại không giới hạn cho đến khi CTV cập nhật mẫu khác hoặc tài khoản bị vô hiệu hóa. CTV có thể đăng ký hoặc cập nhật bất kỳ số ca nào trong tuần (từ 0 đến 10 ca).
+- Mẫu lịch tuần cố định được lưu vào cơ sở dữ liệu (`Schedule` và `Shift`), tự động lặp lại cho các tuần tiếp theo cho đến khi CTV thực hiện cập nhật lại hoặc tài khoản bị vô hiệu hóa. CTV có thể đăng ký từ 0 đến 10 ca trong tuần (Thứ 2 đến Thứ 6, mỗi ngày gồm Ca Sáng và Ca Chiều).
 
 *d. Kịch bản thành công chính*
 
 | **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
 |---|---|---|
-| 1 | CTV chọn **Lịch làm việc** trên thanh điều hướng | Hệ thống tải registration hiện hành và các assignment `ACTIVE` của chính CTV. |
-| 2 | CTV chọn **Đăng ký lịch làm việc** | Hệ thống mở biểu mẫu, focus bộ chọn buồng và để trống toàn bộ 10 ô mẫu ca, kể cả khi CTV đã có lịch. |
-| 3 | CTV chọn buồng và các ô ca mong muốn từ Thứ 2 đến Thứ 6 (có thể để trống 0 ca) | Hệ thống hiển thị ngày bắt đầu, thông báo mẫu sẽ lặp lại hằng tuần và cảnh báo lần lưu này thay thế toàn bộ mẫu hiện tại. |
-| 4 | CTV chọn **Đăng ký** | Hệ thống kiểm tra dữ liệu, lưu bằng `expectedVersion`, tạo cửa sổ assignment ban đầu và tăng version. |
-| 5 | | Hệ thống đóng biểu mẫu, hiển thị mẫu cố định trên **Lịch tuần**, tải lại ca thực tế và thông báo **Đăng ký thành công**. |
+| 1 | CTV chọn **Lịch làm việc** trên thanh điều hướng | Hệ thống gọi `GET /api/v1/users/me/schedule` để tải mẫu lịch tuần hiện hành của CTV. |
+| 2 | CTV chọn nút **Đăng ký lịch làm việc** (hoặc **Cập nhật**) | Hệ thống mở modal biểu mẫu đăng ký/cập nhật lịch tuần, điền sẵn buồng làm việc và các ca đã chọn nếu có. |
+| 3 | CTV chọn Buồng làm việc (`ROOM_1` .. `ROOM_4`) và tích/bỏ tích các ô ca mong muốn từ Thứ 2 đến Thứ 6 (hỗ trợ lưu từ 0 đến 10 ca) | Hệ thống cập nhật trạng thái bản nháp trên giao diện, hiển thị cảnh báo việc lưu sẽ thay thế toàn bộ mẫu ca hiện tại. |
+| 4 | CTV nhấn **Lưu** (hoặc **Đăng ký**) | Hệ thống gửi request `PUT /api/v1/users/me/schedule` kèm `roomCode`, danh sách `slots` và `expectedVersion`. |
+| 5 | | Backend thực hiện transaction với khóa cố vấn `pg_advisory_xact_lock(hashtext(accountId))`, kiểm tra xung đột version, cập nhật `Schedule` (tăng version), xóa các bản ghi `Shift` cũ và tạo mới các bản ghi `Shift` được chọn. |
+| 6 | | Hệ thống đóng modal, cập nhật lại dữ liệu hiển thị trên **Lịch tuần** và hiển thị thông báo **Đăng ký thành công** (hoặc **Cập nhật lịch thành công**). |
 
 *e. Các trường hợp khác*
 
-- Nếu không chọn ca nào (0 slot), hệ thống vẫn cho phép lưu mẫu tuần rỗng (không phân ca nào trong tuần).
-- Nếu version đã thay đổi ở phiên khác hoặc bị thiếu khi cập nhật, backend trả `409 VERSION_CONFLICT`; frontend tải registration mới nhất và yêu cầu CTV kiểm tra trước khi đăng ký lại.
-- Không thể đóng biểu mẫu bằng nền mờ hoặc phím Escape trong lúc request lưu đang chạy.
+- Nếu CTV bỏ chọn tất cả các ca (0 slot), hệ thống vẫn cho phép lưu mẫu tuần rỗng (không có ca nào trong tuần).
+- Nếu `version` đã thay đổi ở phiên khác hoặc không khớp, backend trả về lỗi `409 VERSION_CONFLICT`. Frontend thông báo lỗi, tự động tải lại dữ liệu lịch mới nhất và yêu cầu CTV kiểm tra trước khi thực hiện lưu lại.
+- Không thể đóng modal bằng cách bấm ra ngoài vùng nền mờ hoặc phím Escape trong lúc request lưu đang gửi lên server.
+
+---
 
 #### 2.2. Xem lịch tuần và lịch sử làm việc của CTV (Chỉ đọc)
 
 *a. Tác nhân chính*
 
-- Cộng tác viên
+- Cộng tác viên (AC-2)
+- Vai trò yêu cầu: `CTV`
+- Sequence diagram: [11-xem-lich-tuan-va-lich-su.md](sequence-diagrams/11-xem-lich-tuan-va-lich-su.md)
+- API endpoint:
+  - Lịch tuần: `GET /api/v1/users/me/schedule`
+  - Lịch sử làm việc: `GET /api/v1/users/me/work-history?month=YYYY-MM`
 
 *b. Điều kiện ban đầu*
 
-- Cộng tác viên đã đăng nhập và có quyền truy cập Lịch làm việc
+- Cộng tác viên đã đăng nhập và đang ở màn hình Lịch làm việc cá nhân.
 
 *c. Điều kiện đối với kết quả*
 
-- CTV xem được lịch tuần hiện hành và lịch sử làm việc đã chốt theo tháng của chính mình hoàn toàn ở chế độ chỉ đọc (Read-only).
+- CTV xem được lịch tuần hiện hành và lịch sử làm việc theo tháng của chính mình hoàn toàn ở chế độ chỉ đọc (Read-only), không có thao tác xóa ca đơn lẻ trực tiếp trên ô lịch.
 
 *d. Kịch bản thành công chính*
 
-| **Bước** | **Thao tác của tác nhân**                            | **Phản ứng của hệ thống**                                                                                                    |
-|----------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| 1        | CTV chọn **Lịch làm việc**                           | Hệ thống mặc định hiển thị một **Lịch tuần** cố định gồm Thứ 2–Thứ 6 và các ca trong mẫu hiện hành. |
-| 2        | CTV xem Lịch tuần                                   | Các ca làm việc được hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`) với biểu tượng ca sáng (`wb_sunny`) và ca chiều (`wb_twilight`), không thể nhấp vào và không có modal chi tiết ca riêng lẻ. Mọi chỉnh sửa chỉ thực hiện qua nút **Cập nhật**. |
-| 3        | CTV chọn **Lịch sử làm việc**                        | Hệ thống gọi lịch sử của tài khoản trong session và hiển thị lưới tháng dưới dạng huy hiệu chỉ đọc, chỉ gồm các ngày quá khứ đã được chốt lúc 17:30. |
-| 4        | CTV dùng nút chuyển tháng                            | Hệ thống tải và hiển thị dữ liệu lịch sử làm việc của tháng mới qua DTO chuyên biệt chỉ gồm danh sách ca của chính CTV (`entries`: `id`, `workDate`, `period`, `roomCode`; không chứa `cells`, `shiftAssignments`, thông tin CTV khác hay trường `status` kỹ thuật). |
+| **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
+|---|---|---|
+| 1 | CTV chọn mục **Lịch làm việc** trên thanh menu | Hệ thống mặc định mở tab **Lịch tuần**, gọi `GET /api/v1/users/me/schedule` và hiển thị lưới Thứ 2 đến Thứ 6. |
+| 2 | CTV xem Lịch tuần | Các ca làm việc được hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`) gồm biểu tượng Ca Sáng (`wb_sunny`) hoặc Ca Chiều (`wb_twilight`) kèm tên buồng. Các thẻ ca hoàn toàn chỉ đọc, không bấm vào để sửa/xóa đơn lẻ được. |
+| 3 | CTV chuyển sang tab **Lịch sử làm việc** | Hệ thống gọi `GET /api/v1/users/me/work-history?month=YYYY-MM` cho tháng hiện tại và hiển thị lưới tháng với các ca đã được chốt sau mốc 17:30. Dữ liệu trả về qua DTO chuyên biệt `{ month, entries }` (chỉ gồm `id`, `workDate`, `period`, `roomCode` của chính CTV). |
+| 4 | CTV bấm nút chuyển tháng (Tháng trước / Tháng sau) | Hệ thống cập nhật tháng và tải lại danh sách ca đã hoàn thành của tháng đó. |
 
 *e. Các trường hợp khác*
 
-- Nếu màn hình hẹp, lưới năm ngày giữ nguyên cấu trúc và cho phép cuộn ngang để xem đầy đủ.
-- Khi tháng không có ca đã hoàn thành, hệ thống hiển thị trạng thái rỗng rõ ràng.
-- Khi tải lịch sử thất bại, hệ thống hiển thị lỗi và nút **Thử lại**; dữ liệu cũ của tháng trước không được giữ lại như thể thuộc tháng mới.
-- Không hiển thị trạng thái kỹ thuật (như `COMPLETED`) trên giao diện làm việc của CTV, và API lịch sử làm việc cá nhân của CTV (`/users/me/work-history`) cũng không để lộ trường `status` này.
+- Trên thiết bị di động hoặc màn hình hẹp, lưới 5 ngày giữ nguyên cấu trúc và hỗ trợ cuộn ngang mượt mà.
+- Khi tháng không có ca nào, hiển thị thông báo trạng thái rỗng thân thiện: *"Chưa có ca làm việc nào trong tháng này"*.
+- Nếu tải lịch sử thất bại, hệ thống hiển thị thông báo lỗi và nút **Thử lại**; dữ liệu tháng cũ bị xóa để tránh nhầm lẫn.
+- Hệ thống tự động lắng nghe sự kiện `focus` của cửa sổ và `visibilitychange` của trình duyệt để tự động tải lại lịch sử mới nhất nếu trang web vừa được mở lại sau mốc 17:30.
+
+---
 
 #### 2.3. Chốt lịch sử làm việc tự động vào 17:30
 
 *a. Tác nhân chính*
 
-- Hệ thống (tiến trình tự động chạy ngầm)
+- Hệ thống (Background Scheduler & Startup Recovery)
+- Vai trò yêu cầu: `SYSTEM` (Tiến trình nền độc lập)
+- Sequence diagram: [06-chot-lich-su-lam-viec-tu-dong.md](sequence-diagrams/06-chot-lich-su-lam-viec-tu-dong.md)
 
 *b. Điều kiện ban đầu*
 
-- Máy chủ backend hoạt động và đồng hồ hệ thống theo múi giờ `Asia/Bangkok` (UTC+7).
+- Máy chủ backend hoạt động và cấu hình múi giờ chuẩn `Asia/Bangkok` (UTC+7).
 
 *c. Điều kiện đối với kết quả*
 
-- Ca làm việc của ngày hôm nay được chụp lại (snapshot) bất biến vào bảng dữ liệu lịch sử (`History`).
+- Toàn bộ ca làm việc của ngày hôm nay được snapshot bất biến vào bảng `History` trong cơ sở dữ liệu PostgreSQL.
 
 *d. Quy tắc xử lý và kịch bản chính*
 
 | **Bước** | **Thời điểm / Sự kiện** | **Hành vi xử lý của hệ thống** |
 |---|---|---|
-| 1 | Trước 17:30 Bangkok hằng ngày | Hệ thống không thực hiện snapshot cho ngày hiện tại (bỏ qua với lý do `BEFORE_CUTOFF`). Lịch sử ngày hiện tại để trống. |
-| 2 | Ngày cuối tuần (Thứ 7, Chủ Nhật) | Hệ thống không thực hiện snapshot ca làm việc (bỏ qua với lý do `WEEKEND`). |
-| 3 | Đúng 17:30 Asia/Bangkok (tức 10:30 UTC) Thứ 2–Thứ 6 | Hệ thống kích hoạt hẹn giờ chính xác và chụp lại toàn bộ ca làm việc trong ngày của các CTV đang hoạt động (`ACTIVE`) vào cơ sở dữ liệu. |
-| 4 | Máy chủ khởi động lại sau 17:30 trong ngày làm việc | Hệ thống tự động kích hoạt snapshot ngay khi khởi động để bù đắp ca của ngày hôm nay nếu trước đó máy chủ gián đoạn. |
-| 5 | Ghi nhận dữ liệu và bảo đảm tính bất biến (Idempotent) | Hệ thống thực hiện chèn dữ liệu với cơ chế bỏ qua trùng lặp (`skipDuplicates: true`). Các lần chạy lại sau 17:30 không tạo ra bản ghi thừa và không ghi đè hay thay đổi lịch sử đã chốt. |
-| 6 | Bỏ cơ chế backfill 14 ngày | Hệ thống chỉ snapshot duy nhất ngày hôm nay, không tự động quét ngược (lookback) và không hồi tố lịch làm việc của 14 ngày trước đó. |
+| 1 | Trước 17:30 Asia/Bangkok hằng ngày | Hàm `snapshotTodayWorkHistory()` kiểm tra thời gian hiện tại: nếu trước 17:30, lập tức bỏ qua và trả về lý do `BEFORE_CUTOFF`. |
+| 2 | Ngày cuối tuần (Thứ 7, Chủ Nhật) | Nếu ngày trong tuần là Thứ 7 hoặc Chủ Nhật, hệ thống bỏ qua và trả về lý do `WEEKEND`. |
+| 3 | Đúng 17:30 Asia/Bangkok (tức 10:30 UTC) Thứ 2 đến Thứ 6 | Bộ hẹn giờ chính xác kích hoạt snapshot: lấy danh sách các CTV `ACTIVE` có `Schedule` và có `Shift` khớp với thứ của ngày hôm nay, chụp lại vào bảng `History`. |
+| 4 | Máy chủ khởi động lại sau 17:30 | Tiến trình khởi động tự động gọi `syncCompletedWork()` một lần (Startup Recovery) để bù đắp ca của ngày hôm nay nếu máy chủ bị tắt trong mốc 17:30. |
+| 5 | Ghi nhận an toàn và đảm bảo Idempotent | Thực hiện ghi nhận với `prisma.history.createMany({ skipDuplicates: true })` dựa trên ràng buộc `@@unique([accountId, workDate, period])`. Chạy lại nhiều lần không sinh bản ghi trùng lặp và không ảnh hưởng dữ liệu đã chốt. |
+| 6 | Tuyệt đối không backfill lịch sử | Hệ thống chỉ snapshot duy nhất ca của ngày hôm nay (`todayUtc`), loại bỏ hoàn toàn cơ chế quét ngược 14 ngày cũ. |
 
-#### 2.4. Xem lịch tuần tổng hợp và lịch sử tổng hợp (Admin)
+---
+
+#### 2.4. Xem lịch làm việc tổng hợp (Admin)
 
 *a. Tác nhân chính*
 
-- Quản trị viên
+- Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [07-xem-lich-lam-viec-tong-hop.md](sequence-diagrams/07-xem-lich-lam-viec-tong-hop.md)
+- API endpoint:
+  - Lịch tuần tổng hợp: `GET /api/v1/schedule/weekly-summary` (hoặc `/api/v1/schedule-summary/weekly-summary`)
+  - Lịch sử tổng hợp: `GET /api/v1/work-history?month=YYYY-MM`
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đã đăng nhập và chọn Lịch làm việc tổng hợp
+- Quản trị viên đã đăng nhập thành công và mở mục **Lịch làm việc tổng hợp**.
 
 *c. Điều kiện đối với kết quả*
 
-- Danh sách CTV làm việc hôm nay và lịch tổng hợp được hiển thị; giao diện 2 tab giống CTV (Lịch tuần tổng hợp / Lịch sử tổng hợp), khác duy nhất là mỗi ca bấm vào để xem những CTV đi làm hôm đó
+- Admin theo dõi được toàn bộ danh sách CTV làm việc hôm nay, lịch tuần tổng hợp của toàn viện và lịch sử làm việc tổng hợp theo tháng; mỗi ô ca cho phép bấm vào để xem danh sách chi tiết các CTV tham gia.
 
 *d. Kịch bản thành công chính*
 
-| **Bước** | **Thao tác của tác nhân**                                                      | **Phản ứng của hệ thống**                                                                                                            |
-|----------|--------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| 1        | Quản trị viên chọn Lịch làm việc tổng hợp trên thanh điều hướng                |                                                                                                                              |
-| 2        |                                                                                | Hệ thống mặc định hiển thị tab Lịch tuần tổng hợp cùng khối Danh sách CTV đăng ký hôm nay và lưới T2-T6 của tuần hiện tại. |
-| 3        |                                                                                | Mỗi ca có dữ liệu hiển thị số lượng CTV (badge màu vàng/tím); ngày hiện tại có nhãn Hôm nay.                                        |
-| 4        | Quản trị viên chọn tab Lịch sử tổng hợp                                        |                                                                                                                              |
-| 5        |                                                                                | Hệ thống hiển thị lưới tháng Mon-Fri với điều khiển chuyển tháng; chỉ ngày quá khứ (`workDate < today`) có dữ liệu, tương lai để trống. |
-| 6        | Quản trị viên nhấn Tháng trước/Tháng sau                                       |                                                                                                                              |
-| 7        |                                                                                | Hệ thống cập nhật tháng/năm, các ngày trong lưới và số lượng CTV của từng ca (chỉ quá khứ).                                  |
-| 8        | Quản trị viên nhấn thẻ số lượng CTV của một ca (tuần hoặc lịch sử)            |                                                                                                                              |
-| 9        |                                                                                | Hệ thống mở Chi tiết ca làm việc: tên ca, ngày, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc.             |
-| 10       | Quản trị viên nhấn Họ tên CTV trong Chi tiết ca                                |                                                                                                                              |
-| 11       |                                                                                | Hệ thống đóng Chi tiết ca và mở Hồ sơ & Lịch trình tài khoản của đúng CTV đó.                                              |
+| **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
+|---|---|---|
+| 1 | Admin chọn **Lịch làm việc tổng hợp** trên menu | Hệ thống mặc định mở tab **Lịch tuần tổng hợp**, hiển thị khối **Danh sách CTV đăng ký hôm nay** và lưới Thứ 2 - Thứ 6. |
+| 2 | Admin xem lưới Lịch tuần | Mỗi ô ca hiển thị số lượng CTV đăng ký (ví dụ: `2 CTV`, `4 CTV`). Cột ngày hôm nay được đánh dấu bằng huy hiệu **Hôm nay**. |
+| 3 | Admin bấm vào thẻ số lượng CTV của một ca | Hệ thống mở modal **Chi tiết ca làm việc**, hiển thị thông tin ca (Thứ, Buổi), tổng số CTV và bảng danh sách gồm: Họ và tên CTV, Số điện thoại, Buồng làm việc (`ROOM_1`..`ROOM_4`). |
+| 4 | Admin bấm vào tên hoặc ảnh đại diện CTV trong modal | Hệ thống đóng modal Chi tiết ca và mở modal **Hồ sơ & Lịch trình tài khoản** của CTV đó. |
+| 5 | Admin chuyển sang tab **Lịch sử tổng hợp** | Hệ thống gọi `GET /api/v1/work-history?month=YYYY-MM`, hiển thị lưới tháng tổng hợp toàn bộ các ca đã chốt của các CTV trong tháng. |
+| 6 | Admin bấm chuyển tháng trong tab Lịch sử | Hệ thống tải và hiển thị dữ liệu lịch sử tổng hợp của tháng mới. |
 
 *e. Các trường hợp khác*
 
-- Tại bước 2, nếu hôm nay chưa có CTV đăng ký, hệ thống hiển thị “Chưa có CTV nào đăng ký hôm nay”.
+- Nếu ca chưa có CTV đăng ký, ô ca hiển thị để trống và khi bấm vào sẽ thông báo *"Chưa có CTV nào đăng ký ca làm việc này"*.
+- Nếu hôm nay không có ca làm việc nào, khối hiển thị thông báo *"Chưa có CTV nào đăng ký hôm nay"*.
+- Giao diện 2 tab của Admin đồng nhất về trải nghiệm với giao diện của CTV, chỉ bổ sung tính năng xem số lượng và danh sách CTV tham gia từng ca.
 
-- Tại bước 8, nếu ca được chọn chưa có CTV, cửa sổ chi tiết hiển thị “Chưa có CTV nào đăng ký ca làm việc này”.
-
-- Tại bước 5, nếu màn hình hẹp, lưới giữ năm cột Thứ 2-Thứ 6 và cho phép cuộn ngang.
-
-- Lịch tuần tổng hợp và Lịch sử tổng hợp có bố cục tabs/grid/nav giống giao diện Lịch làm việc mà CTV đang nhìn thấy; nội dung mỗi ô ca là số CTV + bấm để xem danh sách CTV đi làm.
+---
 
 #### 2.5. Xem chi tiết ca và hồ sơ CTV
 
 *a. Tác nhân chính*
 
-- Quản trị viên
+- Quản trị viên (AC-1)
+- Vai trò yêu cầu: `ADMIN`
+- Sequence diagram: [12-xem-chi-tiet-ca-va-ho-so-ctv.md](sequence-diagrams/12-xem-chi-tiet-ca-va-ho-so-ctv.md)
+- API endpoint:
+  - Chi tiết tài khoản: `GET /api/v1/accounts/:id`
+  - Lịch tuần CTV: `GET /api/v1/accounts/:id/schedule`
+  - Lịch sử làm việc CTV: `GET /api/v1/work-history?month=YYYY-MM&accountId=:id`
+  - Ghi chú quản trị: `PATCH /api/v1/accounts/:id/notes`
+  - Tải tệp hồ sơ/CV: `GET /api/v1/files/:fileId/content`
 
 *b. Điều kiện ban đầu*
 
-- Quản trị viên đã đăng nhập và đang ở Lịch làm việc tổng hợp
-
-- Quản trị viên đã chọn một ca có dữ liệu hoặc một CTV trong danh sách hôm nay
+- Quản trị viên đã đăng nhập và đang mở modal Chi tiết ca làm việc hoặc danh sách tài khoản.
 
 *c. Điều kiện đối với kết quả*
 
-- Chi tiết ca hiển thị danh sách CTV; từ danh sách này có thể mở Hồ sơ & Lịch trình tài khoản của từng CTV
+- Admin xem được hồ sơ chi tiết, lịch tuần hiện hành, lịch sử làm việc cá nhân, xem trước/tải xuống tệp CV, CCCD và lưu ghi chú nội bộ cho CTV.
 
 *d. Kịch bản thành công chính*
 
-| **Bước** | **Thao tác của tác nhân**                                                                 | **Phản ứng của hệ thống**                                                                                                        |
-|----------|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| 1        | Quản trị viên nhấn một thẻ Ca Sáng/Ca Chiều có dữ liệu trong lịch tháng                   |                                                                                                                                  |
-| 2        |                                                                                           | Hệ thống mở Chi tiết ca làm việc, hiển thị tên ca, ngày làm việc, tổng số CTV và bảng Họ tên CTV, Số điện thoại, Buồng làm việc. |
-| 3        | Quản trị viên nhấn Họ tên hoặc ảnh đại diện của một CTV                                   |                                                                                                                                  |
-| 4        |                                                                                           | Hệ thống đóng Chi tiết ca và mở cửa sổ Hồ sơ & Lịch trình tài khoản của đúng CTV.                                                |
-| 5        | Quản trị viên dùng biểu tượng Xem/Tải CV, Lịch sử làm việc hoặc nhập Ghi chú rồi nhấn Lưu |                                                                                                                                  |
-| 6        |                                                                                           | Hệ thống mở nội dung tương ứng hoặc lưu ghi chú và đổi trạng thái nút thành Đã lưu.                                              |
-| 7        |                                                                                           | Khi quản trị viên nhấn biểu tượng X, hệ thống đóng hồ sơ và trở về màn hình Lịch làm việc tổng hợp.                              |
+| **Bước** | **Thao tác của tác nhân** | **Phản ứng của hệ thống** |
+|---|---|---|
+| 1 | Admin bấm vào tên hoặc biểu tượng xem hồ sơ của một CTV | Hệ thống mở modal **Hồ sơ & Lịch trình tài khoản** của CTV đó, tự động gọi `GET /api/v1/accounts/:id` để lấy thông tin chi tiết và `GET /api/v1/accounts/:id/schedule` để lấy mẫu lịch tuần. |
+| 2 | Admin xem lịch tuần của CTV | Modal hiển thị mẫu lịch tuần hiện hành của CTV với buồng làm việc và các ca cố định. |
+| 3 | Admin chuyển sang mục **Lịch sử làm việc** | Hệ thống gọi `GET /api/v1/work-history?month=YYYY-MM&accountId=:id` và hiển thị các ca đã hoàn thành của đúng CTV này trong tháng đã chọn. |
+| 4 | Admin bấm biểu tượng xem hoặc tải tệp hồ sơ (CCCD, CV) | Hệ thống gọi `GET /api/v1/files/:fileId/content`, xác thực quyền Admin và truyền trực tiếp luồng nhị phân (stream) tệp về trình duyệt. |
+| 5 | Admin nhập nội dung vào ô **Ghi chú quản trị** và nhấn **Lưu** | Hệ thống gửi `PATCH /api/v1/accounts/:id/notes` kèm `adminNotes` và `expectedVersion`. Backend cập nhật ghi chú và tăng version. Nút Lưu chuyển sang trạng thái **Đã lưu**. |
+| 6 | Admin bấm biểu tượng X để đóng modal | Hệ thống đóng modal và quay lại màn hình trước đó mà không làm mất trạng thái bộ lọc. |
 
 *e. Các trường hợp khác*
 
-- Tại bước 2, nếu ca không có CTV, hệ thống hiển thị thông báo “Chưa có CTV nào đăng ký ca làm việc này”.
+- Nếu tài khoản CTV không tồn tại hoặc đã bị xóa mềm, hệ thống thông báo lỗi `404 NOT_FOUND`.
+- Nếu ghi chú bị xung đột phiên bản khi lưu, hệ thống báo `409 VERSION_CONFLICT` và tải lại dữ liệu tài khoản mới nhất.
 
-- Tại bước 3, nếu không tìm thấy tài khoản khớp với CTV, hệ thống hiển thị thông báo không tìm thấy hồ sơ.
-
-- Tại bước 5, quản trị viên có thể xem/tải CV, xem lịch sử bằng các biểu tượng có chú thích hoặc lưu Ghi chú; đóng cửa sổ bằng biểu tượng X.

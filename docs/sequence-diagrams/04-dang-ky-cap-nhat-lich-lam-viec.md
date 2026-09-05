@@ -6,7 +6,7 @@ Nguồn nghiệp vụ: Use case 2.1 trong [USE-CASE.md](../USE-CASE.md).
 sequenceDiagram
     actor U as CTV
     box LỚP FRONTEND
-        participant UI as App + CTVScheduleWorkspace
+        participant UI as CTVScheduleWorkspace (Modal)
         participant API as Shared API Client
     end
     box LỚP BACKEND
@@ -17,80 +17,78 @@ sequenceDiagram
         participant DB as PostgreSQL qua Prisma
     end
 
-    U->>UI: Mở biểu mẫu lịch
-    UI->>UI: Tạo bản nháp 10 ô rỗng và focus bộ chọn buồng
-    UI->>API: apiGet(schedule-registration)
-    API->>C: GET /api/v1/users/me/schedule-registration
-    C->>S: getRegistration(currentUserId)
-    S->>DB: Đọc SCHEDULE_REGISTRATION ACTIVE và SCHEDULE_PATTERN_SLOT
-    DB-->>S: Registration hiện hành hoặc null
-    S-->>C: ScheduleRegistration DTO
-    C-->>API: 200 + data
-    API-->>UI: Giữ roomCode, version và mẫu hiện hành
-    Note over UI: Không điền patternSlots cũ vào bản nháp.<br/>Mỗi lần mở biểu mẫu, toàn bộ ô đều rỗng.
+    U->>UI: Mở biểu mẫu đăng ký / cập nhật lịch
+    alt Đã có lịch trong state
+        UI->>UI: Điền sẵn roomCode, version và danh sách shifts
+    else Chưa có dữ liệu lịch
+        UI->>API: GET /api/v1/users/me/schedule
+        API->>C: getMySchedule()
+        C->>S: getMySchedule(currentUserId)
+        S->>DB: prisma.schedule.findUnique(accountId, include shifts)
+        DB-->>S: Schedule record kèm danh sách Shift hoặc null
+        S-->>C: Schedule DTO
+        C-->>API: 200 + data
+        API-->>UI: Cập nhật roomCode, version và shifts vào form
+    end
 
-    UI-->>U: Hiển thị ngày bắt đầu, quy tắc lặp vô hạn<br/>và cảnh báo lưu sẽ thay toàn bộ mẫu hiện tại
-    U->>UI: Chọn Buồng 1-4 và các ca trong tuần
-    UI->>UI: Kiểm tra roomCode và ít nhất một slot
-    UI->>API: apiPut(schedule-registration, payload)
-    API->>C: PUT /api/v1/users/me/schedule-registration
-    C->>C: Validate roomCode và slots
-    C->>S: upsertRegistration(currentUserId, payload)
-    S->>S: syncWorkHistory(todayInBangkok)
-    S->>DB: Chốt assignment ACTIVE đã qua vào WORK_HISTORY
-    S->>S: Tính startDate và cửa sổ materialization ban đầu
-    S->>DB: Transaction lấy advisory lock theo accountId
-    S->>DB: So khớp expectedVersion; đồng bộ registration,<br/>slots, SHIFT và assignment
+    UI-->>U: Hiển thị form chọn Buồng (1-4), lưới 10 ca (T2-T6 Sáng/Chiều)<br/>và cảnh báo lưu sẽ thay thế toàn bộ mẫu hiện tại
+    U->>UI: Chọn Buồng 1-4 và tích/bỏ tích các ca (0 đến 10 ca)
+    U->>UI: Nhấn Lưu (hoặc Đăng ký)
+    UI->>UI: Khóa nút bấm, bật loading state
 
-    alt Version đã thay đổi
-        DB-->>S: Xung đột phiên bản
-        S-->>C: VERSION_CONFLICT
+    UI->>API: PUT /api/v1/users/me/schedule (payload)
+    API->>C: PUT /api/v1/users/me/schedule
+    C->>C: Validate schema qua Zod: roomCode, slots[], expectedVersion
+    C->>S: upsertSchedule(currentUserId, parsedBody)
+    S->>DB: Bắt đầu transaction
+    S->>DB: SELECT pg_advisory_xact_lock(hashtext(accountId))
+    S->>DB: SELECT SCHEDULE WHERE accountId = currentUserId
+    DB-->>S: Schedule hiện tại hoặc null
+
+    alt Xung đột phiên bản (expectedVersion không khớp hoặc thiếu khi đã có lịch)
+        S-->>C: Ném lỗi VERSION_CONFLICT (409)
         C-->>API: 409 VERSION_CONFLICT
-        API-->>UI: Reject VERSION_CONFLICT; giữ cửa sổ mở
-        UI->>API: GET /api/v1/users/me/schedule-registration
-        API->>C: GET registration hiện hành
-        C->>S: getRegistration(currentUserId)
-        S->>DB: Đọc registration ACTIVE mới nhất
-        DB-->>S: Registration DTO
-        S-->>C: Registration DTO
+        API-->>UI: Nhận lỗi 409
+        UI->>API: GET /api/v1/users/me/schedule
+        API->>C: getMySchedule()
+        C->>S: getMySchedule(currentUserId)
+        S->>DB: Đọc Schedule + shifts mới nhất
+        DB-->>S: Schedule mới
+        S-->>C: Schedule DTO
         C-->>API: 200 + data
-        API-->>UI: Cập nhật version và metadata mới nhất
-        UI-->>U: Cảnh báo kiểm tra rồi đăng ký lại
-    else Lưu thành công
-        DB-->>S: Registration, version mới và assignments
-        S-->>C: ScheduleRegistration DTO
-        C-->>API: 200 + data
-        API-->>UI: Mẫu lịch cố định đã lưu
-        par Tải metadata mới nhất
-            UI->>API: GET /api/v1/users/me/schedule-registration
-            API->>C: GET registration
-            C->>S: getRegistration(currentUserId)
-            S->>DB: Đọc registration ACTIVE
-            DB-->>S: Registration DTO
-            S-->>C: Registration DTO
-            C-->>API: 200 + data
-            API-->>UI: Metadata mới nhất
-        and Tải ca thực tế
-            UI->>API: GET /api/v1/users/me/shifts
-            API->>C: GET shifts
-            C->>S: listMyShifts(currentUserId, filters)
-            S->>DB: Join SHIFT_ASSIGNMENT ACTIVE và SHIFT
-            DB-->>S: Danh sách ca
-            S-->>C: Shift DTOs
-            C-->>API: 200 + data
-            API-->>UI: Assignment hiện hành
+        API-->>UI: Cập nhật version và dữ liệu mới nhất vào modal
+        UI-->>U: Hiển thị cảnh báo xung đột, yêu cầu kiểm tra và lưu lại
+    else Xác thực và version hợp lệ
+        alt Schedule đã tồn tại
+            S->>DB: UPDATE SCHEDULE (tăng version, cập nhật roomCode)
+            S->>DB: DELETE FROM SHIFT WHERE scheduleId = schedule.id
+            opt slots có phần tử
+                S->>DB: INSERT INTO SHIFT (scheduleId, weekday, period)
+            end
+        else Schedule chưa tồn tại (tạo mới)
+            S->>DB: INSERT INTO SCHEDULE (accountId, roomCode, version=1)
+            opt slots có phần tử
+                S->>DB: INSERT INTO SHIFT (scheduleId, weekday, period)
+            end
         end
-        UI-->>U: Đóng biểu mẫu, hiển thị mẫu Thứ 2-Thứ 6 và thông báo thành công
+        S->>DB: Commit transaction
+        DB-->>S: Bản ghi Schedule và Shift đã lưu
+        S-->>C: Schedule DTO (id, accountId, roomCode, version, shifts)
+        C-->>API: 200 + { data: Schedule DTO }
+        API->>UI: Trả về lịch tuần mới
+        UI->>UI: Cập nhật state lịch tuần cá nhân, đóng modal
+        UI-->>U: Hiển thị thông báo lưu thành công và cập nhật thẻ chỉ đọc trên lưới tuần
     end
 ```
 
 ## Chú thích
 
-- `roomCode` chỉ nhận `ROOM_1` đến `ROOM_4`; không có API hay bảng quản trị phòng.
-- `period` chỉ nhận `MORNING` hoặc `AFTERNOON`; ngày truyền theo `YYYY-MM-DD`.
-- Payload từ Frontend gồm `roomCode`, `slots[{weekday, period}]` và `expectedVersion`; khi tạo mới, trường `expectedVersion` được bỏ qua. Nếu registration `ACTIVE` đã tồn tại thì `expectedVersion` là bắt buộc. Service tự tính `startDate` là thứ Hai kế tiếp (hoặc hôm nay nếu đang là thứ Hai) và lưu `timeZone=Asia/Bangkok`.
-- Biểu mẫu là thao tác **thay thế toàn bộ**: draft luôn rỗng khi mở, chỉ các ô được chọn trong lần lưu hiện tại trở thành mẫu mới. UI nêu rõ mẫu lặp lại hằng tuần cho đến khi CTV cập nhật.
-- Trước khi lưu mẫu mới, Service chốt assignment `ACTIVE` đã qua vào `WORK_HISTORY`. Transaction chỉ duy trì một registration `ACTIVE` trên mỗi `accountId`, thay toàn bộ `SCHEDULE_PATTERN_SLOT`, upsert assignment trong cửa sổ ban đầu và chuyển assignment tương lai không còn thuộc mẫu sang `CANCELLED`.
-- Registration không tự chuyển `EXPIRED` theo `endDate`. `endDate` là watermark nội bộ; `extendRecurringSchedules` bồi thêm assignment khi đồng bộ lịch sử hoặc phục vụ truy vấn lịch, nhờ đó mẫu tiếp tục áp dụng mà không sinh vô hạn bản ghi ngay lúc lưu.
-- Khi cập nhật, transaction lấy advisory lock theo `accountId`; điều kiện `id + version + status=ACTIVE` phải khớp và `version` tăng một. Frontend tải registration mới nhất thay vì ghi đè khi nhận `409 VERSION_CONFLICT`.
-- Sau khi lưu, Lịch tuần hiển thị một mẫu Thứ 2-Thứ 6 cố định, không có khoảng ngày hoặc điều hướng tuần. Assignment thực tế là fallback khi metadata registration không tải được.
+- `roomCode` chỉ nhận `ROOM_1` đến `ROOM_4`; không có API hay bảng quản trị phòng riêng.
+- `period` nhận `MORNING` hoặc `AFTERNOON`; `weekday` nhận số nguyên `1` đến `5` (Thứ 2 đến Thứ 6).
+- Endpoint chuẩn là `PUT /api/v1/users/me/schedule` (có route tương thích ngược `/users/me/schedule-registration`).
+- Payload gửi lên: `{ roomCode: string, slots: Array<{ weekday: number, period: string }>, expectedVersion?: number }`.
+- Nếu tài khoản đã có `Schedule`, trường `expectedVersion` là bắt buộc. Nếu `existing.version !== input.expectedVersion`, hệ thống trả về lỗi `409 VERSION_CONFLICT`.
+- Thao tác cập nhật mang tính **thay thế nguyên tử (atomic replacement)**: transaction sử dụng khóa cố vấn PostgreSQL `pg_advisory_xact_lock(hashtext(accountId))` để chống race condition. Khi lưu, toàn bộ bản ghi `Shift` cũ của `scheduleId` bị xóa và các bản ghi `Shift` mới được tạo lại theo mảng `slots` đã chọn.
+- Cho phép lưu mảng `slots` rỗng (0 ca) nếu CTV muốn tạm nghỉ toàn bộ các ca trong tuần.
+- Lịch tuần trên giao diện hiển thị dưới dạng huy hiệu chỉ đọc (`ShiftBadge`), không cho phép xóa hay bấm sửa ca đơn lẻ trực tiếp trên ô lịch. Mọi thay đổi đều thực hiện qua modal biểu mẫu này.
+- Lịch sử đã chốt trong bảng `History` hoàn toàn độc lập và không bị ảnh hưởng bởi việc CTV thay đổi mẫu lịch tuần.

@@ -38,7 +38,7 @@ sequenceDiagram
         C->>S: changeStatus(accountId, status, expectedVersion)
         S->>DB: Conditional UPDATE ACCOUNT và tăng version
         opt Chuyển sang DISABLED
-            S->>DB: Revoke session, cancel registration và assignment tương lai
+            S->>DB: UPDATE SESSION.revokedAt cho các phiên đang hoạt động
         end
         DB-->>S: Account DTO mới
         S-->>C: Kết quả
@@ -49,7 +49,7 @@ sequenceDiagram
         H->>API: deleteAccount(accountId)
         API->>C: DELETE /api/v1/accounts/{accountId}
         C->>S: softDelete(accountId)
-        S->>DB: Transaction soft delete ACCOUNT và vô hiệu truy cập
+        S->>DB: Transaction: Đặt deletedAt = now, status = DISABLED,<br/>tăng version và revoke mọi session hoạt động
         DB-->>S: Hoàn tất
         S-->>C: Thành công
         C-->>API: 204 No Content
@@ -72,6 +72,6 @@ sequenceDiagram
 - Frontend giữ nguyên từ khóa, bộ lọc và trang khi làm mới danh sách; query thực tế chỉ gửi các tham số có giá trị.
 - Mỗi `AccountRow DTO` có `version`; Frontend gửi lại giá trị này dưới tên `expectedVersion` khi đổi trạng thái.
 - Body đổi trạng thái là `{status: ACTIVE|DISABLED, expectedVersion}`. Update chỉ thành công khi `ACCOUNT.id`, `version` và `deletedAt IS NULL` khớp; sau đó `version` tăng một.
-- Khi chuyển sang `DISABLED`, cùng transaction đặt `SESSION.revokedAt` cho các phiên còn hiệu lực, chuyển registration `ACTIVE` thành `CANCELLED` và chuyển assignment tương lai `ACTIVE` thành `CANCELLED` với thời điểm/lý do hủy.
-- Xóa là soft delete idempotent: đặt `ACCOUNT.deletedAt`, `status=DISABLED`, tăng `version`, revoke session, cancel registration hiện hành và assignment tương lai. Account cùng assignment quá khứ vẫn được giữ để bảo toàn lịch sử.
+- Khi chuyển sang `DISABLED`, cùng transaction cập nhật `SESSION.revokedAt = now` cho tất cả các phiên còn hiệu lực của tài khoản đó.
+- Xóa tài khoản là soft delete idempotent: hệ thống đặt `ACCOUNT.deletedAt = now`, `status = DISABLED`, tăng `version` và thu hồi toàn bộ session. Hồ sơ tài khoản cùng lịch sử làm việc trong bảng `History` vẫn được lưu trữ vĩnh viễn trong cơ sở dữ liệu để phục vụ đối soát.
 - Nếu `expectedVersion` không còn khớp, API trả `409 VERSION_CONFLICT`; UI phải tải lại dòng dữ liệu.

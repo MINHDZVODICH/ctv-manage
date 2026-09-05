@@ -4,14 +4,16 @@ Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md]
 
 ## Quy ước chung
 
-- Frontend hiện gọi `Shared API Client` trực tiếp từ `App`, context hoặc component màn hình/modal; repository chưa tách các Feature Hook riêng.
-- Backend đi theo `Controller → Service → Prisma/File Storage`; Controller không gọi Prisma trực tiếp.
-- Shared API Client tự gửi cookie session và CSRF header cho request thay đổi dữ liệu.
-- PostgreSQL là nguồn dữ liệu lịch dùng chung. Lịch hiện hành đọc `SHIFT_ASSIGNMENT`; lịch sử đã qua được chốt riêng trong `WORK_HISTORY` để không bị thay đổi khi CTV cập nhật mẫu tuần.
-- Buồng là cấu hình cố định `ROOM_1`–`ROOM_4`; ca chỉ có `MORNING`/`AFTERNOON`.
+- Frontend gọi `Shared API Client` trực tiếp từ các màn hình, modal hoặc context.
+- Backend đi theo kiến trúc phân lớp `Controller → Service → Prisma/File Storage`; Controller không gọi Prisma trực tiếp.
+- Shared API Client tự động gửi cookie session (`ctv_session`) và CSRF header cho các request thay đổi dữ liệu (POST, PUT, PATCH, DELETE).
+- PostgreSQL là nguồn dữ liệu lịch dùng chung:
+  - Lịch tuần cố định lưu trong `Schedule` (1:1 với `Account`) và `Shift` (các ca trong tuần từ Thứ 2 đến Thứ 6).
+  - Lịch sử đã qua được chốt bất biến trong `History` vào mốc 17:30 Bangkok hằng ngày để không bị thay đổi khi CTV cập nhật mẫu tuần.
+- Buồng là cấu hình cố định `ROOM_1`–`ROOM_4`; ca làm việc gồm `MORNING` và `AFTERNOON`.
 - Mũi tên HTTP ghi rõ method và path; mũi tên Service → DB ghi bảng, điều kiện lọc hoặc thay đổi trạng thái chính.
-- Payload, transaction hoặc constraint quá dài được đặt trong phần Chú thích ngay dưới sơ đồ.
-- Tên bảng và trường phải trùng [DATABASE.md](../DATABASE.md); DTO có thể dùng tên tổng hợp nhưng phải được giải thích.
+- Payload, transaction hoặc constraint chi tiết được đặt trong phần Chú thích ngay dưới mỗi sơ đồ.
+- Tên bảng và trường phải trùng khớp 1:1 với [DATABASE.md](../DATABASE.md).
 - “Thông báo” trong use case là toast tạm thời của giao diện; hệ thống không lưu bảng `NOTIFICATION`.
 
 ## Danh sách sơ đồ
@@ -21,7 +23,7 @@ Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md]
 3. [Duyệt hồ sơ](03-duyet-ho-so.md)
 4. [Đăng ký hoặc cập nhật lịch làm việc](04-dang-ky-cap-nhat-lich-lam-viec.md)
 5. [Đổi và đặt lại mật khẩu](05-doi-va-dat-lai-mat-khau.md)
-6. [Xem chi tiết và hủy ca làm việc](06-huy-ca-lam-viec.md)
+6. [Chốt lịch sử làm việc tự động vào 17:30](06-chot-lich-su-lam-viec-tu-dong.md)
 7. [Xem lịch làm việc tổng hợp](07-xem-lich-lam-viec-tong-hop.md)
 8. [Đăng xuất](08-dang-xuat.md)
 9. [Quản lý danh sách tài khoản](09-quan-ly-tai-khoan.md)
@@ -45,7 +47,7 @@ Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md]
 | 1.10 Duyệt yêu cầu đăng ký | [03](03-duyet-ho-so.md) |
 | 2.1 Đăng ký/cập nhật lịch | [04](04-dang-ky-cap-nhat-lich-lam-viec.md) |
 | 2.2 Xem lịch tuần và lịch sử | [11](11-xem-lich-tuan-va-lich-su.md) |
-| 2.3 Xem chi tiết và hủy ca | [06](06-huy-ca-lam-viec.md) |
+| 2.3 Chốt lịch sử làm việc tự động vào 17:30 | [06](06-chot-lich-su-lam-viec-tu-dong.md) |
 | 2.4 Xem lịch tổng hợp | [07](07-xem-lich-lam-viec-tong-hop.md) |
 | 2.5 Xem chi tiết ca và hồ sơ CTV | [12](12-xem-chi-tiet-ca-va-ho-so-ctv.md) |
 
