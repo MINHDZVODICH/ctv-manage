@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 
-process.env.DATABASE_URL ??= 'file:./dev.db';
+process.env.DATABASE_URL ??= 'postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage?schema=public';
 
 const prisma = new PrismaClient();
 
@@ -31,11 +31,9 @@ function sampleDistinct<T>(arr: readonly T[] | T[], count: number): T[] {
 
 async function cleanDatabase() {
   console.log('🧹 Cleaning database before seeding...');
-  await prisma.workHistory.deleteMany();
-  await prisma.shiftAssignment.deleteMany();
+  await prisma.history.deleteMany();
   await prisma.shift.deleteMany();
-  await prisma.schedulePatternSlot.deleteMany();
-  await prisma.scheduleRegistration.deleteMany();
+  await prisma.schedule.deleteMany();
   await prisma.accountFile.deleteMany();
   await prisma.registrationRequestFile.deleteMany();
   await prisma.fileAsset.deleteMany();
@@ -216,7 +214,6 @@ async function main() {
 
   const now = new Date();
   const currentMonday = getMonday(now);
-  const registrationEndDate = addDays(currentMonday, 30);
 
   // Define possible pattern slots combinations
   const allPossibleSlots: { weekday: number; period: 'MORNING' | 'AFTERNOON' }[] = [];
@@ -234,16 +231,13 @@ async function main() {
     const slotCount = 3 + (i % 3); // 3 to 5 slots
     const chosenSlots = sampleDistinct(allPossibleSlots, slotCount);
 
-    // Create ScheduleRegistration
-    const registration = await prisma.scheduleRegistration.create({
+    // Create Schedule with Shifts
+    await prisma.schedule.create({
       data: {
         accountId: ctv.id,
-        startDate: currentMonday,
-        endDate: registrationEndDate,
         roomCode: assignedRoom,
-        status: 'ACTIVE',
         version: 1,
-        patternSlots: {
+        shifts: {
           create: chosenSlots.map((s) => ({
             weekday: s.weekday,
             period: s.period,
@@ -252,57 +246,7 @@ async function main() {
       },
     });
 
-    // Populate current & future shifts and shift assignments from start to end date
-    for (let dayOffset = 0; dayOffset <= 30; dayOffset++) {
-      const targetDate = addDays(currentMonday, dayOffset);
-      const jsDay = targetDate.getUTCDay();
-      const weekdayIso = jsDay === 0 ? 7 : jsDay;
-
-      // Only Monday - Friday
-      if (weekdayIso >= 1 && weekdayIso <= 5) {
-        const matchingSlots = chosenSlots.filter((s) => s.weekday === weekdayIso);
-
-        for (const slot of matchingSlots) {
-          // Find or create Shift
-          const shift = await prisma.shift.upsert({
-            where: {
-              workDate_period: {
-                workDate: targetDate,
-                period: slot.period,
-              },
-            },
-            create: {
-              workDate: targetDate,
-              period: slot.period,
-            },
-            update: {},
-          });
-
-          // Create ShiftAssignment
-          await prisma.shiftAssignment.upsert({
-            where: {
-              shiftId_accountId: {
-                shiftId: shift.id,
-                accountId: ctv.id,
-              },
-            },
-            create: {
-              shiftId: shift.id,
-              accountId: ctv.id,
-              registrationId: registration.id,
-              roomCode: assignedRoom,
-              status: 'ACTIVE',
-            },
-            update: {
-              status: 'ACTIVE',
-              roomCode: assignedRoom,
-            },
-          });
-        }
-      }
-    }
-
-    // Generate WorkHistory over the past 4 weeks (28 days back)
+    // Generate History over the past 4 weeks (28 days back)
     for (let pastDays = 28; pastDays >= 1; pastDays--) {
       const pastDate = addDays(currentMonday, -pastDays);
       const jsDay = pastDate.getUTCDay();
@@ -322,7 +266,7 @@ async function main() {
           }
 
           for (const period of periodsToWork) {
-            await prisma.workHistory.upsert({
+            await prisma.history.upsert({
               where: {
                 accountId_workDate_period: {
                   accountId: ctv.id,
@@ -336,7 +280,7 @@ async function main() {
                 period,
                 roomCode: assignedRoom,
                 status: 'COMPLETED',
-                recordedAt: new Date(pastDate.getTime() + 17 * 3600 * 1000),
+                recordedAt: new Date(pastDate.getTime() + 17 * 3600 * 1000 + 30 * 60 * 1000),
               },
               update: {},
             });
@@ -398,7 +342,7 @@ async function main() {
   acceptanceAccounts.forEach((a) => {
     console.log(`   - ${a.email} [${a.role}] (${a.status}) - ${a.displayName}`);
   });
-  console.log('\n✨ All CTVs have active schedule registrations, shift assignments, and historical records.');
+  console.log('\n✨ All CTVs have active schedules, shifts, and historical records.');
   console.log('======================================================\n');
 }
 

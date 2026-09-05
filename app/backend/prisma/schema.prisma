@@ -3,41 +3,40 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Enums represented as Strings with constraints in application layer (SQLite has no native enum)
+// Domain values remain Strings so the migration preserves existing data and API contracts.
 
 model Account {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  passwordHash        String
-  role                String // ADMIN | CTV
-  status              String // ACTIVE | DISABLED
-  version             Int       @default(1)
-  mustChangePassword  Boolean   @default(false)
-  displayName         String
-  phone               String?
-  ctvCode             String?   @unique
-  dateOfBirth         DateTime?
-  gender              String?
-  address             String?
-  adminNotes          String?
-  joinedAt            DateTime  @default(now())
-  lastLoginAt         DateTime?
-  passwordChangedAt   DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  deletedAt           DateTime?
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  role               String // ADMIN | CTV
+  status             String // ACTIVE | DISABLED
+  version            Int       @default(1)
+  mustChangePassword Boolean   @default(false)
+  displayName        String
+  phone              String?
+  ctvCode            String?   @unique
+  dateOfBirth        DateTime?
+  gender             String?
+  address            String?
+  adminNotes         String?
+  joinedAt           DateTime  @default(now())
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
-  sessions              Session[]
-  accountFiles          AccountFile[]
-  scheduleRegistrations ScheduleRegistration[]
-  shiftAssignments      ShiftAssignment[]
-  workHistories         WorkHistory[]
-  reviewedRequests      RegistrationRequest[] @relation("ReviewedBy")
-  approvedRequests      RegistrationRequest[] @relation("ApprovedAccount")
+  sessions         Session[]
+  accountFiles     AccountFile[]
+  schedule         Schedule?
+  histories        History[]
+  reviewedRequests RegistrationRequest[] @relation("ReviewedBy")
+  approvedRequests RegistrationRequest[] @relation("ApprovedAccount")
 
   @@index([status, deletedAt])
 }
@@ -59,21 +58,21 @@ model Session {
 }
 
 model RegistrationRequest {
-  id                 String    @id @default(cuid())
-  email              String
-  passwordHash       String?
-  displayName        String
-  phone              String?
-  dateOfBirth        DateTime?
-  gender             String?
-  address            String?
-  status             String // PENDING | APPROVED | REJECTED
-  rejectionReason    String?
-  reviewedById       String?
-  approvedAccountId  String?
-  submittedAt        DateTime  @default(now())
-  reviewedAt         DateTime?
-  updatedAt          DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  email             String
+  passwordHash      String?
+  displayName       String
+  phone             String?
+  dateOfBirth       DateTime?
+  gender            String?
+  address           String?
+  status            String // PENDING | APPROVED | REJECTED
+  rejectionReason   String?
+  reviewedById      String?
+  approvedAccountId String?
+  submittedAt       DateTime  @default(now())
+  reviewedAt        DateTime?
+  updatedAt         DateTime  @updatedAt
 
   reviewedBy      Account? @relation("ReviewedBy", fields: [reviewedById], references: [id])
   approvedAccount Account? @relation("ApprovedAccount", fields: [approvedAccountId], references: [id])
@@ -129,80 +128,39 @@ model AccountFile {
   @@index([accountId, category, deletedAt])
 }
 
-model ScheduleRegistration {
-  id         String    @id @default(cuid())
-  accountId  String
-  startDate  DateTime 
-  endDate    DateTime 
-  timeZone   String    @default("Asia/Bangkok")
-  roomCode   String // ROOM_1..4
-  version    Int       @default(1)
-  status     String // ACTIVE | CANCELLED | EXPIRED
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  cancelledAt DateTime?
-
-  account     Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  patternSlots SchedulePatternSlot[]
-  assignments  ShiftAssignment[]
-
-  @@index([accountId, status, startDate, endDate])
-}
-
-model SchedulePatternSlot {
-  registrationId String
-  weekday        Int // 1..5
-  period         String // MORNING | AFTERNOON
-
-  registration ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-
-  @@id([registrationId, weekday, period])
-}
-
-model Shift {
+model Schedule {
   id        String   @id @default(cuid())
-  workDate  DateTime
-  period    String // MORNING | AFTERNOON
+  accountId String   @unique
+  roomCode  String   // ROOM_1..4
+  version   Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignments ShiftAssignment[]
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  shifts  Shift[]
 
-  @@unique([workDate, period])
+  @@index([accountId])
 }
 
-model ShiftAssignment {
-  id               String    @id @default(cuid())
-  shiftId          String
-  accountId        String
-  registrationId   String
-  roomCode         String
-  status           String // ACTIVE | CANCELLED
-  assignedAt       DateTime  @default(now())
-  cancelledAt      DateTime?
-  cancellationReason String?
-  updatedAt        DateTime  @updatedAt
+model Shift {
+  scheduleId String
+  weekday    Int    // 1..5 (Thứ 2..Thứ 6)
+  period     String // MORNING | AFTERNOON
 
-  shift        Shift                @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  account      Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  registration ScheduleRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
-  @@unique([shiftId, accountId])
-  @@unique([registrationId, shiftId])
-  @@index([accountId, status])
-  @@index([registrationId, status])
+  @@id([scheduleId, weekday, period])
+  @@index([scheduleId])
 }
 
-// Immutable daily snapshots of completed CTV work. Weekly schedule changes do not mutate this table.
-model WorkHistory {
-  id                 String   @id @default(cuid())
-  accountId          String
-  workDate           DateTime
-  period             String // MORNING | AFTERNOON
-  roomCode           String
-  status             String   @default("COMPLETED") // COMPLETED
-  sourceAssignmentId String?  @unique
-  recordedAt         DateTime @default(now())
+model History {
+  id         String   @id @default(cuid())
+  accountId  String
+  workDate   DateTime
+  period     String   // MORNING | AFTERNOON
+  roomCode   String
+  status     String   @default("COMPLETED")
+  recordedAt DateTime @default(now())
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
