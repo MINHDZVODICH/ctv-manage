@@ -53,6 +53,7 @@ Thumbs.db
 # CodeGraph / Playwright MCP
 .codegraph/
 .playwright-mcp/
+.superpowers/
 
 # Auto-generated / local config
 app/backend/uploads/
