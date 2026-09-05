@@ -106,6 +106,25 @@ sequenceDiagram
    - **`shared/utils/`**: Các hàm tiện ích định dạng dữ liệu (`formatters`, `rooms`, `scheduleSelectors`).
    - **`shared/mappers.ts`**: Các hàm chuyển đổi DTO sang ViewModel.
 
+### 2.2 Ranh giới kiến trúc và Cơ chế kiểm tra tự động (Architectural Boundaries & Enforcement)
+Để duy trì tính module hóa, ngăn chặn phụ thuộc vòng và rò rỉ kiến trúc, hệ thống Frontend áp dụng bộ quy tắc ranh giới nhập khẩu (Import Boundaries) được kiểm tra tự động:
+
+1. **Cô lập tầng dùng chung (`SHARED_ISOLATION`)**:
+   - Các module trong `src/shared/**` tuyệt đối **không** được phép import từ `src/features/**` hoặc `src/app/**`.
+   - Tầng dùng chung phải hoàn toàn độc lập với các màn hình nghiệp vụ cụ thể.
+2. **Đóng gói tính năng (`FEATURE_ENCAPSULATION`)**:
+   - Các module thuộc một feature (ví dụ `src/features/schedule/**`) khi cần tương tác với feature khác (ví dụ `src/features/accounts/**`) chỉ được phép import qua root index của feature đó (ví dụ `../accounts` hoặc `@features/accounts`).
+   - Nghiêm cấm import sâu vào các thư mục con hoặc component nội bộ của feature khác (chẳng hạn `../accounts/components/ResetPasswordModal`).
+3. **Cô lập chiều phụ thuộc ứng dụng (`FEATURE_ISOLATION`)**:
+   - Các module trong `src/features/**` tuyệt đối **không** được phép import ngược lên tầng composition root `src/app/**`.
+4. **Chuẩn hóa truy cập mạng (Client API Boundary)**:
+   - Tất cả các component và hook không được gọi trực tiếp `window.fetch`, bắt buộc sử dụng client chuẩn hóa `src/shared/api.ts`.
+
+**Cơ chế thực thi tự động (`npm run check:boundaries`)**:
+- Script tự động hóa `scripts/check-boundaries.mjs` quét toàn bộ cây mã nguồn `src/` bằng TypeScript AST (hoặc Regex fallback) để phát hiện và báo lỗi ngay khi có vi phạm ranh giới.
+- Lệnh được tích hợp vào bộ kiểm thử gate (`check:boundaries`) chạy trước khi build và kiểm thử E2E Playwright.
+- Hỗ trợ chế độ tự kiểm thử qua cờ `--self-test` (`node scripts/check-boundaries.mjs --self-test`) với 100% test case kiểm chứng ranh giới.
+
 ---
 
 ## 3. Luồng xử lý Backend (Backend Request Pipeline)
@@ -288,6 +307,83 @@ erDiagram
 - Toàn bộ các thẻ ca làm việc trên màn hình **Lịch tuần** của CTV, **Lịch sử làm việc** của CTV, và các modal xem chi tiết đều được hiển thị ở chế độ **chỉ đọc (Read-only)** thông qua component huy hiệu ca `ShiftBadge`.
 - Người dùng không thể bấm trực tiếp vào từng ô thẻ để sửa hoặc xóa ca đơn lẻ. Mọi thao tác thay đổi lịch chỉ được thực hiện thông qua luồng biểu mẫu modal "Cập nhật lịch làm việc" với thao tác gửi nguyên vẹn toàn bộ mẫu tuần.
 
+### 5.4 Phân tách dịch vụ nghiệp vụ lịch trình (Modular Service Layer Architecture)
+Sau đợt tái cấu trúc dịch vụ nhằm loại bỏ khối mã đơn khối (monolith), tầng dịch vụ lịch trình (`src/modules/schedule/`) được chia tách thành các module miền chuyên trách theo nguyên lý Single Responsibility (SRP) và mô hình phân tách lệnh-truy vấn (CQRS lightweight):
+
+```mermaid
+flowchart TD
+    subgraph Consumers["Các thành phần tiêu thụ"]
+        Router["schedule.routes.ts"]
+        Controller["schedule.controller.ts"]
+        Job["jobs/schedule-snapshot.job.ts"]
+    end
+
+    subgraph FacadeLayer["Lớp tương thích ngược (Facade)"]
+        Facade["schedule.service.ts\n(Re-exports all methods & types)"]
+    end
+
+    subgraph DomainServices["Tầng dịch vụ miền chuyên trách"]
+        Types["schedule.types.ts\n(Domain types, Constants, Pure Validators)"]
+        CommandSvc["schedule.command.service.ts\n(upsertSchedule, upsertRegistration,\nAdvisory Lock, Optimistic Lock)"]
+        QuerySvc["schedule.query.service.ts\n(getMySchedule, getAccountSchedule,\ngetWeeklySummary, getScheduleSummary, listMyShifts)"]
+        HistorySvc["work-history.service.ts\n(snapshotTodayWorkHistory [17:30 Bangkok],\ngetMyWorkHistory, getWorkHistory)"]
+    end
+
+    subgraph SharedInfra["Hạ tầng & Tiện ích"]
+        PrismaClient["shared/prisma.ts"]
+        TzUtils["shared/timezone.ts"]
+        ErrUtils["shared/errors.ts"]
+    end
+
+    Controller --> Facade
+    Job --> HistorySvc
+    Job -.-> Facade
+    Facade --> CommandSvc
+    Facade --> QuerySvc
+    Facade --> HistorySvc
+    Facade --> Types
+
+    CommandSvc --> Types
+    CommandSvc --> PrismaClient
+    CommandSvc --> ErrUtils
+
+    QuerySvc --> Types
+    QuerySvc --> PrismaClient
+    QuerySvc --> TzUtils
+
+    HistorySvc --> Types
+    HistorySvc --> PrismaClient
+    HistorySvc --> TzUtils
+    HistorySvc --> ErrUtils
+```
+
+1. **`schedule.types.ts` (Domain Types & Pure Validation)**:
+   - Chứa toàn bộ các hằng số miền (`ROOM_CODES: ['ROOM_1'..'ROOM_4']`, `PERIODS: ['MORNING', 'AFTERNOON']`).
+   - Định nghĩa các kiểu DTO và dữ liệu vào (`UpsertScheduleInput`, `Slot`, `Period`, `RoomCode`).
+   - Cung cấp các hàm kiểm thực thuần khiết không phụ thuộc I/O: `validateScheduleInput` (kiểm tra weekday 1..5, period, roomCode), `dedupeSlots` (khử trùng ca), `isValidYmd` và `monthRangeToUtcDates`.
+2. **`schedule.command.service.ts` (State Mutations & Concurrency)**:
+   - Đảm nhiệm toàn bộ tác vụ thay đổi trạng thái: `upsertSchedule` và `upsertRegistration`.
+   - Thực thi cơ chế khóa cố vấn cấp giao dịch của PostgreSQL:
+     ```sql
+     SELECT pg_advisory_xact_lock(hashtext(:accountId))
+     ```
+   - Kiểm soát đồng thời lạc quan (Optimistic Concurrency Control) dựa trên `expectedVersion`.
+   - Đảm bảo tính nguyên tử tuyệt đối (ACID Transaction) khi cập nhật thông tin lịch và thay thế danh sách ca `Shift` liên kết.
+3. **`schedule.query.service.ts` (Read-only Projections & Aggregations)**:
+   - Đảm nhiệm toàn bộ các truy vấn đọc: `getMySchedule`, `getMyRegistration`, `getAccountSchedule`, `getWeeklySummary`, `getScheduleSummary`, `listMyShifts`, `getShiftForUser`.
+   - Tổng hợp ma trận ca theo buồng phòng (`WeeklyCellDto`), gom nhóm CTV theo từng ô ca và xác định thông tin ca trực.
+4. **`work-history.service.ts` (Immutable History & Snapshot Engine)**:
+   - Chịu trách nhiệm về lịch sử làm việc bất biến và tiến trình snapshot: `snapshotTodayWorkHistory`, `getMyWorkHistory`, `getWorkHistory`.
+   - Thực thi nghiêm ngặt mốc chốt ca **17:30 Asia/Bangkok** (10:30 UTC):
+     - Bỏ qua nếu chưa tới 17:30 Bangkok (`BEFORE_CUTOFF`).
+     - Bỏ qua nếu là Thứ 7 hoặc Chủ Nhật (`WEEKEND`).
+     - Chỉ chốt ca ngày hôm nay (`todayUtc`), không tự ý backfill ngày cũ.
+     - Sử dụng `skipDuplicates: true` đảm bảo tính lũy kế (idempotence) tuyệt đối.
+   - Trả về dữ liệu lịch sử theo tháng dạng danh sách phẳng (`MyWorkHistoryEntryDto`) hoặc ma trận buồng phòng (`WorkHistoryCellDto`).
+5. **`schedule.service.ts` (Backward-Compatibility Facade)**:
+   - Đóng vai trò lớp facade mỏng, re-export toàn bộ types, constants, command functions, query functions và history functions.
+   - Đảm bảo 100% khả năng tương thích ngược (Zero-breakage) cho toàn bộ Controller, background job và bộ test hiện có.
+
 ---
 
 ## 6. Kiến trúc Quản lý Tệp riêng tư (Private File Architecture)
@@ -392,9 +488,13 @@ E:/CTV_Manage/
 │   │   │   │   │   ├── registration.routes.ts
 │   │   │   │   │   └── registration.service.ts
 │   │   │   │   ├── schedule/
+│   │   │   │   │   ├── schedule.command.service.ts
 │   │   │   │   │   ├── schedule.controller.ts
+│   │   │   │   │   ├── schedule.query.service.ts
 │   │   │   │   │   ├── schedule.routes.ts
-│   │   │   │   │   └── schedule.service.ts
+│   │   │   │   │   ├── schedule.service.ts
+│   │   │   │   │   ├── schedule.types.ts
+│   │   │   │   │   └── work-history.service.ts
 │   │   │   │   └── users/
 │   │   │   │       ├── users.controller.ts
 │   │   │   │       ├── users.routes.ts
@@ -419,6 +519,8 @@ E:/CTV_Manage/
 │       │   ├── global-setup.ts
 │       │   ├── history-refresh.spec.ts
 │       │   └── registration.spec.ts
+│       ├── scripts/
+│       │   └── check-boundaries.mjs
 │       ├── src/
 │       │   ├── app/
 │       │   │   └── App.tsx
@@ -433,7 +535,7 @@ E:/CTV_Manage/
 │       │   │   │   ├── ResetPasswordModal.tsx
 │       │   │   │   ├── SettingsModal.tsx
 │       │   │   │   ├── ViewAccountDetailModal.tsx
-│       │   │   └── ViewRequestModal.tsx
+│       │   │   │   └── ViewRequestModal.tsx
 │       │   │   ├── Navigation/
 │       │   │   │   ├── Sidebar.tsx
 │       │   │   │   └── TopBar.tsx
@@ -480,10 +582,18 @@ E:/CTV_Manage/
 ## 9. Quy tắc phụ thuộc hệ thống (System Dependency Invariants)
 
 1. **Frontend**:
-   - Thành phần giao diện dùng chung (`shared/*`) không được phép phụ thuộc ngược vào các màn hình cụ thể (`components/Screens/*`).
-   - Mọi tương tác mạng phải thông qua `shared/api.ts`, không gọi trực tiếp `window.fetch` tự do trong các component.
+   - **Cô lập tầng dùng chung (`SHARED_ISOLATION`)**: Thành phần dùng chung (`shared/*`) không được phép phụ thuộc ngược vào các tính năng (`features/*`) hoặc luồng ứng dụng (`app/*`).
+   - **Đóng gói tính năng (`FEATURE_ENCAPSULATION`)**: Giao tiếp giữa các tính năng khác nhau (`features/<featA>` sang `features/<featB>`) chỉ được thông qua root index, nghiêm cấm import sâu vào các thư mục hoặc thành phần nội bộ.
+   - **Cô lập chiều phụ thuộc ứng dụng (`FEATURE_ISOLATION`)**: Các tính năng (`features/*`) không được import ngược lên tầng `app/*`.
+   - **Chuẩn hóa truy cập mạng**: Mọi tương tác mạng phải thông qua client chuẩn hóa `shared/api.ts`, không gọi trực tiếp `window.fetch` tự do trong các component.
+   - **Thực thi tự động**: Quy tắc kiến trúc được kiểm tra và bảo đảm liên tục bằng script `npm run check:boundaries` (`scripts/check-boundaries.mjs`).
 2. **Backend**:
-   - `Controller` chỉ đảm nhận tiếp nhận request, kiểm tra cú pháp, ủy quyền gọi `Service` và trả response; không được trực tiếp truy vấn cơ sở dữ liệu qua `prisma`.
+   - **Phân tách tầng Controller & Service**: `Controller` chỉ đảm nhận tiếp nhận request, kiểm tra cú pháp (Zod validation), ủy quyền gọi `Service` và trả response; không được trực tiếp truy vấn cơ sở dữ liệu qua `prisma`.
+   - **Phân tách trách nhiệm miền nghiệp vụ (Modular Services & CQRS lightweight)**:
+     - Nghiệp vụ ghi và biến đổi dữ liệu (Command) được tập trung tại `schedule.command.service.ts` với giao dịch và khóa cố vấn `pg_advisory_xact_lock`.
+     - Nghiệp vụ đọc và tổng hợp dữ liệu (Query) được tách biệt trong `schedule.query.service.ts`.
+     - Nghiệp vụ chốt lịch sử ca và snapshot bất biến được xử lý độc lập trong `work-history.service.ts`.
+     - Tầng Facade (`schedule.service.ts`) chỉ thực hiện re-export, bảo toàn tính tương thích ngược tuyệt đối.
    - `Service` là nơi duy nhất sở hữu truy vấn `prisma` và đảm bảo tính toàn vẹn nghiệp vụ.
    - `Middleware` độc lập với nghiệp vụ cụ thể, chỉ xử lý ngữ cảnh an toàn (phiên, vai trò, xử lý lỗi tập trung).
    - Cơ sở dữ liệu quan hệ PostgreSQL là nguồn chân lý duy nhất cho toàn bộ dữ liệu nghiệp vụ của hệ thống.
