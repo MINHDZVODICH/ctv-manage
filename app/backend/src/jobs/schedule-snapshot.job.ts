@@ -1,4 +1,4 @@
-import { snapshotTodayWorkHistory } from '../modules/schedule/schedule.service.js';
+import { snapshotTodayWorkHistory } from '../modules/schedule/work-history.service.js';
 import { logger } from '../shared/logger.js';
 
 export interface ScheduleSnapshotJobController {
