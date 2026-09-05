@@ -1,50 +1,33 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
-
+import { config } from './config.js';
 import { createApp } from './app.js';
-import { snapshotTodayWorkHistory } from './modules/schedule/schedule.service.js';
+import { startScheduleSnapshotJob } from './jobs/schedule-snapshot.job.js';
+import { prisma } from './shared/prisma.js';
+import { logger } from './shared/logger.js';
 
-const PORT = Number(process.env.PORT ?? 4000);
-const HOST = process.env.HOST ?? '0.0.0.0';
-createApp().listen(PORT, HOST, () => {
-  console.log(`Backend server listening on http://${HOST}:${PORT}`);
+const PORT = config.PORT;
+const HOST = config.HOST;
+
+const app = createApp();
+const server = app.listen(PORT, HOST, () => {
+  logger.info(`Backend server listening on http://${HOST}:${PORT}`);
 });
 
-const syncCompletedWork = () => {
-  void snapshotTodayWorkHistory().catch((error: unknown) => {
-    console.error('Failed to snapshot today work history', error);
+const snapshotJob = startScheduleSnapshotJob();
+
+const shutdown = async (signal: string) => {
+  logger.info(`Received ${signal}, shutting down gracefully...`);
+  snapshotJob.stop();
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      logger.info('Database disconnected cleanly');
+      process.exit(0);
+    } catch (err) {
+      logger.error({ err }, 'Error during database disconnect');
+      process.exit(1);
+    }
   });
 };
 
-// Run snapshot once on startup (e.g. if server restarts after 17:30 Bangkok)
-syncCompletedWork();
-
-// Schedule daily snapshot at exact 17:30 Asia/Bangkok (UTC+7 -> 10:30 UTC)
-function scheduleNextSnapshot() {
-  const now = new Date();
-  const targetUtc = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      10,
-      30,
-      0,
-      0,
-    ),
-  );
-
-  if (now.getTime() >= targetUtc.getTime()) {
-    targetUtc.setUTCDate(targetUtc.getUTCDate() + 1);
-  }
-
-  const delayMs = targetUtc.getTime() - now.getTime();
-  const timer = setTimeout(() => {
-    syncCompletedWork();
-    scheduleNextSnapshot();
-  }, delayMs);
-  timer.unref();
-}
-
-scheduleNextSnapshot();
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));

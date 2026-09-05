@@ -2,8 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
 import * as filesService from './files.service.js';
 import { Errors } from '../../shared/errors.js';
-import { getStoragePath, streamFile } from '../../shared/fileStorage.js';
-import fs from 'node:fs';
+import { fileExists, streamFile } from '../../shared/fileStorage.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const upload = multer({
@@ -19,7 +18,7 @@ function parseCategory(raw: string): filesService.FileCategory {
 }
 
 function requireUser(req: Request) {
-  const user = (req as any).user as { id: string; role: string } | undefined;
+  const user = req.user;
   if (!user) throw Errors.unauthorized();
   return user;
 }
@@ -31,8 +30,7 @@ export async function getContent(req: Request, res: Response, next: NextFunction
     const { fileId } = req.params;
     if (!fileId) throw Errors.badRequest('INVALID_FILE_ID', 'Thiếu fileId');
     const info = await filesService.authorizeFile(user.id, user.role, fileId);
-    const fullPath = getStoragePath(info.storageKey);
-    if (!fs.existsSync(fullPath)) {
+    if (!(await fileExists(info.storageKey))) {
       throw Errors.notFound('Tệp không tồn tại trên hệ thống lưu trữ');
     }
     res.setHeader('Content-Type', info.mimeType);

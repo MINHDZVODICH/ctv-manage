@@ -62,7 +62,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
 export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = (req as any).cookies?.[COOKIE_NAME] as string | undefined;
+    const token = req.cookies?.[COOKIE_NAME];
     await authService.revokeCurrentSession(token);
     res.clearCookie(COOKIE_NAME, clearCookieOptions());
     // Also set cookie with clear options to ensure removal
@@ -75,7 +75,7 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) throw Errors.unauthorized();
 
     const account = await prisma.account.findUnique({

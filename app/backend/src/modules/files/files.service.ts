@@ -29,14 +29,14 @@ export function isFileCategory(v: string): v is FileCategory {
 }
 
 export async function authorizeFile(actorId: string, actorRole: string, fileId: string) {
-  const asset = await (prisma as any).fileAsset.findFirst({
+  const asset = await prisma.fileAsset.findFirst({
     where: { id: fileId, state: { in: ['ACTIVE', 'STAGED'] } },
   });
   if (!asset) throw Errors.notFound('Không tìm thấy tệp');
 
   // Account owners can only read their own active file. Admins can additionally
   // inspect files attached to a registration request while it is still staged.
-  const accountLink = await (prisma as any).accountFile.findFirst({
+  const accountLink = await prisma.accountFile.findFirst({
     where: {
       fileId,
       deletedAt: null,
@@ -46,7 +46,7 @@ export async function authorizeFile(actorId: string, actorRole: string, fileId: 
   });
   const registrationLink =
     actorRole === 'ADMIN'
-      ? await (prisma as any).registrationRequestFile.findFirst({
+      ? await prisma.registrationRequestFile.findFirst({
           where: { fileId },
           select: { requestId: true },
         })
@@ -67,10 +67,11 @@ export async function authorizeFile(actorId: string, actorRole: string, fileId: 
 }
 
 export async function uploadFileForAccount(targetAccountId: string, category: FileCategory, file: Express.Multer.File) {
-  const account = await (prisma as any).account.findFirst({
+  const account = await prisma.account.findFirst({
     where: { id: targetAccountId, deletedAt: null },
     select: { id: true },
   });
+
   if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
   if (!ALLOWED_MIMES[category].includes(file.mimetype)) {
@@ -81,11 +82,11 @@ export async function uploadFileForAccount(targetAccountId: string, category: Fi
   const fileAssetId = generateCuid();
   const storageKey = buildStorageKey(file.originalname);
 
-  saveBufferToFile(file.buffer, storageKey);
+  await saveBufferToFile(file.buffer, storageKey);
 
   const now = new Date();
   try {
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx) => {
       // Soft-delete previous active file(s) in the same category for this account
       await tx.accountFile.updateMany({
         where: { accountId: targetAccountId, category, deletedAt: null },
@@ -108,7 +109,7 @@ export async function uploadFileForAccount(targetAccountId: string, category: Fi
     });
   } catch (err) {
     try {
-      deleteFile(storageKey);
+      await deleteFile(storageKey);
     } catch (cleanupErr) {
       logger.warn({ cleanupErr, storageKey }, 'Failed to cleanup file after uploadFileForAccount failure');
     }
@@ -125,12 +126,12 @@ export async function uploadFileForAccount(targetAccountId: string, category: Fi
 }
 
 export async function deleteFileForAccount(targetAccountId: string, category: FileCategory) {
-  const existing = await (prisma as any).accountFile.findFirst({
+  const existing = await prisma.accountFile.findFirst({
     where: { accountId: targetAccountId, category, deletedAt: null },
   });
   if (!existing) throw Errors.notFound('Không tìm thấy tệp');
 
-  await (prisma as any).accountFile.update({
+  await prisma.accountFile.update({
     where: { accountId_fileId: { accountId: targetAccountId, fileId: existing.fileId } },
     data: { deletedAt: new Date() },
   });

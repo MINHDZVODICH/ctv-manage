@@ -16,10 +16,10 @@ fileRouter.get('/:fileId/content', auth, filesController.getContent);
 
 // Mounted at /api/v1/users/me/files
 export const myFileRouter = Router();
-myFileRouter.put('/:category', auth, filesController.putMyFile as any);
+myFileRouter.put('/:category', auth, ...filesController.putMyFile);
 myFileRouter.delete('/:category', auth, filesController.deleteMyFile);
 
 // Mounted at /api/v1/accounts/:accountId/files  (mergeParams to read parent :accountId)
 export const accountFileRouter = Router({ mergeParams: true });
-accountFileRouter.put('/:category', auth, requireRole('ADMIN'), filesController.putAccountFile as any);
+accountFileRouter.put('/:category', auth, requireRole('ADMIN'), ...filesController.putAccountFile);
 accountFileRouter.delete('/:category', auth, requireRole('ADMIN'), filesController.deleteAccountFile);

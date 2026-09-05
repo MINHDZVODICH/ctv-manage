@@ -115,7 +115,7 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
   const writtenKeys: string[] = [];
   try {
     for (const e of entries) {
-      saveBufferToFile(e.file.buffer, e.storageKey);
+      await saveBufferToFile(e.file.buffer, e.storageKey);
       writtenKeys.push(e.storageKey);
     }
 
@@ -155,7 +155,7 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
   } catch (err) {
     for (const key of writtenKeys) {
       try {
-        deleteFile(key);
+        await deleteFile(key);
       } catch (cleanupErr) {
         logger.warn({ cleanupErr, key }, "Failed to cleanup uploaded file after createRequest failure");
       }
@@ -197,7 +197,7 @@ export async function listPending({ q, page = 1, pageSize = 20, status = "PENDIN
 async function generateCtvCode(tx: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `CTV-${year}-`;
-  const last = await (tx as any).account.findFirst({
+  const last = await tx.account.findFirst({
     where: { ctvCode: { startsWith: prefix } },
     orderBy: { ctvCode: "desc" },
     select: { ctvCode: true },
@@ -249,7 +249,7 @@ export async function decide(
   }
   // Check files still exist on disk
   for (const rf of request.files) {
-    if (!fileExists(rf.fileAsset.storageKey)) {
+    if (!(await fileExists(rf.fileAsset.storageKey))) {
       throw Errors.conflict("FILES_MISSING", "Tệp đính kèm không còn tồn tại, không thể duyệt");
     }
   }
@@ -258,13 +258,13 @@ export async function decide(
     const result = await prisma.$transaction(async (tx) => {
       const ctvCode = await generateCtvCode(tx);
 
-      const existingDeleted = await (tx as any).account.findFirst({
+      const existingDeleted = await tx.account.findFirst({
         where: { email: request.email, deletedAt: { not: null } },
       });
 
       let account;
       if (existingDeleted) {
-        account = await (tx as any).account.update({
+        account = await tx.account.update({
           where: { id: existingDeleted.id },
           data: {
             passwordHash: request.passwordHash as string,
@@ -282,7 +282,7 @@ export async function decide(
           },
         });
       } else {
-        account = await (tx as any).account.create({
+        account = await tx.account.create({
           data: {
             email: request.email,
             passwordHash: request.passwordHash as string,
@@ -302,17 +302,17 @@ export async function decide(
 
       if (request.files.length > 0) {
         for (const rf of request.files) {
-          await (tx as any).accountFile.create({
+          await tx.accountFile.create({
             data: { accountId: account.id, fileId: rf.fileId, category: rf.category },
           });
         }
-        await (tx as any).fileAsset.updateMany({
+        await tx.fileAsset.updateMany({
           where: { id: { in: request.files.map((rf) => rf.fileId) }, state: { not: "ACTIVE" } },
           data: { state: "ACTIVE" },
         });
       }
 
-      const updatedRequest = await (tx as any).registrationRequest.update({
+      const updatedRequest = await tx.registrationRequest.update({
         where: { id: requestId },
         data: {
           status: "APPROVED",

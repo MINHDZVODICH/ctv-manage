@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/prisma.js';
+import type { Schedule } from '@prisma/client';
 import { Errors } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
@@ -11,40 +12,20 @@ export type RoomCode = (typeof ROOM_CODES)[number];
 export const PERIODS = ['MORNING', 'AFTERNOON'] as const;
 export type Period = (typeof PERIODS)[number];
 
-export function todayInBangkok(): string {
-  // Asia/Bangkok is UTC+7 without DST; use Intl to be correct regardless of host tz
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return fmt.format(new Date()); // YYYY-MM-DD
-}
-
-export function addDays(ymd: string, days: number): string {
-  const d = parseYmdToUtcDate(ymd);
-  d.setUTCDate(d.getUTCDate() + days);
-  return formatUtcDateToYmd(d);
-}
-
-export function parseYmdToUtcDate(ymd: string): Date {
-  // Stored as UTC midnight so comparisons are stable regardless of server tz
-  return new Date(ymd + 'T00:00:00.000Z');
-}
-
-export function formatUtcDateToYmd(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-export function weekdayUtc(d: Date): number {
-  // Monday=1 .. Sunday=7 (ISO weekday)
-  const js = d.getUTCDay(); // 0 Sun .. 6 Sat
-  return js === 0 ? 7 : js;
-}
+export {
+  todayInBangkok,
+  addDays,
+  parseYmdToUtcDate,
+  formatUtcDateToYmd,
+  weekdayUtc,
+} from '../../shared/timezone.js';
+import {
+  todayInBangkok,
+  addDays,
+  parseYmdToUtcDate,
+  formatUtcDateToYmd,
+  weekdayUtc,
+} from '../../shared/timezone.js';
 
 function isValidYmd(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
@@ -196,7 +177,7 @@ export async function upsertSchedule(accountId: string, input: UpsertScheduleInp
       include: { shifts: true },
     });
 
-    let scheduleRecord: any;
+    let scheduleRecord: Schedule;
 
     if (existing) {
       if (input.expectedVersion === undefined) {
@@ -352,7 +333,7 @@ export async function getWeeklySummary() {
   return { cells };
 }
 
-export async function getScheduleSummary(_params?: any) {
+export async function getScheduleSummary(_params?: { month?: string }) {
   return await getWeeklySummary();
 }
 
@@ -543,7 +524,10 @@ export async function getWorkHistory(params: { month: string; accountId?: string
 // Backward-compatible stubs for legacy routes if needed
 // ---------------------------------------------------------------------------
 
-export async function listMyShifts(accountId: string, _params?: any) {
+export async function listMyShifts(
+  accountId: string,
+  _params?: { month?: string; from?: string; to?: string },
+) {
   const schedule = await getMySchedule(accountId);
   if (!schedule) return [];
   return schedule.shifts.map((s, idx) => ({

@@ -15,16 +15,17 @@ import {
   workHistoryRouter,
 } from './modules/schedule/schedule.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { config } from './config.js';
 
 export function createApp() {
   const app = express();
-  const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000,http://localhost:3001')
+  const allowedOrigins = config.CORS_ORIGIN
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  (app as any).use(
-    (cors as any)({
+  app.use(
+    cors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
@@ -35,8 +36,8 @@ export function createApp() {
       credentials: true,
     }),
   );
-  (app as any).use((express as any).json());
-  (app as any).use((cookieParser as any)());
+  app.use(express.json());
+  app.use(cookieParser());
 
   app.get('/api/v1/health', (_req, res) => {
     res.json({ status: 'ok' });

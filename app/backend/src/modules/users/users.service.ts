@@ -1,5 +1,6 @@
 import argon2 from 'argon2';
 import { prisma } from '../../shared/prisma.js';
+import type { Prisma } from '@prisma/client';
 import { AppError, Errors } from '../../shared/errors.js';
 import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
 
@@ -47,23 +48,23 @@ export async function updateMyProfile(
     throw new AppError(409, 'VERSION_CONFLICT', 'Dữ liệu đã được cập nhật bởi phiên khác, vui lòng tải lại');
   }
 
-  const data: Record<string, unknown> = {
+  const data: Prisma.AccountUpdateInput = {
     version: { increment: 1 },
   };
 
-  if (payload.displayName !== undefined) data['displayName'] = payload.displayName;
-  if (payload.phone !== undefined) data['phone'] = payload.phone;
-  if (payload.address !== undefined) data['address'] = payload.address;
-  if (payload.gender !== undefined) data['gender'] = payload.gender;
+  if (payload.displayName !== undefined) data.displayName = payload.displayName;
+  if (payload.phone !== undefined) data.phone = payload.phone;
+  if (payload.address !== undefined) data.address = payload.address;
+  if (payload.gender !== undefined) data.gender = payload.gender;
   if (payload.dateOfBirth !== undefined) {
-    data['dateOfBirth'] = parseAndValidateDateOfBirth(payload.dateOfBirth);
+    data.dateOfBirth = parseAndValidateDateOfBirth(payload.dateOfBirth);
   }
 
   // If expectedVersion provided, use conditional update to ensure atomicity
   if (payload.expectedVersion !== undefined) {
     const updated = await prisma.account.updateMany({
       where: { id: accountId, version: payload.expectedVersion, deletedAt: null },
-      data: data as any,
+      data: data as Prisma.AccountUpdateManyMutationInput,
     });
     if (updated.count === 0) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Version conflict');
@@ -82,7 +83,7 @@ export async function updateMyProfile(
 
   const updated = await prisma.account.update({
     where: { id: accountId },
-    data: data as any,
+    data,
     include: {
       accountFiles: {
         where: { deletedAt: null },

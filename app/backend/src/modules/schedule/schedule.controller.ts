@@ -38,7 +38,7 @@ const getShiftsQuerySchema = z.object({
 
 export async function getMySchedule(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const data = await service.getMySchedule(user.id);
     res.json({ data });
   } catch (e) {
@@ -50,7 +50,7 @@ export const getMyRegistration = getMySchedule;
 
 export async function putMySchedule(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const parsed = putScheduleSchema.parse(req.body);
     const data = await service.upsertSchedule(user.id, parsed);
     res.json({ data });
@@ -114,7 +114,7 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
 
 export async function getMyWorkHistory(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const q = workHistoryQuerySchema.pick({ month: true }).parse(req.query);
     const result = await service.getMyWorkHistory(user.id, q.month);
     res.json({ data: result, ...result });
@@ -139,7 +139,7 @@ export async function getWorkHistory(req: Request, res: Response, next: NextFunc
 
 export async function getMyShifts(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const q = getShiftsQuerySchema.parse(req.query);
     const data = await service.listMyShifts(user.id, q);
     res.json({ data });
@@ -150,7 +150,7 @@ export async function getMyShifts(req: Request, res: Response, next: NextFunctio
 
 export async function getShiftById(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const { shiftId } = req.params;
     const isAdmin = user.role === 'ADMIN';
     const result = await service.getShiftForUser(shiftId, user.id, isAdmin);

@@ -1,24 +1,24 @@
 import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { Errors } from './errors.js';
+import { config } from '../config.js';
 
 /**
  * Base upload directory: app/backend/uploads
  * Backend npm scripts run with app/backend as process.cwd(), in both dev and production.
  */
-const BASE_DIR = process.env.FILE_STORAGE_ROOT
-  ? path.resolve(process.cwd(), process.env.FILE_STORAGE_ROOT)
-  : path.resolve(process.cwd(), 'uploads');
+const BASE_DIR = path.resolve(process.cwd(), config.FILE_STORAGE_ROOT);
 
 export function getBaseDir(): string {
   return BASE_DIR;
 }
 
 /** Ensure the uploads directory (or a sub-directory of it) exists. Returns the absolute dir path. */
-export function ensureUploadDir(subDir?: string): string {
+export async function ensureUploadDir(subDir?: string): Promise<string> {
   const dir = subDir ? path.join(BASE_DIR, subDir) : BASE_DIR;
-  fs.mkdirSync(dir, { recursive: true });
+  await fsPromises.mkdir(dir, { recursive: true });
   return dir;
 }
 
@@ -51,27 +51,30 @@ export function getStoragePath(storageKey: string): string {
   return full;
 }
 
-/** Write a buffer to disk at the given storageKey. Creates parent directories as needed. */
-export function saveBufferToFile(buffer: Buffer, storageKey: string): string {
+/** Write a buffer to disk asynchronously at the given storageKey. Creates parent directories as needed. */
+export async function saveBufferToFile(buffer: Buffer, storageKey: string): Promise<string> {
   const fullPath = getStoragePath(storageKey);
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  fs.writeFileSync(fullPath, buffer);
+  await fsPromises.mkdir(path.dirname(fullPath), { recursive: true });
+  await fsPromises.writeFile(fullPath, buffer);
   return fullPath;
 }
 
-/** Delete a file by storageKey. Ignores ENOENT; best-effort removes the emptied yyyy/MM dir. */
-export function deleteFile(storageKey: string): void {
+/** Delete a file by storageKey asynchronously. Ignores ENOENT; best-effort removes the emptied yyyy/MM dir. */
+export async function deleteFile(storageKey: string): Promise<void> {
   const fullPath = getStoragePath(storageKey);
   try {
-    fs.unlinkSync(fullPath);
+    await fsPromises.unlink(fullPath);
   } catch (e: any) {
     if (e?.code === 'ENOENT') return;
     throw e;
   }
   try {
     const dir = path.dirname(fullPath);
-    if (dir !== BASE_DIR && fs.readdirSync(dir).length === 0) {
-      fs.rmdirSync(dir);
+    if (dir !== BASE_DIR) {
+      const remaining = await fsPromises.readdir(dir);
+      if (remaining.length === 0) {
+        await fsPromises.rmdir(dir);
+      }
     }
   } catch {
     // best effort only
@@ -83,10 +86,11 @@ export function streamFile(storageKey: string): fs.ReadStream {
   return fs.createReadStream(getStoragePath(storageKey));
 }
 
-/** Check whether a file exists on disk for the given storageKey. */
-export function fileExists(storageKey: string): boolean {
+/** Check whether a file exists on disk for the given storageKey asynchronously. */
+export async function fileExists(storageKey: string): Promise<boolean> {
   try {
-    return fs.statSync(getStoragePath(storageKey)).isFile();
+    const stat = await fsPromises.stat(getStoragePath(storageKey));
+    return stat.isFile();
   } catch {
     return false;
   }

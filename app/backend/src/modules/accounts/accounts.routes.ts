@@ -7,16 +7,16 @@ import * as scheduleCtrl from '../schedule/schedule.controller.js';
 export const accountsRouter = Router();
 
 // All routes require ADMIN
-accountsRouter.use(auth as any);
-accountsRouter.use(requireRole('ADMIN') as any);
+accountsRouter.use(auth);
+accountsRouter.use(requireRole('ADMIN'));
 
-accountsRouter.get('/', controller.list as any);
-accountsRouter.get('/:id/schedule', scheduleCtrl.getAccountSchedule as any);
-accountsRouter.get('/:id', controller.getById as any);
-accountsRouter.patch('/:id', controller.patch as any);
-accountsRouter.patch('/:id/notes', controller.patchNotes as any);
-accountsRouter.patch('/:id/status', controller.patchStatus as any);
-accountsRouter.delete('/:id', controller.del as any);
-accountsRouter.post('/:id/password-resets', controller.postPasswordReset as any);
+accountsRouter.get('/', controller.list);
+accountsRouter.get('/:id/schedule', scheduleCtrl.getAccountSchedule);
+accountsRouter.get('/:id', controller.getById);
+accountsRouter.patch('/:id', controller.patch);
+accountsRouter.patch('/:id/notes', controller.patchNotes);
+accountsRouter.patch('/:id/status', controller.patchStatus);
+accountsRouter.delete('/:id', controller.del);
+accountsRouter.post('/:id/password-resets', controller.postPasswordReset);
 
 export default accountsRouter;

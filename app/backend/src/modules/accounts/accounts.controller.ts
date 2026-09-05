@@ -79,7 +79,7 @@ export async function patch(req: Request, res: Response, next: NextFunction) {
     const result = await accountsService.updateAccount(id, {
       displayName: body.displayName,
       phone: body.phone,
-      dateOfBirth: body.dateOfBirth as any,
+      dateOfBirth: body.dateOfBirth,
       gender: body.gender,
       address: body.address,
       expectedVersion: body.expectedVersion,

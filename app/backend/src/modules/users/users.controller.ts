@@ -39,7 +39,7 @@ function toUserDto(account: any) {
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) throw Errors.unauthorized();
     const account = await usersService.getMyProfile(user.id);
     res.json({ user: toUserDto(account) });
@@ -59,7 +59,7 @@ const patchMeSchema = z.object({
 
 export async function patchMe(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) throw Errors.unauthorized();
 
     const parsed = patchMeSchema.safeParse(req.body);
@@ -86,7 +86,7 @@ export async function postPasswordChange(
   next: NextFunction,
 ) {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) throw Errors.unauthorized();
 
     const parsed = passwordChangeSchema.safeParse(req.body);
@@ -95,7 +95,7 @@ export async function postPasswordChange(
       throw Errors.badRequest('VALIDATION_ERROR', msg);
     }
 
-    const sessionId = (req as any).sessionId as string | undefined;
+    const sessionId = req.sessionId;
     await usersService.changePassword(
       user.id,
       sessionId,

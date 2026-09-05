@@ -319,12 +319,13 @@ flowchart TD
 
 ### 6.1 Đặc tả an toàn tệp:
 1. **Phân loại tệp (`category`)**: Hỗ trợ 4 loại danh mục tệp: `AVATAR`, `CCCD_FRONT`, `CCCD_BACK`, `CV`.
-2. **Kiểm tra loại MIME và Magic Bytes**: Không tin cậy phần mở rộng tệp do người dùng gửi lên. Backend đọc các byte đầu tiên (magic numbers) để xác thực chữ ký định dạng thực tế (JPEG, PNG, WebP, PDF).
+2. **Kiểm tra loại MIME và Magic Bytes**: Không tin cậy phần mở rộng tệp do người dùng gửi lên. Backend đọc các byte đầu tiên (magic numbers) để xác thực chữ ký định dạng thực tế (JPEG, PNG, WebP, PDF, DOC/DOCX).
 3. **Giới hạn dung lượng**: Giới hạn tối đa 5MB cho mỗi tệp tải lên.
-4. **Phân tách Metadata và Nội dung**:
+4. **I/O bất đồng bộ hoàn toàn (Async File I/O)**: Toàn bộ thao tác ghi, đọc, kiểm tra tồn tại và xóa tệp (`saveBufferToFile`, `deleteFile`, `fileExists`) đều sử dụng `fs/promises`, loại bỏ 100% việc chặn event loop do synchronous I/O trong request path.
+5. **Phân tách Metadata và Nội dung**:
    - `FileAsset`: Lưu `id`, `storageKey`, `originalName`, `mimeType`, `sizeBytes`, `sha256`, `state` trong PostgreSQL.
-   - `storageKey`: Khóa lưu trữ ngẫu nhiên có tiền tố theo ngày (dạng `category/YYYY-MM-DD/uuid.ext`), không chứa ký tự đặc biệt, ngăn ngừa hoàn toàn nguy cơ Directory Traversal.
-5. **Ủy quyền trước khi tải tệp**: Tuyến `GET /api/v1/files/:fileId/content` bắt buộc xác thực. Quản trị viên (`ADMIN`) có quyền xem mọi tệp; CTV (`CTV`) chỉ được tải tệp nếu tệp đó thuộc sở hữu của tài khoản của họ hoặc đơn đăng ký ban đầu của họ.
+   - `storageKey`: Khóa lưu trữ ngẫu nhiên dạng `yyyy/MM/<cuid>-<originalName>`, ngăn ngừa hoàn toàn nguy cơ Directory Traversal qua hàm `getStoragePath`.
+6. **Ủy quyền trước khi tải tệp**: Tuyến `GET /api/v1/files/:fileId/content` bắt buộc xác thực. Quản trị viên (`ADMIN`) có quyền xem mọi tệp; CTV (`CTV`) chỉ được tải tệp nếu tệp đó thuộc sở hữu của tài khoản của họ hoặc đơn đăng ký ban đầu của họ.
 
 ---
 
@@ -332,13 +333,20 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    AppStart[Backend main.ts khởi động] --> RunOnce[Chạy startup snapshot ngay lập tức\nsyncCompletedWork]
-    RunOnce --> CalcNext[Tính thời gian tới mốc 17:30 Asia/Bangkok kế tiếp]
+    AppStart[Backend main.ts khởi động] --> StartJob[jobs/schedule-snapshot.job.ts: startScheduleSnapshotJob]
+    StartJob --> RunOnce[Chạy startup snapshot ngay lập tức\nrunSnapshot]
+    RunOnce --> CalcNext[getDelayUntilNextBangkok1730: Tính thời gian tới 17:30 Asia/Bangkok kế tiếp]
     CalcNext --> SetTimer[Khởi tạo Timer không chặn: timer.unref]
     SetTimer --> Wait[Đợi đến 17:30 Asia/Bangkok]
     Wait --> ExecJob[Thực thi snapshotTodayWorkHistory]
     ExecJob --> CalcNext
+    AppStart -.-> Shutdown[SIGTERM / SIGINT] --> StopJob[job.stop: Hủy timer & đóng server êm ái]
 ```
+
+### 7.1 Cơ chế thực thi và Quản lý vòng đời:
+- **Module độc lập (`src/jobs/schedule-snapshot.job.ts`)**: Tách biệt hoàn toàn khỏi `main.ts`, cung cấp giao diện điều khiển `{ stop: () => void, triggerNow: () => Promise<void> }`.
+- **Đóng hệ thống êm ái (Graceful Shutdown)**: Lắng nghe tín hiệu `SIGTERM` và `SIGINT`, hủy timer nền, đóng HTTP server và giải phóng kết nối cơ sở dữ liệu Prisma an toàn.
+- **Tiện ích múi giờ tập trung (`src/shared/timezone.ts`)**: Chuẩn hóa toàn bộ chuyển đổi thời gian theo múi giờ `Asia/Bangkok` (UTC+7 không DST).
 
 - **Khôi phục khi khởi động (Startup Recovery)**: Khi máy chủ khởi động lại sau 17:30 Asia/Bangkok, tiến trình gọi ngay `snapshotTodayWorkHistory()` một lần để đảm bảo không bị sót dữ liệu của ngày nếu máy chủ gặp sự cố trong mốc 17:30. Nhờ cơ chế `skipDuplicates: true`, việc chạy lại hoàn toàn an toàn và không gây trùng lặp.
 - **Lập lịch chu kỳ hàng ngày**:

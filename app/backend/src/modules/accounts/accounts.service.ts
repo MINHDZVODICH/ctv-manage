@@ -1,4 +1,5 @@
 import * as argon2 from 'argon2';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
 import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
@@ -170,7 +171,7 @@ export async function updateAccount(accountId: string, payload: UpdateAccountPay
 
   assertVersionMatch(account.version, payload.expectedVersion);
 
-  const data: any = { version: { increment: 1 } };
+  const data: Prisma.AccountUpdateInput = { version: { increment: 1 } };
   if (payload.displayName !== undefined) data.displayName = payload.displayName;
   if (payload.phone !== undefined) data.phone = payload.phone;
   if (payload.gender !== undefined) data.gender = payload.gender;
