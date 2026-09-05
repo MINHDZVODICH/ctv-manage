@@ -46,28 +46,72 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
 test('Mẫu ca làm việc theo tuần mặc định rỗng mỗi khi mở đăng ký', async ({ page, loginAs }) => {
   await loginAs('ctv');
 
-  const openRegistration = page.getByRole('button', {
+  // Đảm bảo ban đầu chưa có lịch
+  await page.evaluate(async () => {
+    await fetch('/api/v1/users/me/schedule', { method: 'DELETE' });
+  });
+  await page.reload();
+
+  const registerBtn = page.getByRole('button', {
     name: 'Đăng ký lịch làm việc',
     exact: true,
   });
-  const dialog = page.getByRole('dialog', { name: 'Đăng ký lịch làm việc' });
-  const patternButtons = dialog.locator('fieldset button');
+  const regDialog = page.getByRole('dialog', { name: 'Đăng ký lịch làm việc' });
+  const patternButtons = regDialog.locator('fieldset button');
 
-  await openRegistration.click();
-  await expect(dialog).toBeVisible();
+  // 1. Khi chưa có lịch, modal mở rỗng
+  await registerBtn.click();
+  await expect(regDialog).toBeVisible();
   await expect(patternButtons).toHaveCount(10);
-  await expect(dialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
-  await expect(dialog.getByText(/thay thế mẫu hiện tại/)).toHaveCount(0);
-  await expect(dialog.getByText(/lặp lại hằng tuần/)).toHaveCount(0);
-  await expect(dialog.getByLabel('Buồng làm việc')).toBeFocused();
+  await expect(regDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
+  await expect(regDialog.getByText(/thay thế mẫu hiện tại/)).toHaveCount(0);
+  await expect(regDialog.getByText(/lặp lại hằng tuần/)).toHaveCount(0);
+  await expect(regDialog.getByLabel('Buồng làm việc')).toBeFocused();
 
-  await dialog.getByRole('button', { name: /Chọn Ca sáng Thứ 2/ }).click();
-  await expect(dialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(1);
-  await dialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+  // Đăng ký lịch: Buồng 1, T2 sáng, T3 chiều
+  await regDialog.getByLabel('Buồng làm việc').selectOption({ label: 'Buồng 1' });
+  await regDialog.getByRole('button', { name: /Chọn Ca sáng Thứ 2/ }).click();
+  await regDialog.getByRole('button', { name: /Chọn Ca chiều Thứ 3/ }).click();
+  await expect(regDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(2);
+  await regDialog.getByRole('button', { name: 'Đăng ký', exact: true }).click();
 
-  await openRegistration.click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(0);
+  await expect(page.getByText('Đăng ký thành công', { exact: true })).toBeVisible();
+  await expect(regDialog).toBeHidden();
+
+  // 2. Khi đã có lịch, nút đổi thành "Cập nhật lịch làm việc" và modal điền sẵn ca đã đăng ký
+  const updateBtn = page.getByRole('button', {
+    name: 'Cập nhật lịch làm việc',
+    exact: true,
+  });
+  await expect(updateBtn).toBeVisible();
+  await updateBtn.click();
+
+  const updateDialog = page.getByRole('dialog', { name: 'Cập nhật lịch làm việc' });
+  await expect(updateDialog).toBeVisible();
+  await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(2);
+  await expect(updateDialog.getByLabel('Buồng làm việc')).toHaveValue('Buồng 1');
+
+  // 3. Bỏ chọn ca T3 chiều, cập nhật buồng sang Buồng 2, và lưu thành công
+  await updateDialog.getByRole('button', { name: /Bỏ chọn Ca chiều Thứ 3/ }).click();
+  await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(1);
+  await updateDialog.getByLabel('Buồng làm việc').selectOption({ label: 'Buồng 2' });
+  await updateDialog.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
+
+  await expect(page.getByText('Cập nhật lịch làm việc thành công', { exact: true })).toBeVisible();
+  await expect(updateDialog).toBeHidden();
+
+  const weeklySchedule = page.getByTestId('weekly-schedule');
+  await expect(weeklySchedule.getByText('Ca Sáng', { exact: true })).toHaveCount(1);
+  await expect(weeklySchedule.getByText('Ca Chiều', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Buồng 2', { exact: true }).first()).toBeVisible();
+
+  // Mở lại để kiểm tra thay đổi được lưu bền vững
+  await updateBtn.click();
+  await expect(updateDialog).toBeVisible();
+  await expect(updateDialog.locator('fieldset button[aria-pressed="true"]')).toHaveCount(1);
+  await expect(updateDialog.getByLabel('Buồng làm việc')).toHaveValue('Buồng 2');
+  await updateDialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+  await expect(updateDialog).toBeHidden();
 });
 
 test('Lịch tuần vẫn hiện assignment khi metadata đăng ký tải lỗi', async ({ page, loginAs }) => {
@@ -107,7 +151,7 @@ test('Lịch tuần không bị sidebar desktop che trên màn hình mobile', as
 
   await expect(page.locator('aside').first()).toBeHidden();
   await expect(page.getByTestId('weekly-schedule')).toBeVisible();
-  await expect(page.getByText('Lịch tuần', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lịch tuần' })).toBeVisible();
   await expect(page.getByText('Lặp lại đến khi bạn cập nhật', { exact: true })).toHaveCount(0);
 });
 

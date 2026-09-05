@@ -20,7 +20,7 @@ async function login(page: Page, role: keyof typeof credentials) {
     await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
   } else {
     await expect(
-      page.getByRole('button', { name: 'Đăng ký lịch làm việc', exact: true }),
+      page.getByRole('button', { name: /(Đăng ký|Cập nhật) lịch làm việc/ }),
     ).toBeVisible();
   }
 }
