@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
+import { optionalAuth } from '../src/middleware/auth.js';
 import { loginCookie, resetDatabase, seedActors, TEST_PASSWORD } from './helpers.js';
 
 const app = createApp();
@@ -73,6 +74,41 @@ describe('authentication, sessions and role boundaries', () => {
       .set('Cookie', adminCookie)
       .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
     expect(adminScheduleWrite.status).toBe(403);
+  });
+
+  test('rejects non-ACTIVE account with 403 ACCOUNT_DISABLED even if session exists', async () => {
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+
+    // Directly disable account in DB without revoking session to test defense-in-depth
+    await prisma.account.update({
+      where: { id: ctv.id },
+      data: { status: 'DISABLED' },
+    });
+
+    const res = await request(app).get('/api/v1/users/me').set('Cookie', ctvCookie);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('ACCOUNT_DISABLED');
+  });
+
+  test('optionalAuth does not attach req.user if account is not ACTIVE', async () => {
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+
+    await prisma.account.update({
+      where: { id: ctv.id },
+      data: { status: 'DISABLED' },
+    });
+
+    const token = ctvCookie.split(';')[0].split('=')[1];
+    const req = { cookies: { ctv_session: token } } as any;
+    let nextCalled = false;
+    await optionalAuth(req, {} as any, () => {
+      nextCalled = true;
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(req.user).toBeUndefined();
   });
 });
 

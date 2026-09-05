@@ -33,8 +33,11 @@ export async function auth(req: Request, _res: Response, next: NextFunction) {
     }
     const account = await prisma.account.findUnique({ where: { id: session.accountId } });
     if (!account || account.deletedAt) throw Errors.unauthorized();
-    if (account.status !== 'ACTIVE' && req.path !== '/api/v1/auth/sessions/current') {
-      // still allow logout
+    if (account.status !== 'ACTIVE') {
+      throw Errors.forbidden(
+        'ACCOUNT_DISABLED',
+        'Tài khoản đã bị vô hiệu hóa',
+      );
     }
     (req as any).user = {
       id: account.id,
@@ -61,7 +64,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     const session = await prisma.session.findUnique({ where: { tokenHash } });
     if (!session || session.revokedAt || session.expiresAt < new Date()) return next();
     const account = await prisma.account.findUnique({ where: { id: session.accountId } });
-    if (!account || account.deletedAt) return next();
+    if (!account || account.deletedAt || account.status !== 'ACTIVE') return next();
     (req as any).user = {
       id: account.id,
       email: account.email,
