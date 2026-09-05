@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssignedCTV, ShiftSlot, UserAccount } from "../../types";
 import * as api from "../../shared/api";
-import { ApiSummaryCell, summaryToSlots } from "../../shared/mappers";
+import { ApiSummaryCell, summaryToSlots, scheduleToPattern } from "../../shared/mappers";
 import { formatRoomLabel, ROOM_OPTIONS, roomLabelToCode } from "../../utils/rooms";
 import { useSystemSettings } from "../../context/SystemSettingsContext";
 
@@ -17,8 +17,7 @@ type CalendarView = "week" | "month";
 type ShiftType = "morning" | "afternoon";
 type WeeklyPattern = Record<number, ShiftType[]>;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_REGISTRATION_DAYS = 60;
+const APP_TIME_ZONE = "Asia/Bangkok";
 
 const WEEKDAYS = [
   { index: 0, short: "T2", label: "Thứ 2" },
@@ -50,13 +49,13 @@ const SHIFT_OPTIONS: Array<{
   },
 ];
 
-const EMPTY_PATTERN: WeeklyPattern = {
+const createEmptyWeeklyPattern = (): WeeklyPattern => ({
   0: [],
   1: [],
   2: [],
   3: [],
   4: [],
-};
+});
 
 const startOfDay = (date: Date) => {
   const result = new Date(date);
@@ -64,8 +63,27 @@ const startOfDay = (date: Date) => {
   return result;
 };
 
-const addDays = (date: Date, amount: number) =>
-  new Date(startOfDay(date).getTime() + amount * DAY_MS);
+const getCurrentCalendarDate = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
+};
+
+const getRegistrationStartDate = (today: Date) => {
+  const start = addDays(today, (8 - today.getDay()) % 7);
+  return toISODate(start);
+};
+
+const addDays = (date: Date, amount: number) => {
+  const result = startOfDay(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+};
 
 const startOfWeek = (date: Date) => {
   const normalized = startOfDay(date);
@@ -90,8 +108,6 @@ const parseISODate = (value: string) => {
 const formatShortDate = (date: Date) =>
   `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-const formatDateWithYear = (date: Date) => `${formatShortDate(date)}/${date.getFullYear()}`;
-
 const formatCalendarDate = (date: Date) => `${date.getDate()}/${date.getMonth() + 1}`;
 
 const formatFullDate = (date: Date) =>
@@ -114,9 +130,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   onReload,
 }) => {
   const { t, language } = useSystemSettings();
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const today = useMemo(() => startOfDay(getCurrentCalendarDate()), []);
   const todayISO = toISODate(today);
   const legacyWeekStart = useMemo(() => startOfWeek(today), [today]);
+  const registrationStartDate = useMemo(() => getRegistrationStartDate(today), [today]);
+  const registrationTriggerRef = useRef<HTMLButtonElement>(null);
+  const registrationDialogRef = useRef<HTMLDivElement>(null);
+  const registrationRoomRef = useRef<HTMLSelectElement>(null);
 
   const [calendarView, setCalendarView] = useState<CalendarView>("week");
   const [calendarDate, setCalendarDate] = useState(today);
@@ -125,49 +145,42 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentRegistrationVersion, setCurrentRegistrationVersion] = useState<number | undefined>(undefined);
 
-  const [startDate, setStartDate] = useState(todayISO);
-  const [endDate, setEndDate] = useState(toISODate(addDays(today, DEFAULT_REGISTRATION_DAYS)));
-  const [weeklyPattern, setWeeklyPattern] = useState<WeeklyPattern>(EMPTY_PATTERN);
+  const [weeklyPattern, setWeeklyPattern] = useState<WeeklyPattern>(createEmptyWeeklyPattern);
+  const [registrationPattern, setRegistrationPattern] =
+    useState<WeeklyPattern>(createEmptyWeeklyPattern);
   const [room, setRoom] = useState<string>(ROOM_OPTIONS[0]);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [historyRetryKey, setHistoryRetryKey] = useState(0);
   const [workContent, setWorkContent] = useState(
     "Hỗ trợ điều phối lịch, kiểm tra dữ liệu và cập nhật tiến độ công việc trong ca.",
   );
 
   const applyRegistration = useCallback((registration: any) => {
-    if (!registration?.id) {
-      setStartDate(todayISO);
-      setEndDate(toISODate(addDays(today, DEFAULT_REGISTRATION_DAYS)));
-      setWeeklyPattern(EMPTY_PATTERN);
+    if (!registration || (!registration.id && !registration.shifts && !registration.patternSlots)) {
+      setWeeklyPattern(createEmptyWeeklyPattern());
       setRoom(ROOM_OPTIONS[0]);
       setCurrentRegistrationVersion(undefined);
       return;
     }
 
-    const nextPattern: WeeklyPattern = { 0: [], 1: [], 2: [], 3: [], 4: [] };
-    for (const slot of registration.patternSlots ?? []) {
-      const dayIndex = Number(slot.weekday) - 1;
-      const shiftType: ShiftType = slot.period === "AFTERNOON" ? "afternoon" : "morning";
-      if (dayIndex >= 0 && dayIndex <= 4 && !nextPattern[dayIndex].includes(shiftType)) {
-        nextPattern[dayIndex].push(shiftType);
-      }
-    }
-
-    setStartDate(registration.startDate || todayISO);
-    setEndDate(
-      registration.endDate || toISODate(addDays(today, DEFAULT_REGISTRATION_DAYS)),
-    );
+    const nextPattern = scheduleToPattern(registration.shifts || registration.patternSlots);
     setWeeklyPattern(nextPattern);
     setRoom(formatRoomLabel(registration.roomCode) || ROOM_OPTIONS[0]);
     setCurrentRegistrationVersion(registration.version);
-  }, [today, todayISO]);
+  }, []);
 
   const loadCurrentRegistration = useCallback(async () => {
-    const response: any = await api.apiGet("/api/v1/users/me/schedule-registration");
-    applyRegistration(response.data ?? response);
+    const response: any = await api.apiGet("/api/v1/users/me/schedule");
+    applyRegistration(response?.data ?? response);
   }, [applyRegistration]);
+
+  const closeRegistration = useCallback((force = false) => {
+    if (isSubmitting && !force) return;
+    setIsRegistrationOpen(false);
+    window.requestAnimationFrame(() => registrationTriggerRef.current?.focus());
+  }, [isSubmitting]);
 
   useEffect(() => {
     void loadCurrentRegistration().catch(() => {
@@ -181,6 +194,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     let cancelled = false;
     setIsHistoryLoading(true);
     setHistoryError("");
+    setHistoryShifts([]);
 
     void api
       .apiGet(`/api/v1/users/me/work-history?month=${month}`)
@@ -199,25 +213,57 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [calendarDate, calendarView]);
+  }, [calendarDate, calendarView, historyRetryKey]);
 
   useEffect(() => {
-    if (!isRegistrationOpen && !selectedShift) return;
+    if (!selectedShift) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setIsRegistrationOpen(false);
       setSelectedShift(null);
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isRegistrationOpen, selectedShift]);
+  }, [selectedShift]);
+
+  useEffect(() => {
+    if (!isRegistrationOpen) return;
+    registrationRoomRef.current?.focus();
+
+    const handleDialogKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRegistration();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        registrationDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleDialogKeyDown);
+    return () => window.removeEventListener("keydown", handleDialogKeyDown);
+  }, [closeRegistration, isRegistrationOpen]);
 
   const resolveShiftDate = (shift: ShiftSlot) =>
     shift.workDate || toISODate(addDays(legacyWeekStart, shift.dayIndex));
 
   const isAssignedToCurrentUser = (shift: ShiftSlot) =>
     (shift.assignedCTVs || []).some(
-      (ctv) => ctv.id === currentUser.id || ctv.name === currentUser.name,
+      (ctv) => ctv.id === currentUser.id,
     );
 
   const myShifts = useMemo(
@@ -231,59 +277,18 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             isAssignedToCurrentUser(shift),
         )
         .sort((a, b) => resolveShiftDate(a).localeCompare(resolveShiftDate(b))),
-    [shifts, currentUser.id, currentUser.name, legacyWeekStart],
+    [shifts, currentUser.id, legacyWeekStart],
   );
 
-  const getMyShift = (date: Date, shiftType: ShiftType) => {
-    const dateISO = toISODate(date);
-    return myShifts.find((shift) => shift.workDate === dateISO && shift.shiftType === shiftType);
-  };
-
-  const getVisibleShift = (date: Date, shiftType: ShiftType) => {
-    const dayIndex = getDayIndex(date);
-    if (!(weeklyPattern[dayIndex] || []).includes(shiftType)) return null;
-
-    return (
-      getMyShift(date, shiftType) || {
-        id: `weekly-pattern-${dayIndex}-${shiftType}`,
-        workDate: toISODate(date),
-        dayIndex,
-        dayName: WEEKDAYS[dayIndex]?.label || "Thứ",
-        dateStr: formatShortDate(date),
-        shiftType,
-        shiftTimeLabel: shiftType === "morning" ? "Ca sáng" : "Ca chiều",
-        status: "Đã đăng ký",
-        allowRegister: true,
-        room,
-        assignedCTVs: [
-          {
-            id: currentUser.id,
-            name: currentUser.name,
-            avatar: currentUser.avatar,
-            initials: currentUser.initials || currentUser.name.slice(0, 2).toUpperCase(),
-            phone: currentUser.phone,
-            cctvCode: currentUser.cctvCode,
-            status: "Đã duyệt",
-            room,
-          },
-        ],
-      }
-    );
-  };
+  const hasVisibleShift = (dayIndex: number, shiftType: ShiftType) =>
+    (weeklyPattern[dayIndex] || []).includes(shiftType);
 
   const getHistoryShift = (date: Date, shiftType: ShiftType) => {
     const dateISO = toISODate(date);
     return historyShifts.find(
-      (shift) =>
-        shift.workDate === dateISO &&
-        shift.shiftType === shiftType &&
-        isAssignedToCurrentUser(shift),
+      (shift) => shift.workDate === dateISO && shift.shiftType === shiftType,
     );
   };
-
-  const weekStart = startOfWeek(calendarDate);
-  const weekDays = Array.from({ length: 5 }, (_, index) => addDays(weekStart, index));
-  const weekRangeLabel = `${formatShortDate(weekDays[0])} - ${formatDateWithYear(weekDays[4])}`;
 
   const monthStart = startOfMonth(calendarDate);
   const monthWeeks: Array<Array<Date | null>> = [];
@@ -307,9 +312,10 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const todayShifts = myShifts.filter((shift) => shift.workDate === todayISO);
 
   const openRegistration = () => {
+    setRegistrationPattern(createEmptyWeeklyPattern());
     setIsRegistrationOpen(true);
     void loadCurrentRegistration().catch(() => {
-      // The already loaded weekly pattern remains available in the modal.
+      onShowToast("Không thể tải lịch đăng ký hiện tại. Vui lòng thử lại trước khi lưu.");
     });
   };
 
@@ -317,12 +323,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     setCalendarDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
   };
 
-  const changeWeek = (amount: number) => {
-    setCalendarDate((current) => addDays(current, amount * 7));
-  };
-
   const togglePattern = (dayIndex: number, shiftType: ShiftType) => {
-    setWeeklyPattern((current) => {
+    setRegistrationPattern((current) => {
       const selectedShifts = current[dayIndex] || [];
       return {
         ...current,
@@ -334,14 +336,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   };
 
   const getFirstRegistrationDate = (dayIndex: number) => {
-    if (!startDate || !endDate) return undefined;
-    const rangeStart = parseISODate(startDate);
-    const rangeEnd = parseISODate(endDate);
-    if (rangeEnd < rangeStart) return undefined;
-
+    const rangeStart = parseISODate(registrationStartDate);
     const offset = (dayIndex - getDayIndex(rangeStart) + 7) % 7;
-    const firstDate = addDays(rangeStart, offset);
-    return firstDate <= rangeEnd ? firstDate : undefined;
+    return addDays(rangeStart, offset);
   };
 
 
@@ -359,17 +356,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     event.preventDefault();
     if (isSubmitting) return;
 
-    const rangeStart = parseISODate(startDate);
-    const rangeEnd = parseISODate(endDate);
-
-    if (rangeEnd < rangeStart) {
-      onShowToast("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
-      return;
-    }
-
     const slots: { weekday: number; period: string }[] = [];
     for (let d = 0; d < 5; d++) {
-      for (const p of weeklyPattern[d] || []) {
+      for (const p of registrationPattern[d] || []) {
         slots.push({ weekday: d + 1, period: p === "morning" ? "MORNING" : "AFTERNOON" });
       }
     }
@@ -387,18 +376,30 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
     setIsSubmitting(true);
     try {
-      const response: any = await api.apiPut("/api/v1/users/me/schedule-registration", {
+      const response: any = await api.apiPut("/api/v1/users/me/schedule", {
         roomCode,
         slots,
         expectedVersion: currentRegistrationVersion,
       });
-      applyRegistration(response.data ?? response);
-      setCalendarDate(today);
+      const savedRegistration = response?.data ?? response;
+      applyRegistration(savedRegistration);
       setCalendarView("week");
-      setIsRegistrationOpen(false);
+      closeRegistration(true);
+      if (onReload) {
+        try {
+          await onReload();
+        } catch {
+          onShowToast("Đã lưu lịch nhưng không thể tải lại Lịch tuần. Vui lòng thử làm mới trang.");
+          return;
+        }
+      }
       onShowToast("Đăng ký thành công");
-      if (onReload) await onReload();
     } catch (err: any) {
+      if (err.code === "VERSION_CONFLICT") {
+        await loadCurrentRegistration().catch(() => undefined);
+        onShowToast("Lịch đã thay đổi ở phiên khác. Dữ liệu mới nhất đã được tải; vui lòng kiểm tra và đăng ký lại.");
+        return;
+      }
       onShowToast(err.message || "Đăng ký lịch thất bại");
     } finally {
       setIsSubmitting(false);
@@ -407,7 +408,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
   const removeCurrentUserFromShift = (shift: ShiftSlot) => {
     const assignedCTVs = (shift.assignedCTVs || []).filter(
-      (ctv) => ctv.id !== currentUser.id && ctv.name !== currentUser.name,
+      (ctv) => ctv.id !== currentUser.id,
     );
 
     return {
@@ -436,7 +437,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       await api.apiDelete(`/api/v1/users/me/shift-assignments/${match.id}`);
       onShowToast(`Đã hủy ${getShiftMeta(selectedShift.shiftType as ShiftType).label.toLowerCase()} ngày ${formatShortDate(parseISODate(selectedShiftDate))}.`);
       setSelectedShift(null);
-      if (onReload) onReload();
+      if (onReload) await onReload();
       else window.location.reload();
     } catch (err: any) {
       onShowToast(err.message || "Hủy ca thất bại");
@@ -462,7 +463,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       await api.apiDelete(`/api/v1/users/me/schedule-registrations/${reg.id}/assignments?weekday=${weekday}&period=${period}&fromDate=${selectedShiftDate}`);
       onShowToast(`Đã hủy ca ${getShiftMeta(selectedShift.shiftType as ShiftType).label.toLowerCase()} định kỳ từ ngày ${formatShortDate(parseISODate(selectedShiftDate))} trở đi.`);
       setSelectedShift(null);
-      if (onReload) onReload();
+      if (onReload) await onReload();
       else window.location.reload();
     } catch (err: any) {
       onShowToast(err.message || "Hủy ca định kỳ thất bại");
@@ -588,6 +589,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             {t("nav_schedule")}
           </div>
           <button
+            ref={registrationTriggerRef}
             type="button"
             onClick={openRegistration}
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent hover:bg-accent-hover px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto dark:focus-visible:ring-offset-slate-900"
@@ -638,7 +640,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
         </div>
 
         {calendarView === "week" ? (
-          <div className="space-y-4 p-4 sm:p-5">
+          <div className="space-y-4 p-4 sm:p-5" data-testid="weekly-schedule">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <span
                 className="material-symbols-outlined text-[22px] text-accent"
@@ -646,7 +648,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               >
                 calendar_view_week
               </span>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{language === "Tiếng Anh" ? "Weekly Schedule" : "Lịch tuần"}</h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{language === "Tiếng Anh" ? "Weekly Schedule" : "Lịch tuần"}</h3>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -665,20 +669,14 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
                 {/* Day Cards */}
                 <div className="grid grid-cols-5 gap-3">
-                  {weekDays.map((date) => {
-                    const dateISO = toISODate(date);
-                    const isToday = dateISO === todayISO;
-                    const morningShift = getVisibleShift(date, "morning");
-                    const afternoonShift = getVisibleShift(date, "afternoon");
+                  {WEEKDAYS.map((weekday) => {
+                    const morningShift = hasVisibleShift(weekday.index, "morning");
+                    const afternoonShift = hasVisibleShift(weekday.index, "afternoon");
 
                     return (
                       <div
-                        key={dateISO}
-                        className={`rounded-2xl border-2 p-3 min-h-[110px] shadow-2xs transition-colors ${
-                          isToday
-                            ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25"
-                            : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-                        }`}
+                        key={weekday.index}
+                        className="min-h-[110px] rounded-2xl border-2 border-slate-200 bg-white p-3 shadow-2xs dark:border-slate-800 dark:bg-slate-900"
                       >
                         <div className="space-y-2">
                           {morningShift ? (
@@ -780,10 +778,18 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             </div>
 
             {historyError && (
-              <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
-                {historyError}
+              <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+                <span>{historyError}</span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryRetryKey((current) => current + 1)}
+                  className="min-h-11 rounded-xl border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900"
+                >
+                  Thử lại
+                </button>
               </div>
             )}
+
 
             <div className="overflow-x-auto">
               <div className="min-w-[700px] space-y-3">
@@ -815,9 +821,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
                         const dateISO = toISODate(date);
                         const isToday = dateISO === todayISO;
-                        const isPast = dateISO < todayISO;
-                        const morningShift = isPast ? getHistoryShift(date, "morning") : null;
-                        const afternoonShift = isPast ? getHistoryShift(date, "afternoon") : null;
+                        const isPastOrToday = dateISO <= todayISO;
+                        const morningShift = isPastOrToday ? getHistoryShift(date, "morning") : null;
+                        const afternoonShift = isPastOrToday ? getHistoryShift(date, "afternoon") : null;
 
                         return (
                           <div
@@ -897,16 +903,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) =>
-            event.target === event.currentTarget && setIsRegistrationOpen(false)
+            event.target === event.currentTarget && closeRegistration()
           }
         >
           <div
+            ref={registrationDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="registration-title"
             className="max-h-[94vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#25262b]"
           >
-            <form onSubmit={handleRegisterSchedule}>
+            <form onSubmit={handleRegisterSchedule} aria-busy={isSubmitting}>
               <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/95 p-5 backdrop-blur dark:border-slate-700 dark:bg-[#25262b]/95">
                 <div>
                   <h3
@@ -918,7 +925,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsRegistrationOpen(false)}
+                  onClick={() => closeRegistration()}
                   disabled={isSubmitting}
                   aria-label="Đóng cửa sổ đăng ký"
                   className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:bg-slate-800"
@@ -939,6 +946,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   </label>
                   <div className="relative">
                     <select
+                      ref={registrationRoomRef}
                       id="modal-room-select"
                       value={room}
                       disabled={isSubmitting}
@@ -993,7 +1001,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                             const firstDate = getFirstRegistrationDate(day.index);
                             const selected =
                               Boolean(firstDate) &&
-                              (weeklyPattern[day.index] || []).includes(shiftOption.type);
+                              (registrationPattern[day.index] || []).includes(shiftOption.type);
                             return (
                               <div
                                 key={day.index}
@@ -1005,7 +1013,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                   disabled={!firstDate || isSubmitting}
                                   aria-pressed={selected}
                                   aria-label={`${selected ? "Bỏ chọn" : "Chọn"} ${shiftOption.label} ${day.label}${firstDate ? `, ngày đầu tiên ${formatCalendarDate(firstDate)}` : ", ngoài khoảng đăng ký"}`}
-                                  className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-300 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-600 ${selected ? "border-blue-700 bg-blue-700 text-white shadow-xs" : "border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:text-blue-300"}`}
+                                  className={[
+                                    "flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600",
+                                    "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-300 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-600",
+                                    selected
+                                      ? "border-blue-700 bg-blue-700 text-white shadow-xs"
+                                      : "border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:text-blue-300",
+                                  ].join(" ")}
                                 >
                                   <span
                                     className="material-symbols-outlined text-[18px]"
@@ -1027,7 +1041,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur sm:flex-row sm:justify-end dark:border-slate-700 dark:bg-[#25262b]/95">
                 <button
                   type="button"
-                  onClick={() => setIsRegistrationOpen(false)}
+                  onClick={() => closeRegistration()}
                   disabled={isSubmitting}
                   className="min-h-11 rounded-xl px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:bg-slate-800"
                 >
