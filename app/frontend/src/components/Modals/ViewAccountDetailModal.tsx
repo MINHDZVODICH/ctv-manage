@@ -2,7 +2,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import { UserAccount, ShiftSlot } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
 import { formatRoomLabel } from "../../utils/rooms";
-import { ApiSummaryCell, summaryToSlots } from "../../shared/mappers";
+import {
+  ApiScheduleData,
+  ScheduleResponse,
+  ApiSummaryCell,
+  summaryToSlots,
+  scheduleToPattern,
+} from "../../shared/mappers";
 import * as api from "../../shared/api";
 
 interface ViewAccountDetailModalProps {
@@ -58,7 +64,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   const [previewImg, setPreviewImg] = useState<{ title: string; url: string } | null>(null);
   const [showWorkHistory, setShowWorkHistory] = useState<boolean>(false);
   const [historyDate, setHistoryDate] = useState<Date>(() => new Date());
-  const [accountScheduleShifts, setAccountScheduleShifts] = useState<ShiftSlot[]>([]);
+  const [accountSchedule, setAccountSchedule] = useState<ApiScheduleData | null>(null);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
@@ -84,42 +90,36 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     setHistoryDate(new Date());
     setHistoryShifts([]);
     setHistoryError("");
+    setAccountSchedule(null);
   }, [account?.id]);
 
   useEffect(() => {
     if (!account || account.role === "Admin") {
-      setAccountScheduleShifts([]);
+      setAccountSchedule(null);
       return;
     }
 
-    const belongsToAccount = (shift: ShiftSlot) =>
-      (shift.assignedCTVs || []).some(
-        (ctv) => ctv.id === account.id || ctv.name === account.name,
-      );
-    setAccountScheduleShifts(shifts.filter(belongsToAccount));
-
-    const weekStart = startOfWeek(new Date());
-    const from = toISODate(weekStart);
-    const to = toISODate(addDays(weekStart, 4));
     let cancelled = false;
 
     void api
-      .apiGet(
-        `/api/v1/schedule-summary?from=${from}&to=${to}&accountId=${encodeURIComponent(account.id)}`,
+      .apiGet<ScheduleResponse | { data: ApiScheduleData | null }>(
+        `/api/v1/accounts/${encodeURIComponent(account.id)}/schedule`,
       )
       .then((response: any) => {
         if (cancelled) return;
-        const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
-        setAccountScheduleShifts(summaryToSlots(cells).filter(belongsToAccount));
+        const data = response?.data !== undefined ? response.data : response;
+        setAccountSchedule(data || null);
       })
       .catch(() => {
-        // Keep the parent snapshot when the focused refresh is unavailable.
+        if (!cancelled) {
+          setAccountSchedule(null);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [account?.id, account?.name, account?.role, shifts]);
+  }, [account?.id, account?.role]);
 
   useEffect(() => {
     if (!showWorkHistory || !account || account.role === "Admin") return;
@@ -269,13 +269,8 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
   const getHistoryShift = (date: Date, shiftType: "morning" | "afternoon") => {
     const dateISO = toISODate(date);
-    if (dateISO >= todayISO) return undefined;
-
     return historyShifts.find(
-      (s) =>
-        s.workDate === dateISO &&
-        s.shiftType === shiftType &&
-        (s.assignedCTVs || []).some((c) => c.id === account.id || c.name === account.name),
+      (s) => s.workDate === dateISO && s.shiftType === shiftType,
     );
   };
 
@@ -297,46 +292,34 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     document.body.removeChild(a);
   };
 
-  // Helper to get shift status for a specific day and shift type
-  const getShiftStatus = (workDate: string, shiftType: "morning" | "afternoon") => {
-    const match = accountScheduleShifts.find(
-      (shift) =>
-        shift.workDate === workDate &&
-        shift.shiftType === shiftType &&
-        (shift.assignedCTVs || []).some(
-          (ctv) => ctv.id === account.id || ctv.name === account.name,
-        ),
-    );
-    if (!match) return "off";
+  const schedulePattern = useMemo(
+    () => scheduleToPattern(accountSchedule?.shifts || []),
+    [accountSchedule],
+  );
 
-    const ctv = (match.assignedCTVs || []).find(
-      (item) => item.id === account.id || item.name === account.name,
-    );
-    return ctv?.status === "Chờ duyệt" ? "pending" : "working";
+  // Helper to get shift status for a specific day and shift type
+  const getShiftStatus = (
+    dayOrIndex: number | string,
+    shiftType: "morning" | "afternoon",
+  ): "working" | "off" => {
+    if (!accountSchedule) return "off";
+    let weekdayIndex: number;
+    if (typeof dayOrIndex === "number") {
+      weekdayIndex = dayOrIndex;
+    } else {
+      const d = new Date(dayOrIndex);
+      const dayOfWeek = d.getDay();
+      weekdayIndex = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek - 1 : -1;
+    }
+    if (weekdayIndex < 0 || weekdayIndex > 4) return "off";
+    return schedulePattern[weekdayIndex]?.includes(shiftType) ? "working" : "off";
   };
 
   // Determine assigned work room for CTV
-  const assignedWorkRoom = (() => {
-    const userShift = accountScheduleShifts.find((s) =>
-      s.assignedCTVs?.some(
-        (c) =>
-          c.id === account.id ||
-          c.name === account.name ||
-          (c.cctvCode && c.cctvCode === account.cctvCode),
-      ),
-    );
-    const assignedCTV = userShift?.assignedCTVs?.find(
-      (c) =>
-        c.id === account.id ||
-        c.name === account.name ||
-        (c.cctvCode && c.cctvCode === account.cctvCode),
-    );
-    return (
-      formatRoomLabel(
-        assignedCTV?.room || userShift?.room || account.workRoom || account.room,
-      ) || "Chưa cập nhật"
-    );
-  })();
+  const assignedWorkRoom =
+    formatRoomLabel(
+      accountSchedule?.roomCode || account.workRoom || account.room,
+    ) || "Chưa cập nhật";
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -658,8 +641,8 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                     {WEEKDAYS.map((day) => {
                       const date = currentWeekDates[day.index];
                       const dateISO = toISODate(date);
-                      const morning = getShiftStatus(dateISO, "morning");
-                      const afternoon = getShiftStatus(dateISO, "afternoon");
+                      const morning = getShiftStatus(day.index, "morning");
+                      const afternoon = getShiftStatus(day.index, "afternoon");
                       const isToday = dateISO === todayISO;
 
                       return (
@@ -674,12 +657,8 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                           <div className="space-y-2">
                             {morning !== "off" ? (
                               <div
-                                title={morning === "pending" ? "Ca sáng: Chờ duyệt" : "Ca sáng: Đi làm"}
-                                className={`flex w-full items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold shadow-xs ${
-                                  morning === "pending"
-                                    ? "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-100"
-                                    : "border-amber-200/90 bg-amber-50 text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200"
-                                }`}
+                                title="Ca sáng: Đi làm"
+                                className="flex w-full items-center gap-2 whitespace-nowrap rounded-xl border border-amber-200/90 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200"
                               >
                                 <span
                                   className="material-symbols-outlined text-[18px] text-amber-700 dark:text-amber-400"
@@ -695,16 +674,8 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
                             {afternoon !== "off" && (
                               <div
-                                title={
-                                  afternoon === "pending"
-                                    ? "Ca chiều: Chờ duyệt"
-                                    : "Ca chiều: Đi làm"
-                                }
-                                className={`flex w-full items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold shadow-xs ${
-                                  afternoon === "pending"
-                                    ? "border-purple-300 bg-purple-100 text-purple-900 dark:border-purple-700 dark:bg-purple-900/50 dark:text-purple-100"
-                                    : "border-purple-200/90 bg-purple-50 text-purple-900 dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-200"
-                                }`}
+                                title="Ca chiều: Đi làm"
+                                className="flex w-full items-center gap-2 whitespace-nowrap rounded-xl border border-purple-200/90 bg-purple-50 px-3 py-2 text-xs font-bold text-purple-900 shadow-xs dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-200"
                               >
                                 <span
                                   className="material-symbols-outlined text-[18px] text-purple-700 dark:text-purple-400"
