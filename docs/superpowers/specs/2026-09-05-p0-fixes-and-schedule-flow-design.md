@@ -1,140 +1,529 @@
-# Thiết kế Kỹ thuật: Phase 1 — Xử lý triệt để các lỗi P0 & Chuẩn hóa luồng Đăng ký/Cập nhật/Hủy ca
+# Technical Plan — Phase 1
 
-**Ngày lập:** 2026-09-05  
-**Trạng thái:** Proposed  
-**Mục tiêu:** Khắc phục triệt để các lỗi sai hành vi (P0) liên quan đến Vô hiệu hóa tài khoản, Auth Middleware, Bảo mật mật khẩu đặt lại, và Thống nhất luồng Cập nhật/Hủy ca qua Form Đăng ký lịch làm việc thay vì các fake stub ảo.
+**Date:** 2026-09-05  
+**Status:** Proposed
 
----
+## Goal
 
-## 1. Bối cảnh & Vấn đề hiện tại
+Fix all current P0 behavioral issues and normalize schedule management around the real domain model currently implemented in the system.
 
-### 1.1. Lỗi Vô hiệu hóa tài khoản (Account Disabling)
-* Trong `app/backend/src/modules/accounts/accounts.service.ts`, hàm `disableSideEffects` thực thi:
-  ```ts
-  await prisma.schedule.deleteMany({ where: { accountId } });
-  ```
-  Hành vi này xóa vĩnh viễn toàn bộ `Schedule` và các `Shift` của CTV khi bị khóa hoặc xóa mềm (`softDelete`). Điều này phá vỡ tính toàn vẹn dữ liệu, làm mất lịch sử và kiểm toán công tác.
-* Việc thu hồi session (`revokeSessions`) được gọi tách rời, không nằm trong transaction với câu lệnh cập nhật trạng thái tài khoản.
+This phase intentionally treats a schedule as a **recurring weekly template**.
 
-### 1.2. Lỗi Auth Middleware đối với tài khoản không hoạt động
-* Trong `app/backend/src/middleware/auth.ts`:
-  ```ts
-  if (account.status !== 'ACTIVE' && req.path !== '/api/v1/auth/sessions/current') {
-    // still allow logout
-  }
-  ```
-  Khối điều kiện bị rỗng, chỉ có comment. Khi tài khoản bị vô hiệu hóa trong database nhưng phiên (cookie) vẫn còn hạn, request tiếp theo vẫn được gán `req.user` và đi tiếp vào các API bảo mật.
-
-### 1.3. Lỗi Thành công ảo ở Thao tác Hủy / Cập nhật ca làm việc
-* Trong `app/backend/src/modules/schedule/schedule.service.ts`, các hàm:
-  * `cancelOne` -> trả về `{ affectedCount: 1 }`
-  * `cancelSeries` -> trả về `{ count: 1 }`
-  * `extendRecurringSchedules` -> trả về `{ registrationCount: 0, createdCount: 0 }`
-  đều là các stub giả lập không lưu vết hay tác động gì xuống database.
-* Các route `DELETE /api/v1/users/me/shift-assignments/:assignmentId`, `DELETE /api/v1/users/me/schedule-registrations/:id/assignments`, `DELETE /api/v1/users/me/schedule-registrations/:id/series` đang trỏ vào các stub này.
-* Trên Frontend (`CTVScheduleWorkspace.tsx`):
-  * Khi bấm vào một ca làm việc trên Lịch tuần, popup hiển thị nút "Hủy ca", "Hủy ca định kỳ" gọi vào các stub trên.
-  * Thao tác "Đổi buồng làm việc" (`handleRoomChange`) chỉ thay đổi state trong bộ nhớ RAM của component và gọi `onUpdateShifts`, không hề gọi API lưu xuống backend, khi F5 trang dữ liệu lập tức quay về giá trị cũ.
-  * Form "Đăng ký lịch làm việc" khi mở ra lại bị reset về rỗng (`setRegistrationPattern(createEmptyWeeklyPattern())`), không nạp các ca đã đăng ký trước đó của CTV, khiến CTV không thể chỉnh sửa hay hủy bớt ca trực từ chính form này.
-
-### 1.4. Lỗi Bảo mật thông tin mật khẩu đặt lại (Password Reset)
-* Trong `app/frontend/src/app/App.tsx`, hàm `handleResetPassword` gán `{ ...prev, password: newPassword }` vào `selectedAccountDetail`. Plaintext password bị lưu trong state toàn cục dài hạn không cần thiết.
+> Removing a shift means removing that weekday/period from the recurring weekly schedule.  
+> This phase does **not** support cancelling one occurrence on a specific calendar date.
 
 ---
 
-## 2. Yêu cầu & Thiết kế Giải pháp
+## 1. Fix Account Disabling
 
-### 2.1. Backend: Bảo toàn Lịch làm việc & Transactional Session Revocation
-* **File:** `app/backend/src/modules/accounts/accounts.service.ts`
-* **Quy tắc:**
-  1. Loại bỏ hoàn toàn `prisma.schedule.deleteMany({ where: { accountId } })` khỏi `changeStatus` và `softDelete`.
-  2. Bọc việc cập nhật `account.status = 'DISABLED'` (hoặc `deletedAt`) và thu hồi phiên (`prisma.session.updateMany`) vào `prisma.$transaction`:
-  ```ts
-  const [updated] = await prisma.$transaction([
-    prisma.account.update({
-      where: { id: accountId },
-      data: { status, version: { increment: 1 } },
-      include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
-    }),
-    prisma.session.updateMany({
-      where: { accountId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    }),
-  ]);
-  ```
-  Tương tự đối với hàm `softDelete(accountId)`.
+### Problem
 
-### 2.2. Backend: Chặn truy cập đối với tài khoản không ACTIVE trong Auth Middleware
-* **File:** `app/backend/src/middleware/auth.ts`
-* **Quy tắc:**
-  * Nếu `account.status !== 'ACTIVE'`:
-    * Kiểm tra: Nếu là request đăng xuất (`req.method === 'DELETE' && req.path.includes('/auth/sessions/current')`) thì cho phép đi tiếp.
-    * Tất cả các trường hợp khác: Ném lỗi `Errors.forbidden('ACCOUNT_DISABLED', 'Tài khoản đã bị vô hiệu hóa')` (HTTP 403).
+`disableSideEffects()` currently deletes the collaborator's schedule:
 
-### 2.3. Backend: Xóa bỏ toàn bộ Stub thành công ảo
-* **File:** `app/backend/src/modules/schedule/schedule.routes.ts` & `schedule.controller.ts` & `schedule.service.ts`
-* **Quy tắc:**
-  * Xóa bỏ các endpoint:
-    * `DELETE /api/v1/users/me/shift-assignments/:assignmentId`
-    * `DELETE /api/v1/users/me/schedule-registrations/:id/assignments`
-    * `DELETE /api/v1/users/me/schedule-registrations/:id/series`
-  * Xóa bỏ các hàm stub trong `schedule.service.ts`: `cancelOne`, `cancelSeries`, `extendRecurringSchedules`.
-  * Chuẩn hóa duy nhất API cập nhật toàn bộ lịch làm việc của CTV: `PUT /api/v1/users/me/schedule` (đã có cơ chế transaction, version lock và cập nhật shifts).
+```ts
+await prisma.schedule.deleteMany({ where: { accountId } });
+```
 
-### 2.4. Frontend: Form "Đăng ký lịch làm việc" là trung tâm Quản lý Ca trực
-* **File:** `app/frontend/src/components/Screens/CTVScheduleWorkspace.tsx`
-* **Quy tắc:**
-  1. Khi mở Form Đăng ký lịch làm việc (`openRegistration`):
-     * Nạp sẵn lịch tuần hiện tại: `setRegistrationPattern({ ...weeklyPattern })`.
-     * Nạp sẵn buồng hiện tại: `setRoom(currentRoom)`.
-  2. Thao tác của CTV:
-     * Muốn **thêm ca**: Bấm vào ô `+` của thứ/buổi mong muốn -> chuyển thành tick xanh.
-     * Muốn **hủy ca**: Bấm vào ca đang có tick xanh -> chuyển về `+` (bỏ chọn).
-     * Muốn **đổi buồng**: Chọn buồng khác từ dropdown "Buồng làm việc".
-     * Nút bấm hiển thị: "Cập nhật lịch làm việc" (nếu đã có lịch) hoặc "Đăng ký lịch làm việc" (nếu chưa có lịch).
-  3. Gửi dữ liệu:
-     * Bấm Lưu -> Gửi toàn bộ `slots` và `roomCode` qua `PUT /api/v1/users/me/schedule`.
-     * Sau khi lưu thành công, tải lại lịch tuần đồng bộ.
-  4. Dọn dẹp:
-     * Loại bỏ các hàm `handleCancelShift`, `handleCancelRecurringShift`, `handleRoomChange` gọi stub hoặc sửa RAM ảo.
-     * Card ca làm việc trên Lịch tuần khi bấm vào chỉ hiển thị thông tin ca trực hoặc mở form chỉnh sửa lịch tuần.
+This permanently removes the current weekly schedule and all related shifts.
 
-### 2.5. Frontend: Bảo mật Mật khẩu đặt lại
-* **File:** `app/frontend/src/app/App.tsx`
-* **Quy tắc:**
-  * Xóa bỏ `password: newPassword` trong hàm `handleResetPassword`:
-  ```ts
-  const handleResetPassword = async (id: string, newPassword: string, requireChangeOnLogin: boolean) => {
-    try {
-      await api.apiPost(`/api/v1/accounts/${id}/password-resets`, { newPassword, mustChangePassword: requireChangeOnLogin });
-      showToast(`Đã đặt lại mật khẩu thành công. Mật khẩu mới: ${newPassword}`);
-    } catch (e: any) {
-      showToast(e.message ?? 'Đặt lại mật khẩu thất bại');
-    }
-  };
-  ```
+Session revocation is also executed separately from the account status update, which allows partial failure.
+
+### Changes
+
+**File:** `app/backend/src/modules/accounts/accounts.service.ts`
+
+- Remove all schedule deletion from:
+  - `changeStatus`
+  - `softDelete`
+- Preserve `Schedule`, `Shift`, and `History`.
+- Update account state and revoke sessions in the same transaction.
+- Preserve optimistic concurrency inside the transaction.
+
+Target behavior:
+
+```text
+BEGIN
+
+verify expected account version
+update account status/deletedAt
+revoke all active sessions
+
+COMMIT
+```
+
+### Acceptance Criteria
+
+- Disabling or soft-deleting an account does not remove its schedule.
+- Existing `History` remains unchanged.
+- All active sessions are revoked atomically with the account update.
+- Concurrent updates still produce a version conflict instead of silently overwriting data.
 
 ---
 
-## 3. Chiến lược Kiểm thử & Tiêu chí Nghiệm thu (Acceptance Criteria)
+## 2. Fix Authentication for Disabled Accounts
 
-### 3.1. Automated Integration Tests (Backend)
-1. **Disabled Account Authentication:**
-   * CTV đăng nhập thành công và lấy session cookie.
-   * Admin cập nhật trạng thái CTV sang `DISABLED`.
-   * Thử gọi `GET /api/v1/users/me/schedule` với cookie cũ -> Bắt buộc nhận HTTP 403 `ACCOUNT_DISABLED`.
-   * Thử gọi `DELETE /api/v1/auth/sessions/current` với cookie cũ -> Nhận HTTP 200/204 (đăng xuất thành công).
-2. **Preserve Schedules on Account Disabling:**
-   * CTV có `Schedule` và 4 `Shift`.
-   * Admin vô hiệu hóa tài khoản (`DISABLED`) hoặc xóa mềm (`deletedAt`).
-   * Kiểm tra trực tiếp trong database: `Schedule` và `Shift` của CTV vẫn tồn tại nguyên vẹn 100%.
-3. **Transactional Session Revocation:**
-   * Khi vô hiệu hóa tài khoản, tất cả bản ghi `Session` của tài khoản phải có `revokedAt != null`.
-4. **Remove Fake Stubs & Verify Real Schedule Flow:**
-   * Các endpoint `DELETE /api/v1/users/me/shift-assignments/:id` không còn tồn tại (HTTP 404).
-   * CTV cập nhật, hủy ca, thêm ca thành công qua `PUT /api/v1/users/me/schedule`.
+### Problem
 
-### 3.2. Manual & Frontend Verification
-* Mở giao diện CTV: Bấm "Đăng ký lịch làm việc" -> Các ca đã có sẵn hiển thị tick xanh và buồng hiện tại.
-* Bỏ chọn 1 ca (hủy ca đó) -> Bấm "Cập nhật" -> Lịch tuần cập nhật mất ca đó, F5 trang ca đó vẫn đã bị hủy thực sự.
-* Thử đặt lại mật khẩu cho tài khoản trong Admin -> Không lưu password trong state dài hạn của modal chi tiết tài khoản.
+`auth.ts` contains an empty status check, so a non-`ACTIVE` account can still be attached to `req.user` if a valid session exists.
+
+`optionalAuth` has the same conceptual problem.
+
+### Changes
+
+**File:** `app/backend/src/middleware/auth.ts`
+
+For protected authentication:
+
+```ts
+if (account.status !== 'ACTIVE') {
+  throw Errors.forbidden(
+    'ACCOUNT_DISABLED',
+    'Tài khoản đã bị vô hiệu hóa'
+  );
+}
+```
+
+Do not add a logout exception inside `auth`.
+
+`DELETE /api/v1/auth/sessions/current` does not require this middleware and can handle logout independently.
+
+For `optionalAuth`:
+
+- If the session belongs to a non-`ACTIVE` account, treat the request as unauthenticated.
+- Do not populate `req.user`.
+
+### Acceptance Criteria
+
+#### Revoked session
+
+```text
+login
+→ admin disables account
+→ old session is revoked
+→ protected API request
+→ 401 Unauthorized
+```
+
+#### Defense in depth
+
+```text
+valid non-revoked session exists
+→ account is directly marked DISABLED in DB
+→ protected API request
+→ 403 ACCOUNT_DISABLED
+```
+
+#### Optional auth
+
+```text
+session belongs to DISABLED account
+→ optionalAuth
+→ request continues as anonymous
+```
+
+---
+
+## 3. Remove Fake Schedule APIs
+
+### Problem
+
+The following service methods return fake success without persisting changes:
+
+- `cancelOne`
+- `cancelSeries`
+- `extendRecurringSchedules`
+
+The associated routes expose concepts that no longer exist in the current Prisma model.
+
+### Changes
+
+**Files:**
+
+- `app/backend/src/modules/schedule/schedule.routes.ts`
+- `app/backend/src/modules/schedule/schedule.controller.ts`
+- `app/backend/src/modules/schedule/schedule.service.ts`
+
+Remove:
+
+```text
+DELETE /api/v1/users/me/shift-assignments/:assignmentId
+DELETE /api/v1/users/me/schedule-registrations/:id/assignments
+DELETE /api/v1/users/me/schedule-registrations/:id/series
+```
+
+Remove the related stub controller/service methods.
+
+Also review and remove or explicitly deprecate legacy aliases and synthetic identifiers that emulate old entities.
+
+Examples:
+
+```text
+schedule-registration
+shift-assignment
+runtime-generated assignment IDs
+```
+
+### Acceptance Criteria
+
+- Removed endpoints return `404`.
+- No public API returns success for a schedule mutation without writing to the database.
+- Backend terminology matches the current Prisma domain.
+
+---
+
+## 4. Standardize Schedule Management
+
+### Domain Rule
+
+The current domain is:
+
+```text
+Account
+  └── Schedule
+        └── Shift(weekday, period)
+```
+
+A `Shift` represents a recurring weekly slot.
+
+Example:
+
+```text
+Wednesday + MORNING
+```
+
+means:
+
+```text
+Every Wednesday morning
+```
+
+It does not represent a specific date.
+
+### APIs
+
+Use one write model:
+
+```text
+GET    /api/v1/users/me/schedule
+PUT    /api/v1/users/me/schedule
+DELETE /api/v1/users/me/schedule
+```
+
+#### PUT `/schedule`
+
+Creates or replaces the complete weekly schedule.
+
+Payload:
+
+```json
+{
+  "roomCode": "ROOM_A",
+  "slots": [
+    { "weekday": 1, "period": "MORNING" },
+    { "weekday": 3, "period": "AFTERNOON" }
+  ],
+  "expectedVersion": 4
+}
+```
+
+Behavior:
+
+```text
+lock current schedule
+verify expectedVersion
+replace weekly slots
+increment version
+commit
+```
+
+#### DELETE `/schedule`
+
+Deletes the complete current weekly schedule.
+
+Use `expectedVersion` to avoid concurrent overwrite.
+
+This endpoint is for:
+
+```text
+remove the entire recurring weekly schedule
+```
+
+It is not the legacy "cancel assignment" behavior.
+
+### Non-goal
+
+The following is not supported in Phase 1:
+
+```text
+Cancel only 2026-09-09 MORNING
+while keeping future Wednesday MORNING shifts.
+```
+
+That requires date-specific schedule exceptions and belongs to a future phase only if the product requires it.
+
+### Acceptance Criteria
+
+- Add one weekly slot through `PUT` and it persists after refresh.
+- Remove one weekly slot through `PUT` and it stays removed after refresh.
+- Replace `roomCode` and it persists after refresh.
+- Delete the entire schedule through `DELETE`.
+- Version conflicts return the existing conflict response.
+- No synthetic assignment ID is required for mutations.
+
+---
+
+## 5. Make the Schedule Form the Single Editing UI
+
+### Problem
+
+`CTVScheduleWorkspace.tsx` currently has multiple inconsistent editing paths:
+
+- fake "cancel shift" actions;
+- fake recurring cancellation;
+- room changes that only update local state;
+- registration form that opens with an empty pattern instead of the saved schedule.
+
+### Changes
+
+**File:** `app/frontend/src/components/Screens/CTVScheduleWorkspace.tsx`
+
+Use explicit saved and draft state:
+
+```text
+savedPattern
+savedRoom
+scheduleVersion
+
+draftPattern
+draftRoom
+```
+
+### Open editor
+
+When opening the schedule editor:
+
+```text
+load current schedule
+→ savedPattern / savedRoom / version
+→ clone into draftPattern / draftRoom
+```
+
+Existing shifts must already appear selected.
+
+### Editing
+
+User actions:
+
+- select an empty slot → add it to the weekly schedule;
+- deselect an existing slot → remove it from the weekly schedule;
+- change room → update `draftRoom`;
+- save → send the complete draft through `PUT /schedule`;
+- remove all schedule → call `DELETE /schedule`.
+
+Use UI wording such as:
+
+```text
+Edit weekly schedule
+Remove from weekly schedule
+Update weekly schedule
+Delete weekly schedule
+```
+
+Avoid wording that implies date-specific cancellation.
+
+### Cleanup
+
+Remove:
+
+- `handleCancelShift`
+- `handleCancelRecurringShift`
+- RAM-only room update behavior
+- legacy schedule-registration mutation flows
+
+Clicking a schedule card should either:
+
+- show read-only details; or
+- open the weekly schedule editor.
+
+### Acceptance Criteria
+
+- Existing schedule is preloaded when the editor opens.
+- Closing without saving discards draft changes.
+- Changing room persists through backend API.
+- Removing a slot persists after refresh.
+- Removing the last slot is handled through explicit schedule deletion.
+- UI contains no fake cancel actions.
+
+---
+
+## 6. Fix Password Reset Handling
+
+### Backend
+
+**File:** `app/backend/src/modules/accounts/accounts.service.ts`
+
+Password update and session revocation must be atomic:
+
+```text
+BEGIN
+
+update password hash
+update password metadata
+revoke all active sessions
+
+COMMIT
+```
+
+### Frontend
+
+**File:** `app/frontend/src/app/App.tsx`
+
+Remove:
+
+```ts
+{ ...prev, password: newPassword }
+```
+
+Do not store plaintext passwords in `selectedAccountDetail` or other long-lived account state.
+
+Use short-lived reset-result state only.
+
+Recommended flow:
+
+```text
+reset succeeds
+→ show one-time result dialog
+→ allow reveal/copy
+→ close dialog
+→ clear plaintext password from memory
+```
+
+Avoid placing the plaintext password in a persistent toast.
+
+### Acceptance Criteria
+
+- Password is never stored inside account detail state.
+- Password update and session revocation are transactional.
+- Old sessions cannot remain active after a successful reset.
+- Plaintext reset password is cleared when the one-time result UI closes.
+
+---
+
+## 7. Backend Tests
+
+Add or update integration tests for:
+
+### Account disabling
+
+- schedule remains after `DISABLED`;
+- schedule remains after soft delete;
+- all sessions are revoked;
+- optimistic version conflicts are preserved.
+
+### Authentication
+
+- revoked old session → `401`;
+- disabled account with non-revoked session → `403 ACCOUNT_DISABLED`;
+- `optionalAuth` treats disabled accounts as anonymous.
+
+### Schedule
+
+- removed legacy DELETE routes → `404`;
+- add weekly slot with `PUT`;
+- remove weekly slot with `PUT`;
+- update room with `PUT`;
+- delete entire schedule with `DELETE`;
+- version conflict behavior;
+- persistence survives reload.
+
+### Password reset
+
+- password hash changes;
+- all sessions are revoked in the same successful operation;
+- transaction rollback leaves no partial password/session state.
+
+---
+
+## 8. Frontend Verification
+
+Verify manually and through E2E where appropriate:
+
+1. Open "Edit weekly schedule".
+2. Existing slots are preselected.
+3. Existing room is preselected.
+4. Add a slot and save.
+5. Refresh: slot still exists.
+6. Remove a slot and save.
+7. Refresh: slot is still removed.
+8. Change room and save.
+9. Refresh: room remains changed.
+10. Delete the full schedule.
+11. Refresh: no active weekly schedule exists.
+12. Reset a password.
+13. Plaintext password appears only in the one-time result UI.
+14. Closing the result removes it from frontend state.
+
+---
+
+## 9. Documentation Updates
+
+Update the following after implementation:
+
+- `ARCHITECTURE.md`
+- `DATABASE.md`
+- `USE-CASE.md`
+- schedule sequence diagrams
+- API documentation
+
+Remove concepts that are no longer part of the implementation:
+
+```text
+ScheduleRegistration
+ShiftAssignment
+cancelOne
+cancelSeries
+extendRecurringSchedules
+```
+
+Document the actual Phase 1 model:
+
+```text
+Schedule
+└── recurring weekly Shift slots
+```
+
+Explicitly document that date-specific cancellation is unsupported.
+
+---
+
+## Execution Order
+
+```text
+1. Fix auth middleware and optionalAuth
+2. Make account disable/soft-delete transactional
+3. Make password reset transactional
+4. Remove fake schedule endpoints and stubs
+5. Add DELETE /users/me/schedule
+6. Normalize PUT /users/me/schedule as the only weekly schedule update path
+7. Refactor CTVScheduleWorkspace to saved/draft state
+8. Remove fake frontend cancellation and RAM-only mutations
+9. Add backend regression tests
+10. Add/update frontend E2E tests
+11. Update documentation and sequence diagrams
+12. Remove remaining legacy terminology and compatibility code
+```
+
+## Definition of Done
+
+Phase 1 is complete when:
+
+- disabling an account never deletes schedule or history data;
+- all active sessions are revoked atomically when disabling or resetting passwords;
+- disabled accounts cannot authenticate through valid stale sessions;
+- no schedule mutation endpoint returns fake success;
+- weekly schedule changes are persisted only through real backend APIs;
+- removing a shift clearly means removing a recurring weekly slot;
+- deleting the final schedule is handled explicitly;
+- frontend edits use saved/draft state and survive refresh;
+- plaintext reset passwords are short-lived;
+- documentation, API names, Prisma entities, services, and UI terminology describe the same domain.

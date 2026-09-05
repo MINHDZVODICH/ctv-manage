@@ -197,6 +197,7 @@ export function accountToUserAccount(a: ApiAccountRow, index = 0): UserAccount {
     address: a.address ?? undefined,
     cctvCode: a.ctvCode ?? undefined,
     joinDate: formatDateVN(a.joinedAt),
+    notes: a.adminNotes ?? undefined,
   };
 }
 

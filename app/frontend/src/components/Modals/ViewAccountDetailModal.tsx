@@ -199,6 +199,11 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     return userRegisteredStartDateISO;
   }, [userRegisteredStartDateISO]);
 
+  const schedulePattern = useMemo(
+    () => scheduleToPattern(accountSchedule?.shifts || []),
+    [accountSchedule],
+  );
+
   if (!account) return null;
 
   const handleSaveNotes = () => {
@@ -291,11 +296,6 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     a.click();
     document.body.removeChild(a);
   };
-
-  const schedulePattern = useMemo(
-    () => scheduleToPattern(accountSchedule?.shifts || []),
-    [accountSchedule],
-  );
 
   // Helper to get shift status for a specific day and shift type
   const getShiftStatus = (
