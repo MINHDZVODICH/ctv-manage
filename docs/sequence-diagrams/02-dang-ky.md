@@ -15,7 +15,7 @@ sequenceDiagram
         participant S as Registration Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
         participant FS as Private File Storage
     end
 
@@ -66,5 +66,5 @@ sequenceDiagram
 
 - Request là `multipart/form-data`; phần profile gồm `email`, `displayName`, `phone`, `dateOfBirth`, `gender`, `address` và `password`. `confirmPassword` chỉ được kiểm tra ở Frontend.
 - Transaction tạo `REGISTRATION_REQUEST(status=PENDING, passwordHash)`, `FILE_ASSET(state=STAGED)` và `REGISTRATION_REQUEST_FILE`. Unique index chỉ cho phép một request `PENDING` trên mỗi email; Service đồng thời kiểm tra `ACCOUNT.email`.
-- Tệp không nằm trong thư mục public. API chỉ lưu đường dẫn tương đối và metadata trong SQLite.
+- Tệp không nằm trong thư mục public. API chỉ lưu đường dẫn tương đối và metadata trong PostgreSQL.
 - Transaction bù xóa liên kết và request chưa hoàn tất, đặt metadata file thành `QUARANTINED`, rồi cố gắng dọn staging. API không bao giờ trả một hồ sơ trỏ tới tệp chưa tồn tại.

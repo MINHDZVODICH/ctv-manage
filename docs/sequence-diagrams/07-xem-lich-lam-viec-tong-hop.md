@@ -24,7 +24,7 @@ sequenceDiagram
         participant S as Schedule Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     A->>UI: Mở tab Lịch làm việc tổng hợp (mặc định: Lịch tuần tổng hợp)
@@ -60,7 +60,7 @@ sequenceDiagram
         participant S as Schedule Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     A->>UI: Chuyển sang tab Lịch sử tổng hợp

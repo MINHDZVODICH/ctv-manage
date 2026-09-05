@@ -7,7 +7,7 @@ interface ScheduleScreenProps {
   accounts: UserAccount[];
   onUpdateShifts: (updatedShifts: ShiftSlot[]) => void;
   onShowToast: (msg: string) => void;
-  onReload?: () => void;
+  onReload?: () => void | Promise<void>;
   onViewAccountDetail?: (account: UserAccount) => void;
   currentUser?: UserAccount;
   userRole?: "Admin" | "Cộng tác viên";
@@ -191,9 +191,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   // Helper to filter CTVs within a slot based on search term
   const getFilteredCTVs = (ctvs: AssignedCTV[] = []) => {
     const nonAdminCTVs = ctvs.filter((c) => {
-      const userAcc = accounts.find(
-        (a) => a.id === c.id || a.name.toLowerCase() === c.name.toLowerCase(),
-      );
+      const userAcc = accounts.find((a) => a.id === c.id);
       return !userAcc || userAcc.role !== "Admin";
     });
     if (!searchTerm.trim() && !pendingOnlyFilter) return nonAdminCTVs;
@@ -213,9 +211,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       acc +
       (s.assignedCTVs
         ? s.assignedCTVs.filter((c) => {
-            const userAcc = accounts.find(
-              (a) => a.id === c.id || a.name.toLowerCase() === c.name.toLowerCase(),
-            );
+            const userAcc = accounts.find((a) => a.id === c.id);
             return c.status === "Đã duyệt" && (!userAcc || userAcc.role !== "Admin");
           }).length
         : 0),
@@ -227,9 +223,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       acc +
       (s.assignedCTVs
         ? s.assignedCTVs.filter((c) => {
-            const userAcc = accounts.find(
-              (a) => a.id === c.id || a.name.toLowerCase() === c.name.toLowerCase(),
-            );
+            const userAcc = accounts.find((a) => a.id === c.id);
             return c.status === "Chờ duyệt" && (!userAcc || userAcc.role !== "Admin");
           }).length
         : 0),
@@ -240,9 +234,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     shifts.flatMap((s) =>
       (s.assignedCTVs || [])
         .filter((c) => {
-          const userAcc = accounts.find(
-            (a) => a.id === c.id || a.name.toLowerCase() === c.name.toLowerCase(),
-          );
+          const userAcc = accounts.find((a) => a.id === c.id);
           return !userAcc || userAcc.role !== "Admin";
         })
         .map((c) => c.id),
@@ -608,7 +600,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       const slot = getSlot(d.index, st.type);
                       const assignedList = slot?.assignedCTVs || [];
                       const myRecord = assignedList.find(
-                        (c) => c.id === ctvUser.id || c.name === ctvUser.name,
+                        (c) => c.id === ctvUser.id,
                       );
                       const isMyRegistered = !!myRecord;
 
@@ -1049,29 +1041,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       <div
                         onClick={() => {
                           if (onViewAccountDetail) {
-                            const matched = accounts.find(
-                              (a) => a.id === ctv.id || a.name === ctv.name,
-                            );
-                            if (matched) {
-                              onViewAccountDetail(matched);
-                            } else {
-                              onViewAccountDetail({
-                                id: ctv.id,
-                                stt: 1,
-                                name: ctv.name,
-                                email: `${ctv.id}@company.vn`,
-                                phone: ctv.phone || "090 123 4567",
-                                role: "Cộng tác viên",
-                                status: "Kích hoạt",
-                                registerDate: "01/01/2023",
-                                initials: ctv.initials || ctv.name.slice(0, 2).toUpperCase(),
-                                avatar: ctv.avatar,
-                                cctvCode: ctv.cctvCode || `CTV-2023-${ctv.id}`,
-                                joinDate: "15/01/2023",
-                                shiftsCompleted: 8,
-                                rating: 5.0,
-                              });
-                            }
+                            const matched = accounts.find((a) => a.id === ctv.id);
+                            if (matched) onViewAccountDetail(matched);
                           }
                         }}
                         className="flex items-center gap-2.5 cursor-pointer group/ctv hover:opacity-80 transition-opacity"

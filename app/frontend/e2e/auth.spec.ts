@@ -42,7 +42,7 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
 
   test('Admin đăng nhập, không còn nút đổi vai trò, và đăng xuất được', async ({ page, loginAs }) => {
     await loginAs('admin');
-    await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
     await expect(page.getByText('Chuyển vai trò', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Đổi sang Cộng tác viên', { exact: true })).toHaveCount(0);
 
@@ -53,7 +53,7 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
 
   test('không khôi phục màn hình đã đăng nhập khi trang được lấy từ lịch sử trình duyệt sau đăng xuất', async ({ page, loginAs }) => {
     await loginAs('admin');
-    await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
 
     await page.getByRole('button', { name: /Admin Acceptance/ }).click();
     await page.getByRole('button').filter({ hasText: 'Đăng xuất' }).click();
@@ -70,6 +70,6 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
     expect((await sessionCheck).status()).toBe(401);
 
     await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Danh sách tài khoản' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toHaveCount(0);
   });
 });

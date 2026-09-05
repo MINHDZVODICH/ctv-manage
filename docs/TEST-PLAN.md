@@ -16,7 +16,7 @@ The plan is designed to:
 
 - Verify that business workflows work end to end for applicants, CTVs, and administrators.
 - Prove authorization, ownership, session, and sensitive-data boundaries independently of frontend controls.
-- Detect data-integrity failures across SQLite transactions and private filesystem storage.
+- Detect data-integrity failures across PostgreSQL transactions and private filesystem storage.
 - Validate schedule behavior across concurrency, timezone, date-boundary, and history-finalization conditions.
 - Establish repeatable automated smoke, regression, compatibility, accessibility, security, and performance suites.
 - Provide release gates and traceability from requirements and documented defects to executable tests.
@@ -155,7 +155,7 @@ The following implemented but unreachable or incompletely connected behavior sha
 - Registration requests
 - Private files and local storage
 - Schedule registration, shifts, assignments, summaries, and work history
-- Prisma/SQLite persistence
+- Prisma/PostgreSQL persistence
 - Error handling, logging, and hourly synchronization
 
 ### 5.3 Frontend surfaces
@@ -255,7 +255,7 @@ Use React Testing Library with a controlled API mock layer for:
 
 ### 7.4 Service integration tests
 
-Run backend services against isolated SQLite databases and temporary storage directories. Use controllable clocks and fault-injectable storage/database adapters for:
+Run backend services against a dedicated PostgreSQL test database and temporary storage directories. Use controllable clocks and fault-injectable storage/database adapters for:
 
 - Multi-record transactions.
 - Approval and account-code generation concurrency.
@@ -270,7 +270,7 @@ Run backend services against isolated SQLite databases and temporary storage dir
 Use Supertest against the real Express app for:
 
 - All routes, status codes, schemas, cookies, headers, role matrix, ownership, idempotency, errors, and sensitive-field omission.
-- Real SQLite and local private storage for representative success and failure workflows.
+- Real PostgreSQL and local private storage for representative success and failure workflows.
 - Malformed JSON, multipart limits, CORS, and middleware ordering.
 
 ### 7.6 End-to-end tests
@@ -304,8 +304,8 @@ Use risk-charter sessions for:
 | Environment | Purpose | Data/storage | Required controls |
 |---|---|---|---|
 | Local unit/component | Fast developer feedback | In-memory/mocked | Deterministic clock and network |
-| Backend integration | Service/API verification | Per-test SQLite + temp uploads | Reset/rollback per test; no shared production paths |
-| E2E acceptance | Real browser workflows | Worker/test-specific SQLite + upload root | Seed per test or scenario; retry-safe |
+| Backend integration | Service/API verification | Dedicated PostgreSQL test DB + temp uploads | Migration reset per suite; no shared production paths |
+| E2E acceptance | Real browser workflows | Dedicated PostgreSQL test DB + upload root | Migration reset and seed per suite; retry-safe |
 | CI smoke | Every pull request | Ephemeral | Chromium, API tests, axe smoke, artifacts |
 | Nightly regression | Broad matrix | Ephemeral isolated workers | Firefox, WebKit, mobile, timezone, visual, load subsets |
 | Release candidate | Production-like build | Sanitized representative data | HTTPS/cookie/CORS configuration, backup/restore rehearsal |
@@ -314,7 +314,7 @@ Use risk-charter sessions for:
 
 - Node and package-lock versions used by CI match the supported runtime.
 - Prisma client is generated from the committed schema.
-- SQLite foreign keys, WAL mode, and busy timeout are active.
+- PostgreSQL schema migrations, foreign keys, indexes, and connection settings are active.
 - Cookie `Secure` behavior is validated behind HTTPS in release-candidate testing.
 - Allowed CORS origins are explicit and environment-specific.
 - Upload roots are private and outside public frontend assets.
@@ -503,15 +503,17 @@ Maintain versioned test fixtures for:
 | SCH-001 | P0 | Role/ownership matrix for CTV schedule routes | Account identity derives from session; cross-account access is denied |
 | SCH-002 | P1 | Create one-slot and multi-slot patterns | Valid registration and expected assignments are created |
 | SCH-003 | P1 | Invalid room, weekday, period, empty or duplicate slots | Controlled validation and deduplication |
-| SCH-004 | P1 | Monday vs non-Monday creation | Start date follows the selected rule |
-| SCH-005 | P1 | Materialization horizon/end-date boundaries | Exact expected dates match the approved 30/31/60-day contract |
-| SCH-006 | P0 | Update with current/stale version | Current update reconciles assignments; stale update receives `409` |
+| SCH-004 | P1 | Monday vs non-Monday creation | Start is today when Monday, otherwise the next Monday, using `Asia/Bangkok` |
+| SCH-005 | P0 | Perpetual registration with rolling materialization | Registration stays `ACTIVE`; the watermark and missing assignments extend idempotently while explicit cancellations stay cancelled |
+| SCH-006 | P0 | Update with current/stale/missing version | Current update reconciles atomically; stale or missing version receives `409` without data change |
 | SCH-007 | P0 | Two simultaneous schedule upserts | At most one version transition; no duplicate active registration/assignment |
 | SCH-008 | P0 | Remove slots/change room | Future assignments reconcile; past/history state is preserved |
 | SCH-009 | P0 | Shift detail by ID | Only requested shift's active assignments are returned |
 | SCH-010 | P0 | CTV requests unrelated shift | Access denied or scoped response according to contract; no unrelated assignment list |
 | SCH-011 | P1 | Empty/loading/error/retry and rapid month changes | UI remains truthful; stale requests cannot overwrite newer results |
 | SCH-012 | P1 | Reload after create/update | Server state is restored correctly |
+| SCH-013 | P0 | Registration modal open/save | Draft starts empty, replacement/recurrence policy is visible, and success shows the selected fixed weekly pattern |
+| SCH-014 | P1 | Registration metadata fails while assignments load | Error is visible and actual assignments remain rendered |
 
 ### 10.8 Cancellation, aggregate schedule, and work history
 
@@ -529,7 +531,8 @@ Maintain versioned test fixtures for:
 | HIST-002 | P0 | Repeated synchronization | No duplicate history rows; immutable values remain stable |
 | HIST-003 | P0 | Cancel/update after finalization | Existing history is unchanged |
 | HIST-004 | P1 | Synchronization error | Startup remains controlled; failure is observable without leaking data |
-| HIST-005 | P1 | Expiration before/on/after end date | Registration status and assignments follow the approved rule |
+| HIST-005 | P1 | Rolling maintenance before history sync | Missing dated assignments are materialized before eligible past work is snapshotted |
+| HIST-006 | P1 | Populated, empty, failed and retried CTV history month | Correct personal rows render; empty/error states are distinct and retry recovers |
 
 ### 10.9 Settings, localization, and navigation
 
@@ -662,9 +665,9 @@ Expected outcome: either the whole business operation commits, or state is rolle
 
 ### 13.3 Migration and upgrade tests
 
-The current project uses `prisma db push --force-reset` in tests and has no versioned migration history. Before production release:
+The project uses committed Prisma migrations and `prisma migrate reset` against a guarded test-only PostgreSQL database. Before production release:
 
-- Establish versioned migrations.
+- Verify versioned migrations from an empty PostgreSQL database in CI.
 - Apply migrations to a copy of the previous release database.
 - Verify records, constraints, timestamps, file associations, schedules, and history survive.
 - Verify rollback/restore procedure from backup.
@@ -767,7 +770,7 @@ Formal non-functional requirements are not documented. The following are provisi
 
 ### 16.3 Reliability and recovery
 
-- SQLite busy/locked behavior and concurrent writes.
+- PostgreSQL row-lock, deadlock, serialization, and concurrent-write behavior.
 - Database unavailable at startup and during request handling.
 - Upload directory missing, read-only, or full.
 - Graceful shutdown with active requests and background synchronization.
@@ -785,7 +788,7 @@ Current baseline:
 
 - 3 Vitest integration suites.
 - 12 integration tests and approximately 89 assertions.
-- Real Express routing, SQLite, Argon2, sessions, and local filesystem.
+- Real Express routing, PostgreSQL, Argon2, sessions, and local filesystem.
 - Serial execution.
 - No unit tests, service-test layer, coverage report, threshold, fault injection, or migration test.
 

@@ -169,25 +169,29 @@ export const App: React.FC = () => {
   const loadShifts = useCallback(async () => {
     if (!authUser) return;
     if (!isAdmin) {
-      try {
-        const regRes: any = await api.apiGet('/api/v1/users/me/schedule-registration').catch(() => ({ data: null }));
-        const reg = regRes.data ?? regRes;
-        const shiftRes: any = await api.apiGet('/api/v1/users/me/shifts').catch(() => ({ data: [] }));
-        const list: any[] = shiftRes.data ?? shiftRes.items ?? shiftRes ?? [];
-        const u: UserAccount =
-          currentUser ??
-          ({
-            id: authUser.id,
-            name: authUser.displayName,
-            email: authUser.email,
-            phone: '',
-            role: mapRole(authUser.role),
-            status: 'Kích hoạt',
-            registerDate: '',
-          } as unknown as UserAccount);
-        const slots = myShiftsToSlots(list, u, reg);
-        setShifts(slots);
-      } catch {}
+      const [registrationResult, shiftResult] = await Promise.allSettled([
+        api.apiGet('/api/v1/users/me/schedule-registration'),
+        api.apiGet('/api/v1/users/me/shifts'),
+      ]);
+      if (shiftResult.status === 'rejected') throw shiftResult.reason;
+
+      const regRes: any = registrationResult.status === 'fulfilled' ? registrationResult.value : null;
+      const shiftRes: any = shiftResult.value;
+      const reg = regRes?.data ?? regRes;
+      const list: any[] = shiftRes.data ?? shiftRes.items ?? shiftRes ?? [];
+      const u: UserAccount =
+        currentUser ??
+        ({
+          id: authUser.id,
+          name: authUser.displayName,
+          email: authUser.email,
+          phone: '',
+          role: mapRole(authUser.role),
+          status: 'Kích hoạt',
+          registerDate: '',
+        } as unknown as UserAccount);
+      setShifts(myShiftsToSlots(list, u, reg));
+      if (registrationResult.status === 'rejected') throw registrationResult.reason;
     } else {
       // Admin: load summary for current month
       try {
@@ -233,8 +237,10 @@ export const App: React.FC = () => {
   }, [authUser, currentTab, isAdmin, loadRequests]);
 
   useEffect(() => {
-    if (authUser && !isAdmin && currentTab === 'schedule') void loadShifts();
-  }, [authUser, currentTab, isAdmin, loadShifts]);
+    if (authUser && !isAdmin && currentTab === 'schedule') {
+      void loadShifts().catch(() => showToast('Không thể tải lịch làm việc. Vui lòng thử lại.'));
+    }
+  }, [authUser, currentTab, isAdmin, loadShifts, showToast]);
 
   // A focus and a visibility event often fire together; defer once and refresh only the visible resource.
   useEffect(() => {
@@ -246,7 +252,9 @@ export const App: React.FC = () => {
         if (currentTab === 'profile') void refreshCurrentUser();
         else if (isAdmin && currentTab === 'accounts') void loadAccounts();
         else if (isAdmin && currentTab === 'requests') void loadRequests();
-        else if (!isAdmin && currentTab === 'schedule') void loadShifts();
+        else if (!isAdmin && currentTab === 'schedule') {
+          void loadShifts().catch(() => showToast('Không thể tải lại lịch làm việc.'));
+        }
       }, 0);
     };
     window.addEventListener('focus', refreshVisibleResource);
@@ -256,7 +264,7 @@ export const App: React.FC = () => {
       window.removeEventListener('focus', refreshVisibleResource);
       document.removeEventListener('visibilitychange', refreshVisibleResource);
     };
-  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser]);
+  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser, showToast]);
 
   // ---- tab default per role ----
   useEffect(() => {
@@ -541,22 +549,24 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <Sidebar
-        currentTab={currentTab}
-        onSelectTab={(tab) => {
-          setCurrentTab(tab);
-          setIsMobileMenuOpen(false);
-        }}
-        pendingRequestsCount={pendingRequestsCount}
-        onLogout={handleLogout}
-        userName={userName}
-        userRole={userRoleLabel}
-        userAvatar={userAvatar}
-        onSwitchRole={() => showToast('Đổi vai trò không khả dụng ở bản production')}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
+      <div className="hidden md:block">
+        <Sidebar
+          currentTab={currentTab}
+          onSelectTab={(tab) => {
+            setCurrentTab(tab);
+            setIsMobileMenuOpen(false);
+          }}
+          pendingRequestsCount={pendingRequestsCount}
+          onLogout={handleLogout}
+          userName={userName}
+          userRole={userRoleLabel}
+          userAvatar={userAvatar}
+          onSwitchRole={() => showToast('Đổi vai trò không khả dụng ở bản production')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
+      </div>
 
       {isMobileMenuOpen && (
         <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" />

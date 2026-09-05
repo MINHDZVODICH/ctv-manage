@@ -211,4 +211,120 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
     expect(histApiRes.body.data).toBeDefined();
     expect(histApiRes.body.data.cells.length).toBeGreaterThanOrEqual(1);
   });
+
+  test('SYNC-001..004: Cross-view synchronization for Schedule, Shift, and History (4 weekly views + 3 history views)', async () => {
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+
+    // 1. CTV registers Buồng 1 + T2 Morning + T3 Afternoon
+    const regRes = await request(app)
+      .put('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie)
+      .send({
+        roomCode: 'ROOM_1',
+        slots: [
+          { weekday: 1, period: 'MORNING' },
+          { weekday: 2, period: 'AFTERNOON' },
+        ],
+      });
+    expect(regRes.status).toBe(200);
+
+    // 2. View 1: Personal Schedule (CTV)
+    const personalRes = await request(app)
+      .get('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie);
+    expect(personalRes.status).toBe(200);
+    expect(personalRes.body.data.roomCode).toBe('ROOM_1');
+    expect(personalRes.body.data.shifts).toHaveLength(2);
+
+    // 3. View 2: Account Schedule (Admin viewing CTV)
+    const adminAccountRes = await request(app)
+      .get(`/api/v1/accounts/${ctv.id}/schedule`)
+      .set('Cookie', adminCookie);
+    expect(adminAccountRes.status).toBe(200);
+    expect(adminAccountRes.body.data.roomCode).toBe('ROOM_1');
+    expect(adminAccountRes.body.data.shifts).toHaveLength(2);
+
+    // 4. View 3: Weekly Summary (Admin)
+    const weeklyRes = await request(app)
+      .get('/api/v1/schedule/weekly-summary')
+      .set('Cookie', adminCookie);
+    expect(weeklyRes.status).toBe(200);
+    const monCell = weeklyRes.body.data.cells.find((c: any) => c.weekday === 1 && c.period === 'MORNING');
+    expect(monCell.count).toBe(1);
+    expect(monCell.shiftAssignments[0].roomCode).toBe('ROOM_1');
+    const tueCell = weeklyRes.body.data.cells.find((c: any) => c.weekday === 2 && c.period === 'AFTERNOON');
+    expect(tueCell.count).toBe(1);
+    expect(tueCell.shiftAssignments[0].roomCode).toBe('ROOM_1');
+
+    // 5. View 4: Backward-compatible summary
+    const compatRes = await request(app)
+      .get('/api/v1/schedule-summary')
+      .set('Cookie', adminCookie);
+    expect(compatRes.status).toBe(200);
+    expect(compatRes.body.data.cells).toHaveLength(10);
+
+    // 6. Test History Views before 17:30
+    // Wednesday 2026-09-02 at 10:00 UTC (17:00 Asia/Bangkok, before 17:30 cutoff)
+    const beforeCutoff = new Date('2026-09-02T10:00:00.000Z');
+    await syncDailyHistory(beforeCutoff);
+
+    const ctvHistBefore = await request(app)
+      .get('/api/v1/users/me/work-history?month=2026-09')
+      .set('Cookie', ctvCookie);
+    expect(ctvHistBefore.status).toBe(200);
+    // 2026-09-02 must NOT be recorded before 17:30
+    const todayCellsBefore = ctvHistBefore.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    expect(todayCellsBefore).toHaveLength(0);
+
+    // 7. Add Wednesday shift for CTV and test History Views after 17:30
+    await request(app)
+      .put('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie)
+      .send({
+        roomCode: 'ROOM_1',
+        slots: [
+          { weekday: 1, period: 'MORNING' },
+          { weekday: 2, period: 'AFTERNOON' },
+          { weekday: 3, period: 'MORNING' },
+        ],
+        expectedVersion: 1,
+      });
+
+    // Run snapshot at 18:00 Asia/Bangkok on 2026-09-02
+    const afterCutoff = new Date('2026-09-02T11:00:00.000Z');
+    await syncDailyHistory(afterCutoff);
+
+    // View 1: Personal History (CTV)
+    const ctvHistAfter = await request(app)
+      .get('/api/v1/users/me/work-history?month=2026-09')
+      .set('Cookie', ctvCookie);
+    expect(ctvHistAfter.status).toBe(200);
+    const ctvTodayCells = ctvHistAfter.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    expect(ctvTodayCells).toHaveLength(1);
+    expect(ctvTodayCells[0].workDate).toBe('2026-09-02');
+    expect(ctvTodayCells[0].period).toBe('MORNING');
+    expect(ctvTodayCells[0].shiftAssignments[0].roomCode).toBe('ROOM_1');
+
+    // View 2: Account History (Admin viewing CTV)
+    const adminHistCtv = await request(app)
+      .get(`/api/v1/work-history?month=2026-09&accountId=${ctv.id}`)
+      .set('Cookie', adminCookie);
+    expect(adminHistCtv.status).toBe(200);
+    const adminTodayCells = adminHistCtv.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    expect(adminTodayCells).toHaveLength(1);
+    expect(adminTodayCells[0].workDate).toBe('2026-09-02');
+    expect(adminTodayCells[0].shiftAssignments[0].roomCode).toBe('ROOM_1');
+
+    // View 3: Summary History (Admin viewing all CTVs for month)
+    const adminHistSummary = await request(app)
+      .get('/api/v1/work-history?month=2026-09')
+      .set('Cookie', adminCookie);
+    expect(adminHistSummary.status).toBe(200);
+    const summaryTodayCells = adminHistSummary.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    expect(summaryTodayCells).toHaveLength(1);
+    expect(summaryTodayCells[0].workDate).toBe('2026-09-02');
+    expect(summaryTodayCells[0].shiftAssignments[0].displayName).toBe('CTV Active');
+  });
 });

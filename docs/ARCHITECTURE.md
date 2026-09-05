@@ -30,7 +30,7 @@ flowchart LR
 
     User --> Entry
     Shared -->|REST /api/v1| Pipeline
-    Infrastructure --> Database[(SQLite)]
+    Infrastructure --> Database[(PostgreSQL)]
     Infrastructure --> Files[(Private File Store)]
 ```
 
@@ -78,7 +78,7 @@ docs/                       # Đặc tả nghiệp vụ, API, dữ liệu và ki
 | Form frontend | Controlled form state và browser validation phù hợp từng màn hình |
 | Backend | Node.js 22 LTS, Express 4 |
 | Validation API | Zod |
-| Database | SQLite, Prisma ORM |
+| Database | PostgreSQL 16, Prisma ORM |
 | File storage | Private local filesystem; database lưu metadata và `storageKey` tương đối |
 | Authentication | Server-side session và secure cookie |
 | Password hashing | Argon2id |

@@ -14,7 +14,7 @@ sequenceDiagram
         participant S as Schedule Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     U->>UI: Chọn một ca từ state lịch đã tải

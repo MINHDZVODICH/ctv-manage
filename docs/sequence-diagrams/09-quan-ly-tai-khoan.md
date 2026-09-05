@@ -15,7 +15,7 @@ sequenceDiagram
         participant S as Account Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     A->>UI: Mở danh sách hoặc thay đổi tìm kiếm/trang

@@ -3,11 +3,13 @@ import { test, expect } from './fixtures';
 test('người dùng gửi được yêu cầu đăng ký kèm CCCD và CV', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
-  await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
+  const heading = page.getByRole('heading', { name: 'Đăng ký tài khoản' });
+  await expect(heading).toBeVisible();
+  const form = heading.locator('..').locator('form');
 
-  await page.getByPlaceholder('Nguyễn Văn A').fill('Đăng ký từ trình duyệt');
-  await page.getByPlaceholder('nguyenvana@vienkhcn.vn').fill('browser.registration@ctv.local');
-  await page.getByPlaceholder('0987654321').fill('0912345678');
+  await form.locator('input[type="text"]').first().fill('Đăng ký từ trình duyệt');
+  await form.locator('input[type="email"]').fill('browser.registration@ctv.local');
+  await form.locator('input[type="tel"]').fill('0912345678');
 
   const passwordInputs = page.locator('input[type="password"]');
   await expect(passwordInputs).toHaveCount(2);

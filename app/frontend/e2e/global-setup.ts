@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,37 +29,30 @@ export default async function globalSetup() {
   const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const workspaceRoot = path.resolve(frontendDir, '../..');
   const backendDir = path.join(workspaceRoot, 'app/backend');
+  try {
+    process.loadEnvFile(path.join(backendDir, '.env'));
+  } catch {
+    // CI can provide DATABASE_TEST_URL directly without a local .env file.
+  }
+  const testDatabaseUrl =
+    process.env.DATABASE_TEST_URL ??
+    'postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_test?schema=public';
   const env = {
     ...process.env,
-    DATABASE_URL: 'file:./acceptance.db',
+    DATABASE_URL: testDatabaseUrl,
+    DATABASE_TEST_URL: testDatabaseUrl,
     FILE_STORAGE_ROOT: '.acceptance-uploads',
     NODE_ENV: 'test',
   };
 
-  console.log('[globalSetup] cleaning db files...');
-  const dbFiles = ['acceptance.db', 'acceptance.db-shm', 'acceptance.db-wal'];
-  for (const f of dbFiles) {
-    try {
-      fs.rmSync(path.join(backendDir, 'prisma', f), { force: true });
-    } catch {}
-  }
-
-  console.log('[globalSetup] running prisma db push...');
+  console.log('[globalSetup] resetting PostgreSQL test database...');
   execFileSync(
     process.execPath,
-    [
-      path.join(backendDir, 'node_modules/prisma/build/index.js'),
-      'db',
-      'push',
-      '--skip-generate',
-      '--accept-data-loss',
-      '--schema',
-      path.join(backendDir, 'prisma/schema.prisma'),
-    ],
+    [path.join(backendDir, 'scripts/run-integration-tests.mjs'), '--prepare-only'],
     { cwd: backendDir, env, stdio: ['ignore', 'inherit', 'inherit'] },
   );
 
-  console.log('[globalSetup] running acceptance-seed...');
+  console.log('[globalSetup] seeding PostgreSQL acceptance data...');
   execFileSync(
     process.execPath,
     [path.join(backendDir, 'node_modules/tsx/dist/cli.mjs'), 'scripts/acceptance-seed.ts'],

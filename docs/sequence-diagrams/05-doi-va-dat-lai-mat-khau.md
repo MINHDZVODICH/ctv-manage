@@ -17,7 +17,7 @@ sequenceDiagram
         participant S as Account Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     U->>UI: Nhập mật khẩu hiện tại và mật khẩu mới
@@ -61,7 +61,7 @@ sequenceDiagram
         participant S as Account Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
     end
 
     A->>UI: Nhập và xác nhận mật khẩu mới

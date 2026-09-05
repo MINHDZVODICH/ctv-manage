@@ -15,7 +15,7 @@ sequenceDiagram
         participant S as Registration Service
     end
     box LỚP DỮ LIỆU
-        participant DB as SQLite qua Prisma
+        participant DB as PostgreSQL qua Prisma
         participant FS as Private File Storage
     end
 

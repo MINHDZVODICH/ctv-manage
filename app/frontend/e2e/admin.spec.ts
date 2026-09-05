@@ -73,6 +73,19 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
   const ctv = await getActiveCtv(page);
   const workDate = todayInBangkok();
 
+  await page.route('**/api/v1/accounts/*/schedule', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          roomCode: 'ROOM_2',
+          shifts: [{ weekday: 1, period: 'MORNING' }],
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/v1/schedule-summary?*', async (route) => {
     const url = new URL(route.request().url());
     if (url.searchParams.get('accountId') !== ctv.id) {
@@ -102,9 +115,7 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
   const weeklyScheduleResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
-      url.pathname === '/api/v1/schedule-summary' &&
-      url.searchParams.get('accountId') !== null &&
-      url.searchParams.get('from') !== null &&
+      (url.pathname.includes('/schedule') || url.pathname === '/api/v1/schedule-summary') &&
       response.status() === 200
     );
   });

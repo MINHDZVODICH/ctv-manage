@@ -19,7 +19,12 @@
     "typecheck": "npm.cmd run typecheck --workspaces",
     "prisma:generate": "npm.cmd run prisma:generate --workspace=app/backend",
     "prisma:migrate": "npm.cmd run prisma:migrate --workspace=app/backend",
-    "prisma:seed": "npm.cmd run prisma:seed --workspace=app/backend"
+    "prisma:deploy": "npm.cmd run prisma:deploy --workspace=app/backend",
+    "prisma:seed": "npm.cmd run prisma:seed --workspace=app/backend",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:migrate-sqlite": "npm.cmd run db:migrate-sqlite --workspace=app/backend",
+    "db:summary": "npm.cmd run db:summary --workspace=app/backend"
   },
   "devDependencies": {
     "@types/multer": "2.2.0",

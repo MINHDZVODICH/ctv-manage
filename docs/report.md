@@ -3,7 +3,7 @@
 
 - **Ngày thực hiện kiểm thử:** 27/08/2026
 - **Tài liệu đối chiếu:** [docs/USE-CASE.md](file:///E:/CTV_Manage/docs/USE-CASE.md)
-- **Môi trường kiểm thử:** Node.js (v24.x) + Express TypeScript + SQLite (Prisma ORM) / React 19 + Tailwind CSS
+- **Môi trường kiểm thử hiện tại:** Node.js (v24.x) + Express TypeScript + PostgreSQL (Prisma ORM) / React 19 + Tailwind CSS
 - **Công cụ kiểm thử giao diện & tương tác thực tế:** Chrome DevTools MCP (Trình duyệt trực tiếp trên `http://localhost:3000`)
 
 ---
@@ -19,7 +19,7 @@
 |---|---|---|
 | 🔴 **Critical (Nghiêm trọng)** | **2** | Lỗi Schema xung đột Email Unique với Soft-Delete; Crash runtime khi gọi `listMyShifts` thiếu params. |
 | 🟠 **High (Cao)** | **3** | Lệch đếm ngược màn hình đăng ký; Lệch múi giờ Date giữa UTC và LocalTime; Bế tắc duyệt hồ sơ khi tệp đính kèm vật lý mất. |
-| 🟡 **Medium (Trung bình)** | **5** | Lệch pha giữa mô tả USE-CASE.md và UI thực tế; Thiếu Client Validation dung lượng file; Tìm kiếm tiếng Việt có dấu trong SQLite; CSS Contrast chưa triệt để; Nguy cơ trùng lặp tên CTV trong tổng hợp tuần. |
+| 🟡 **Medium (Trung bình)** | **5** | Lệch pha giữa mô tả USE-CASE.md và UI thực tế; Thiếu Client Validation dung lượng file; Tìm kiếm tiếng Việt có dấu (đã khắc phục khi chuyển PostgreSQL); CSS Contrast chưa triệt để; Nguy cơ trùng lặp tên CTV trong tổng hợp tuần. |
 | 🔵 **Low (Thấp / Góp ý)** | **3** | Hiển thị mật khẩu mới trên Toast; Dịch Tiếng Anh chưa phủ 100%; Xử lý ngày sinh không hợp lệ trong Modal sửa hồ sơ. |
 
 ---
@@ -100,7 +100,7 @@
   - `app/backend/src/modules/schedule/schedule.service.ts` (Hàm `bangkokStartOfDayUtc`)
 - **Mô tả lỗi:**
   - Client khởi tạo đối tượng Date bằng `new Date(year, month - 1, day)`, tạo mốc thời gian 00:00:00 theo giờ Local của máy tính người dùng.
-  - Server SQLite lưu `workDate` theo chuẩn UTC/Bangkok (`+07:00`).
+  - Server PostgreSQL lưu `workDate` theo timestamp UTC; tầng ứng dụng quy đổi theo `Asia/Bangkok` (`+07:00`).
   - Nếu người dùng truy cập từ thiết bị có múi giờ âm (ví dụ UTC-5) hoặc khi chuyển đổi qua lại chuỗi ISO, ngày `2026-08-28` có thể bị lệch thành `2026-08-27 19:00:00`, dẫn đến ca làm việc bị hiển thị nhảy sang ngày hôm trước trên lưới lịch.
 - **Giải pháp đề xuất:** Luôn xử lý chuỗi ngày dạng thuần `YYYY-MM-DD` khi hiển thị trên giao diện, tránh chuyển đổi qua lại đối tượng `new Date()` không kèm múi giờ cố định `Asia/Bangkok`.
 
@@ -149,13 +149,13 @@
 
 ---
 
-#### BUG-08: Tìm kiếm tiếng Việt có dấu trong SQLite phân biệt hoa thường
+#### BUG-08: Tìm kiếm tiếng Việt có dấu phân biệt hoa thường — đã khắc phục
 - **Use Case liên quan:** UC 1.4, UC 1.10
 - **Vị trí code:** `app/backend/src/modules/accounts/accounts.service.ts` (Dòng 154) & `registration.service.ts` (Dòng 179)
 - **Mô tả:**
-  - SQLite mặc định với Prisma `contains: q` chỉ hỗ trợ không phân biệt hoa thường với ký tự ASCII. Với tiếng Việt có dấu (ví dụ: `Nguyễn` vs `nguyễn`), toán tử `LIKE` / `contains` của SQLite phân biệt chữ hoa/chữ thường.
-  - Khi Admin gõ tìm kiếm `nguyễn` trên backend, kết quả trả về có thể bị thiếu các tài khoản có họ `Nguyễn`.
-- **Giải pháp đề xuất:** Lưu thêm trường chuẩn hóa `searchNormalized` không dấu hoặc sử dụng raw query `LOWER()` kết hợp collation hỗ trợ UTF-8.
+  - Các truy vấn Prisma trên PostgreSQL hiện dùng `mode: "insensitive"`, sinh phép so khớp `ILIKE` cho `displayName`, `email` và `phone`.
+  - Tìm kiếm `nguyễn` và `Nguyễn` không còn khác nhau theo hoa/thường; tìm kiếm bỏ dấu vẫn cần trường chuẩn hóa riêng nếu trở thành yêu cầu.
+- **Giải pháp đã áp dụng:** Dùng bộ lọc không phân biệt hoa thường của PostgreSQL trong `accounts.service.ts` và `registration.service.ts`.
 
 ---
 
@@ -337,7 +337,7 @@ NHẬT KÝ CHI TIẾT TỪNG USE CASE TRÊN TRÌNH DUYỆT (LIVE BROWSER TESTING
 
 1. **Về tính năng & giao diện:**
    - Hệ thống đáp ứng **trên 95%** các luồng giao diện người dùng theo đặc tả [docs/USE-CASE.md](file:///E:/CTV_Manage/docs/USE-CASE.md).
-   - Tốc độ phản hồi giao diện rất nhanh (gần như tức thì < 50ms) sau khi áp dụng tối ưu hóa SQLite WAL mode và query indexing.
+   - Các chỉ mục PostgreSQL được tạo bằng Prisma migration cho các truy vấn tài khoản, phiên, lịch và lịch sử.
    - Các hộp thoại modal, toast, bảng biểu và thanh điều hướng hoạt động trơn tru trên trình duyệt thực tế.
 
 2. **Về các vấn đề kỹ thuật cần ưu tiên xử lý:**

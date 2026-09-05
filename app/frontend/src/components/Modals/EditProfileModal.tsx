@@ -11,7 +11,7 @@ interface EditProfileModalProps {
 
 const parseDobToParts = (rawDob?: string) => {
   if (!rawDob || !rawDob.trim()) {
-    return { day: "15", month: "08", year: "1990" };
+    return { day: "", month: "", year: "" };
   }
   const str = rawDob.trim();
   const vnMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -38,7 +38,7 @@ const parseDobToParts = (rawDob?: string) => {
       year: String(d.getUTCFullYear()),
     };
   }
-  return { day: "15", month: "08", year: "1990" };
+  return { day: "", month: "", year: "" };
 };
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -55,7 +55,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [dobMonth, setDobMonth] = useState(initialDobParts.month);
   const [dobYear, setDobYear] = useState(initialDobParts.year);
 
-  const [gender, setGender] = useState(user.gender || "Nam");
+  const [gender, setGender] = useState(user.gender || "");
   const [address, setAddress] = useState(user.address || "");
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setDobDay(parts.day);
       setDobMonth(parts.month);
       setDobYear(parts.year);
-      setGender(user.gender || "Nam");
+      setGender(user.gender || "");
       setAddress(user.address || "");
     }
   }, [isOpen, user]);
@@ -81,7 +81,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const dob = `${dobDay}/${dobMonth}/${dobYear}`;
+    const dob = dobDay && dobMonth && dobYear ? `${dobDay}/${dobMonth}/${dobYear}` : "";
     onSave({
       name,
       phone,
@@ -163,6 +163,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     title="Ngày"
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
+                    <option value="">--</option>
                     {Array.from({ length: maxDaysInMonth }, (_, i) => {
                       const d = String(i + 1).padStart(2, "0");
                       return (
@@ -196,6 +197,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     title="Tháng"
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
+                    <option value="">--</option>
                     {Array.from({ length: 12 }, (_, i) => {
                       const m = String(i + 1).padStart(2, "0");
                       return (
@@ -229,6 +231,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     title="Năm"
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
+                    <option value="">--</option>
                     {Array.from(
                       { length: new Date().getFullYear() - 1939 },
                       (_, i) => {
@@ -259,6 +262,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 onChange={(e) => setGender(e.target.value)}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               >
+                <option value="">Chưa cập nhật</option>
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
                 <option value="Khác">Khác</option>

@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import { UserAccount } from "../../types";
 import { formatPhoneNumber } from "../../utils/formatters";
-import { formatRoomLabel } from "../../utils/rooms";
 import { useSystemSettings } from "../../context/SystemSettingsContext";
 
 interface ProfileScreenProps {
@@ -29,7 +28,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isAdminViewing = false,
   onBack,
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
   const [previewModal, setPreviewModal] = useState<{
     title: string;
     url: string;
@@ -138,63 +137,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
+  // Only show a CV when the API returned an actual uploaded file.
   const cvDisplayName =
-    user.cvFileName ||
-    (user.cvFile
-      ? `CV_${user.name.replace(/\s+/g, "_")}.pdf`
-      : user.role === "Cộng tác viên"
-        ? `CV_${user.name.replace(/\s+/g, "_")}_HoSo.pdf`
-        : "");
-  const cvDisplaySize = user.cvFileSize || "1.8 MB";
-  const hasCv = Boolean(user.cvFile || user.cvFileName || user.role === "Cộng tác viên");
+    user.cvFileName || (user.cvFile ? `CV_${user.name.replace(/\s+/g, "_")}.pdf` : "");
+  const cvDisplaySize = user.cvFileSize || "";
+  const hasCv = Boolean(user.cvFile);
   const isPdf =
     cvDisplayName.toLowerCase().endsWith(".pdf") ||
     (!cvDisplayName.toLowerCase().endsWith(".doc") &&
       !cvDisplayName.toLowerCase().endsWith(".docx"));
 
   const handleDownloadCv = () => {
-    if (user.cvFile) {
-      const a = document.createElement("a");
-      a.href = user.cvFile;
-      a.download = cvDisplayName || "CV_HoSo.pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      const content = `=========================================
-HỒ SƠ ỨNG TUYỂN CỘNG TÁC VIÊN (CV)
-=========================================
-Họ và tên: ${user.name}
-Mã CTV: ${user.cctvCode || "N/A"}
-Email: ${user.email}
-Số điện thoại: ${user.phone}
-Ngày sinh: ${user.dob || "N/A"}
-Giới tính: ${user.gender || "N/A"}
-Địa chỉ: ${user.address || "N/A"}
-
-BUỒNG LÀM VIỆC ĐƯỢC CHỈ ĐỊNH:
-- Buồng làm việc: ${formatRoomLabel(user.room || user.workRoom) || "Chưa cập nhật"}
-
-KỸ NĂNG & CHUYÊN MÔN:
-- ${user.skills && user.skills.length > 0 ? user.skills.join("\n- ") : "Kỹ năng chuyên môn, giao tiếp tốt"}
-
-LỊCH SỬ HOẠT ĐỘNG:
-- Ngày đăng ký: ${user.registerDate || "N/A"}
-- Ngày gia nhập: ${user.joinDate || user.registerDate || "N/A"}
-- Số ca hoàn thành: ${user.shiftsCompleted || 0} ca
-- Đánh giá trung bình: ${user.rating || 5.0} / 5.0 ⭐
-- Trạng thái tài khoản: ${user.status}
-`;
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = cvDisplayName || "CV_HoSo.txt";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    if (!user.cvFile) return;
+    const a = document.createElement("a");
+    a.href = user.cvFile;
+    a.download = cvDisplayName || "CV";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
@@ -424,7 +384,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                       {t("date_of_birth")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">
-                      {user.dob || "15/08/1998"}
+                      {user.dob || t("not_updated")}
                     </p>
                   </div>
 
@@ -448,7 +408,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                     <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
                       {t("gender")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.gender || (language === "Tiếng Anh" ? "Male" : "Nam")}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.gender || t("not_updated")}</p>
                   </div>
 
                   <div>
@@ -485,7 +445,7 @@ LỊCH SỬ HOẠT ĐỘNG:
                       {t("registration_date")}
                     </label>
                     <p className="text-sm font-semibold text-[#1a1b1e]">
-                      {user.joinDate || "01/12/2023"}
+                      {user.joinDate || user.registerDate || t("not_updated")}
                     </p>
                   </div>
                 </div>
@@ -758,13 +718,13 @@ LỊCH SỬ HOẠT ĐỘNG:
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-medium">Ngày sinh:</p>
                       <p className="font-semibold text-slate-900 dark:text-white">
-                        {user.dob || "15/08/1990"}
+                        {user.dob || t("not_updated")}
                       </p>
                     </div>
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-medium">Địa chỉ:</p>
                       <p className="font-semibold text-slate-900 dark:text-white">
-                        {user.address || "TP. Hồ Chí Minh"}
+                        {user.address || t("not_updated")}
                       </p>
                     </div>
                   </div>
@@ -774,22 +734,18 @@ LỊCH SỬ HOẠT ĐỘNG:
                       Kỹ năng & Chuyên môn
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {(user.skills && user.skills.length > 0
-                        ? user.skills
-                        : [
-                            "An ninh cơ bản",
-                            "Sơ cấp cứu",
-                            "Giao tiếp khách hàng",
-                            "Tin học văn phòng",
-                          ]
-                      ).map((sk, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                        >
-                          {sk}
-                        </span>
-                      ))}
+                      {user.skills && user.skills.length > 0 ? (
+                        user.skills.map((sk, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                          >
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-slate-500">{t("not_updated")}</span>
+                      )}
                     </div>
                   </div>
                 </div>

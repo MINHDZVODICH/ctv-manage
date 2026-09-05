@@ -176,10 +176,9 @@ export async function listPending({ q, page = 1, pageSize = 20, status = "PENDIN
   if (q && q.trim()) {
     const term = q.trim();
     where.OR = [
-      { displayName: { contains: term } },
-      { phone: { contains: term } },
-      { email: { contains: term } },
-      { email: { contains: term.toLowerCase() } },
+      { displayName: { contains: term, mode: "insensitive" } },
+      { phone: { contains: term, mode: "insensitive" } },
+      { email: { contains: term, mode: "insensitive" } },
     ];
   }
   const [items, total] = await Promise.all([

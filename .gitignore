@@ -18,7 +18,7 @@ build/
 .env.test.local
 .env.production.local
 
-# Database
+# Legacy SQLite files retained locally only as migration/rollback sources
 app/backend/prisma/*.db
 app/backend/prisma/*.db-journal
 app/backend/prisma/*.db-wal
@@ -56,8 +56,6 @@ Thumbs.db
 
 # Auto-generated / local config
 app/backend/uploads/
-app/backend/prisma/migrations/*/migration.sql
-!app/backend/prisma/migrations/migration_lock.toml
 
 Deploy-React-Nodejs-EN.md
 

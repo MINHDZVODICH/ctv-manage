@@ -179,13 +179,13 @@ erDiagram
 | `SHIFT_ASSIGNMENT.status` | `ACTIVE`, `CANCELLED` |
 | `WORK_HISTORY.status` | `COMPLETED` |
 | `SCHEDULE_REGISTRATION` | `endDate >= startDate`, `version >= 1` |
-| `SCHEDULE_REGISTRATION` | Service chỉ duy trì tối đa một bản ghi `ACTIVE` cho mỗi `accountId` (quy tắc ứng dụng, không phải unique index của SQLite) |
+| `SCHEDULE_REGISTRATION` | Service chỉ duy trì tối đa một bản ghi `ACTIVE` cho mỗi `accountId` (quy tắc ứng dụng, chưa có partial unique index trong PostgreSQL) |
 | `SCHEDULE_PATTERN_SLOT` | unique `(registrationId, weekday, period)` |
 | `SHIFT` | unique `(workDate, period)` |
 | `SHIFT_ASSIGNMENT` | unique `(shiftId, accountId)` và `(registrationId, shiftId)` |
 | `WORK_HISTORY` | unique `(accountId, workDate, period)`; `sourceAssignmentId` unique khi có giá trị và là mã truy vết mềm, không phải khóa ngoại |
 
-`SCHEDULE_REGISTRATION` và `SCHEDULE_PATTERN_SLOT` lưu mẫu lịch trình của từng CTV. Khi tạo hoặc cập nhật mẫu, service chiếu mẫu này thành các `SHIFT` và `SHIFT_ASSIGNMENT` cho 31 ngày tính từ ngày bắt đầu (ngày bắt đầu cộng 30 ngày). API lịch tuần của CTV và `GET /api/v1/schedule-summary` của Admin đọc các assignment `ACTIVE`; vì vậy Lịch tuần tổng hợp là phép tổng hợp lịch trình đã được materialize của tất cả CTV, không phải dữ liệu hardcode ở Frontend.
+`SCHEDULE_REGISTRATION` và `SCHEDULE_PATTERN_SLOT` lưu mẫu lịch tuần cố định của từng CTV. Registration `ACTIVE` không tự hết hạn theo ngày; mẫu tiếp tục áp dụng cho đến khi bị thay thế, hủy hoặc tài khoản bị vô hiệu hóa. Service chỉ chiếu trước mẫu thành `SHIFT` và `SHIFT_ASSIGNMENT` trong một cửa sổ trượt để tránh sinh vô hạn dữ liệu; `endDate` là mốc đã materialize tới, không phải ngày hết hiệu lực nghiệp vụ. Cửa sổ được bồi thêm khi đồng bộ lịch sử, đọc ca cá nhân hoặc đọc lịch tổng hợp. API lịch tuần của CTV hiển thị trực tiếp mẫu tuần, còn `GET /api/v1/schedule-summary` của Admin đọc assignment `ACTIVE` theo ngày.
 
 `WORK_HISTORY` là ảnh chụp độc lập của các assignment `ACTIVE` có `workDate` nhỏ hơn ngày hiện tại theo `Asia/Bangkok`. `syncWorkHistory()` chạy khi backend khởi động, mỗi giờ, trước khi cập nhật mẫu lịch và trước mỗi truy vấn lịch sử. Upsert theo `(accountId, workDate, period)` làm thao tác này idempotent; các lần sửa lịch tương lai không đổi hoặc xóa lịch sử đã chốt. Hai API lịch sử (`GET /api/v1/users/me/work-history` và `GET /api/v1/work-history`) chỉ đọc bảng này.
 

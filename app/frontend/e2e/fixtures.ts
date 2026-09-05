@@ -16,7 +16,13 @@ async function login(page: Page, role: keyof typeof credentials) {
   await page.locator('input[type="email"]').fill(account.email);
   await page.locator('input[type="password"]').fill(account.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page.getByText(role === 'admin' ? 'Quản lý tài khoản' : 'Lịch làm việc', { exact: true }).first()).toBeVisible();
+  if (role === 'admin') {
+    await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
+  } else {
+    await expect(
+      page.getByRole('button', { name: 'Đăng ký lịch làm việc', exact: true }),
+    ).toBeVisible();
+  }
 }
 
 export const test = base.extend<Fixtures>({

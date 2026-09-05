@@ -7,7 +7,7 @@ Thư mục này mô tả luồng runtime của các use case trong [USE-CASE.md]
 - Frontend hiện gọi `Shared API Client` trực tiếp từ `App`, context hoặc component màn hình/modal; repository chưa tách các Feature Hook riêng.
 - Backend đi theo `Controller → Service → Prisma/File Storage`; Controller không gọi Prisma trực tiếp.
 - Shared API Client tự gửi cookie session và CSRF header cho request thay đổi dữ liệu.
-- SQLite là nguồn dữ liệu lịch dùng chung. Lịch hiện hành đọc `SHIFT_ASSIGNMENT`; lịch sử đã qua được chốt riêng trong `WORK_HISTORY` để không bị thay đổi khi CTV cập nhật mẫu tuần.
+- PostgreSQL là nguồn dữ liệu lịch dùng chung. Lịch hiện hành đọc `SHIFT_ASSIGNMENT`; lịch sử đã qua được chốt riêng trong `WORK_HISTORY` để không bị thay đổi khi CTV cập nhật mẫu tuần.
 - Buồng là cấu hình cố định `ROOM_1`–`ROOM_4`; ca chỉ có `MORNING`/`AFTERNOON`.
 - Mũi tên HTTP ghi rõ method và path; mũi tên Service → DB ghi bảng, điều kiện lọc hoặc thay đổi trạng thái chính.
 - Payload, transaction hoặc constraint quá dài được đặt trong phần Chú thích ngay dưới sơ đồ.
