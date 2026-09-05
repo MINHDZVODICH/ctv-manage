@@ -109,6 +109,56 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     expect(deleted?.deletedAt).not.toBeNull();
   });
 
+  test('disabling and soft-deleting an account preserves schedule and shifts and revokes sessions', async () => {
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+    const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
+    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+
+    // Seed a schedule for this CTV
+    await prisma.schedule.upsert({
+      where: { accountId: ctv.id },
+      create: {
+        accountId: ctv.id,
+        roomCode: 'ROOM_1',
+        shifts: {
+          create: [{ weekday: 1, period: 'MORNING' }, { weekday: 3, period: 'AFTERNOON' }],
+        },
+      },
+      update: {},
+    });
+
+    // 1. Disable account
+    const disableRes = await request(app)
+      .patch(`/api/v1/accounts/${ctv.id}/status`)
+      .set('Cookie', adminCookie)
+      .send({ status: 'DISABLED', expectedVersion: ctv.version });
+    expect(disableRes.status).toBe(200);
+
+    // Verify schedule still exists
+    const scheduleAfterDisable = await prisma.schedule.findUnique({
+      where: { accountId: ctv.id },
+      include: { shifts: true },
+    });
+    expect(scheduleAfterDisable).not.toBeNull();
+    expect(scheduleAfterDisable?.shifts).toHaveLength(2);
+
+    // Verify session revoked
+    const postDisableReq = await request(app).get('/api/v1/users/me').set('Cookie', ctvCookie);
+    expect(postDisableReq.status).toBe(401);
+
+    // 2. Soft-delete account
+    const delRes = await request(app).delete(`/api/v1/accounts/${ctv.id}`).set('Cookie', adminCookie);
+    expect(delRes.status).toBe(200);
+
+    // Verify schedule still exists after soft-delete
+    const scheduleAfterDelete = await prisma.schedule.findUnique({
+      where: { accountId: ctv.id },
+      include: { shifts: true },
+    });
+    expect(scheduleAfterDelete).not.toBeNull();
+    expect(scheduleAfterDelete?.shifts).toHaveLength(2);
+  });
+
   test('ACC-012: Save admin notes increments version and preserves notes', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });

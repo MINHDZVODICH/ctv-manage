@@ -81,18 +81,6 @@ function assertVersionMatch(current: number, expectedVersion: number | undefined
   }
 }
 
-async function revokeSessions(accountId: string) {
-  await prisma.session.updateMany({
-    where: { accountId, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
-}
-
-async function disableSideEffects(accountId: string) {
-  await revokeSessions(accountId);
-  await prisma.schedule.deleteMany({ where: { accountId } });
-}
-
 // ---------------------------------------------------------------------------
 // listAccounts
 // ---------------------------------------------------------------------------
@@ -226,24 +214,29 @@ export async function updateNotes(accountId: string, adminNotes: string | null, 
 // ---------------------------------------------------------------------------
 
 export async function changeStatus(accountId: string, status: string, expectedVersion?: number) {
-  const account = await prisma.account.findFirst({ where: { id: accountId, deletedAt: null } });
-  if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
+  return await prisma.$transaction(async (tx) => {
+    const account = await tx.account.findFirst({ where: { id: accountId, deletedAt: null } });
+    if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
-  assertVersionMatch(account.version, expectedVersion);
+    assertVersionMatch(account.version, expectedVersion);
 
-  const updated = await prisma.account.update({
-    where: { id: accountId },
-    data: { status, version: { increment: 1 } },
-    include: {
-      accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } },
-    },
+    const updated = await tx.account.update({
+      where: { id: accountId },
+      data: { status, version: { increment: 1 } },
+      include: {
+        accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } },
+      },
+    });
+
+    if (status === 'DISABLED') {
+      await tx.session.updateMany({
+        where: { accountId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    return mapAccountDetail(updated);
   });
-
-  if (status === 'DISABLED') {
-    await disableSideEffects(accountId);
-  }
-
-  return mapAccountDetail(updated);
 }
 
 // ---------------------------------------------------------------------------
@@ -251,28 +244,32 @@ export async function changeStatus(accountId: string, status: string, expectedVe
 // ---------------------------------------------------------------------------
 
 export async function softDelete(accountId: string) {
-  const account = await prisma.account.findUnique({ where: { id: accountId } });
-  if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
+  return await prisma.$transaction(async (tx) => {
+    const account = await tx.account.findUnique({ where: { id: accountId } });
+    if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
-  // idempotent if already deleted
-  if (account.deletedAt) {
-    const withFiles = await prisma.account.findUnique({
+    if (account.deletedAt) {
+      const withFiles = await tx.account.findUnique({
+        where: { id: accountId },
+        include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
+      });
+      return mapAccountDetail(withFiles!);
+    }
+
+    const now = new Date();
+    const updated = await tx.account.update({
       where: { id: accountId },
+      data: { deletedAt: now, status: 'DISABLED', version: { increment: 1 } },
       include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
     });
-    return mapAccountDetail(withFiles!);
-  }
 
-  const now = new Date();
-  const updated = await prisma.account.update({
-    where: { id: accountId },
-    data: { deletedAt: now, status: 'DISABLED', version: { increment: 1 } },
-    include: { accountFiles: { where: { deletedAt: null }, include: { fileAsset: true } } },
+    await tx.session.updateMany({
+      where: { accountId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+
+    return mapAccountDetail(updated);
   });
-
-  await disableSideEffects(accountId);
-
-  return mapAccountDetail(updated);
 }
 
 // ---------------------------------------------------------------------------
