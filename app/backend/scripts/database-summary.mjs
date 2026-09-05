@@ -9,11 +9,9 @@ const models = [
   ['FileAsset', 'fileAsset'],
   ['RegistrationRequestFile', 'registrationRequestFile'],
   ['AccountFile', 'accountFile'],
-  ['ScheduleRegistration', 'scheduleRegistration'],
-  ['SchedulePatternSlot', 'schedulePatternSlot'],
+  ['Schedule', 'schedule'],
   ['Shift', 'shift'],
-  ['ShiftAssignment', 'shiftAssignment'],
-  ['WorkHistory', 'workHistory'],
+  ['History', 'history'],
 ];
 
 try {

@@ -2,12 +2,9 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 
-process.env.DATABASE_URL ??= 'postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage?schema=public';
-
 const prisma = new PrismaClient();
 
-const ROOM_CODES = ['ROOM_1', 'ROOM_2', 'ROOM_3', 'ROOM_4'] as const;
-const PERIODS = ['MORNING', 'AFTERNOON'] as const;
+const SHARED_PASSWORD = '12345678';
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -24,13 +21,8 @@ function addDays(d: Date, days: number): Date {
   return res;
 }
 
-function sampleDistinct<T>(arr: readonly T[] | T[], count: number): T[] {
-  const shuffled = [...arr].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
-
 async function cleanDatabase() {
-  console.log('🧹 Cleaning database before seeding...');
+  console.log('🧹 Xóa sạch toàn bộ dữ liệu trong database ctv_manage...');
   await prisma.history.deleteMany();
   await prisma.shift.deleteMany();
   await prisma.schedule.deleteMany();
@@ -40,24 +32,23 @@ async function cleanDatabase() {
   await prisma.session.deleteMany();
   await prisma.registrationRequest.deleteMany();
   await prisma.account.deleteMany();
+  console.log('✅ Đã xóa sạch toàn bộ dữ liệu cũ.');
 }
 
 async function main() {
   await cleanDatabase();
 
-  console.log('🌱 Starting database seeding...');
+  console.log('🌱 Bắt đầu tạo mới dữ liệu mẫu (Seeding)...');
 
-  // Hash passwords
-  const adminPasswordHash = await argon2.hash('Admin@123456');
-  const ctvPasswordHash = await argon2.hash('Ctv@123456');
-  const acceptancePasswordHash = await argon2.hash('Test@123456');
+  // Hash mật khẩu chung 12345678
+  const sharedPasswordHash = await argon2.hash(SHARED_PASSWORD);
 
-  // 1. Seed 1 Main Admin Account
-  console.log('👤 Seeding Admin account...');
-  const mainAdmin = await prisma.account.create({
+  // 1. Tạo 1 Tài khoản Quản trị viên (Admin)
+  console.log('👤 Tạo 1 tài khoản Admin...');
+  const adminAccount = await prisma.account.create({
     data: {
       email: 'admin@amst.gov.vn',
-      passwordHash: adminPasswordHash,
+      passwordHash: sharedPasswordHash,
       role: 'ADMIN',
       status: 'ACTIVE',
       displayName: 'Quản trị viên Hệ thống',
@@ -70,175 +61,86 @@ async function main() {
     },
   });
 
-  // 2. Seed 5 Main CTV Accounts
-  console.log('👥 Seeding 5 CTV accounts...');
+  // 2. Tạo 3 Tài khoản CTV
+  console.log('👥 Tạo 3 tài khoản CTV hoạt động...');
   const ctvDataList = [
     {
-      email: 'ctv.an@amst.gov.vn',
+      email: 'ctv1@amst.gov.vn',
       displayName: 'Nguyễn Văn An',
       ctvCode: 'CTV-001',
       phone: '0912000001',
       gender: 'Nam',
       dateOfBirth: new Date('1998-03-12T00:00:00.000Z'),
       address: 'Cầu Giấy, Hà Nội',
-      adminNotes: 'CTV xuất sắc chuyên môn Phần mềm & Hệ thống',
+      adminNotes: 'CTV phụ trách Kỹ thuật Phần mềm & Hệ thống',
+      roomCode: 'ROOM_1',
+      shifts: [
+        { weekday: 1, period: 'MORNING' as const },
+        { weekday: 1, period: 'AFTERNOON' as const },
+        { weekday: 3, period: 'MORNING' as const },
+        { weekday: 5, period: 'AFTERNOON' as const },
+      ],
     },
     {
-      email: 'ctv.bich@amst.gov.vn',
+      email: 'ctv2@amst.gov.vn',
       displayName: 'Trần Thị Bích',
       ctvCode: 'CTV-002',
       phone: '0912000002',
       gender: 'Nữ',
       dateOfBirth: new Date('1999-07-24T00:00:00.000Z'),
       address: 'Đống Đa, Hà Nội',
-      adminNotes: 'CTV phụ trách Kỹ thuật Mạng',
+      adminNotes: 'CTV phụ trách Mạng & Viễn thông',
+      roomCode: 'ROOM_2',
+      shifts: [
+        { weekday: 2, period: 'MORNING' as const },
+        { weekday: 2, period: 'AFTERNOON' as const },
+        { weekday: 4, period: 'MORNING' as const },
+      ],
     },
     {
-      email: 'ctv.cuong@amst.gov.vn',
+      email: 'ctv3@amst.gov.vn',
       displayName: 'Lê Hoàng Cường',
       ctvCode: 'CTV-003',
       phone: '0912000003',
       gender: 'Nam',
       dateOfBirth: new Date('1997-11-05T00:00:00.000Z'),
       address: 'Nam Từ Liêm, Hà Nội',
-      adminNotes: 'CTV Điện tử - Tự động hóa',
-    },
-    {
-      email: 'ctv.dung@amst.gov.vn',
-      displayName: 'Phạm Thị Dung',
-      ctvCode: 'CTV-004',
-      phone: '0912000004',
-      gender: 'Nữ',
-      dateOfBirth: new Date('2000-01-18T00:00:00.000Z'),
-      address: 'Hai Bà Trưng, Hà Nội',
-      adminNotes: 'CTV Nghiên cứu Dữ liệu',
-    },
-    {
-      email: 'ctv.em@amst.gov.vn',
-      displayName: 'Hoàng Văn Em',
-      ctvCode: 'CTV-005',
-      phone: '0912000005',
-      gender: 'Nam',
-      dateOfBirth: new Date('1998-09-30T00:00:00.000Z'),
-      address: 'Thanh Xuân, Hà Nội',
-      adminNotes: 'CTV An toàn thông tin',
+      adminNotes: 'CTV Điện tử & Tự động hóa',
+      roomCode: 'ROOM_3',
+      shifts: [
+        { weekday: 1, period: 'AFTERNOON' as const },
+        { weekday: 2, period: 'AFTERNOON' as const },
+        { weekday: 4, period: 'AFTERNOON' as const },
+        { weekday: 5, period: 'MORNING' as const },
+      ],
     },
   ];
 
-  const ctvAccounts = [];
+  const createdCtvs = [];
+  const now = new Date();
+  const currentMonday = getMonday(now);
+
   for (const ctvInfo of ctvDataList) {
-    const acc = await prisma.account.create({
+    const { roomCode, shifts, ...accountFields } = ctvInfo;
+    const ctv = await prisma.account.create({
       data: {
-        ...ctvInfo,
-        passwordHash: ctvPasswordHash,
+        ...accountFields,
+        passwordHash: sharedPasswordHash,
         role: 'CTV',
         status: 'ACTIVE',
       },
     });
-    ctvAccounts.push(acc);
-  }
 
-  // 3. Seed 5 Acceptance Accounts
-  console.log('🧪 Seeding 5 Acceptance accounts...');
-  const acceptanceDataList = [
-    {
-      email: 'admin.acceptance@ctv.local',
-      displayName: 'Admin Acceptance',
-      ctvCode: 'ADMIN-ACCEPTANCE',
-      role: 'ADMIN',
-      status: 'ACTIVE',
-      phone: '0900000000',
-      gender: 'Nam',
-      address: 'Khu Kiểm thử Chấp nhận',
-    },
-    {
-      email: 'ctv.active@ctv.local',
-      displayName: 'CTV Active Acceptance',
-      ctvCode: 'CTV-ACCEPTANCE-001',
-      role: 'CTV',
-      status: 'ACTIVE',
-      phone: '0900000001',
-      gender: 'Nam',
-      address: 'Hà Nội',
-    },
-    {
-      email: 'ctv.other@ctv.local',
-      displayName: 'CTV Other Acceptance',
-      ctvCode: 'CTV-ACCEPTANCE-002',
-      role: 'CTV',
-      status: 'ACTIVE',
-      phone: '0900000002',
-      gender: 'Nữ',
-      address: 'Đà Nẵng',
-    },
-    {
-      email: 'ctv.disabled@ctv.local',
-      displayName: 'CTV Disabled Acceptance',
-      ctvCode: 'CTV-ACCEPTANCE-003',
-      role: 'CTV',
-      status: 'DISABLED',
-      phone: '0900000003',
-      gender: 'Nam',
-      address: 'Hải Phòng',
-    },
-    {
-      email: 'ctv.acceptance5@ctv.local',
-      displayName: 'CTV Reviewer Acceptance',
-      ctvCode: 'CTV-ACCEPTANCE-004',
-      role: 'CTV',
-      status: 'ACTIVE',
-      phone: '0900000004',
-      gender: 'Nữ',
-      address: 'TP Hồ Chí Minh',
-    },
-  ];
+    createdCtvs.push({ ...ctv, roomCode, shifts });
 
-  const acceptanceAccounts = [];
-  for (const accInfo of acceptanceDataList) {
-    const acc = await prisma.account.create({
-      data: {
-        ...accInfo,
-        passwordHash: acceptancePasswordHash,
-      },
-    });
-    acceptanceAccounts.push(acc);
-  }
-
-  // Combine all active CTVs to seed schedules & histories
-  const allActiveCtvs = [
-    ...ctvAccounts,
-    ...acceptanceAccounts.filter((a) => a.role === 'CTV' && a.status === 'ACTIVE'),
-  ];
-
-  console.log(`📅 Generating schedules and work histories for ${allActiveCtvs.length} CTVs...`);
-
-  const now = new Date();
-  const currentMonday = getMonday(now);
-
-  // Define possible pattern slots combinations
-  const allPossibleSlots: { weekday: number; period: 'MORNING' | 'AFTERNOON' }[] = [];
-  for (let weekday = 1; weekday <= 5; weekday++) {
-    for (const period of PERIODS) {
-      allPossibleSlots.push({ weekday, period });
-    }
-  }
-
-  for (let i = 0; i < allActiveCtvs.length; i++) {
-    const ctv = allActiveCtvs[i];
-    const assignedRoom = ROOM_CODES[i % ROOM_CODES.length];
-
-    // Pick 3-5 distinct slots for weekly schedule
-    const slotCount = 3 + (i % 3); // 3 to 5 slots
-    const chosenSlots = sampleDistinct(allPossibleSlots, slotCount);
-
-    // Create Schedule with Shifts
+    // Tạo Schedule & Shifts cho CTV
     await prisma.schedule.create({
       data: {
         accountId: ctv.id,
-        roomCode: assignedRoom,
+        roomCode,
         version: 1,
         shifts: {
-          create: chosenSlots.map((s) => ({
+          create: shifts.map((s) => ({
             weekday: s.weekday,
             period: s.period,
           })),
@@ -246,109 +148,95 @@ async function main() {
       },
     });
 
-    // Generate History over the past 4 weeks (28 days back)
+    // Tạo lịch sử làm việc (History) trong 4 tuần trước
     for (let pastDays = 28; pastDays >= 1; pastDays--) {
       const pastDate = addDays(currentMonday, -pastDays);
       const jsDay = pastDate.getUTCDay();
       const weekdayIso = jsDay === 0 ? 7 : jsDay;
 
-      // Work occurs Monday - Friday
-      if (weekdayIso >= 1 && weekdayIso <= 5) {
-        // Probabilistic work history
-        if ((pastDays + i) % 3 !== 0) {
-          const periodsToWork: ('MORNING' | 'AFTERNOON')[] = [];
-          if ((pastDays + i) % 2 === 0) {
-            periodsToWork.push('MORNING');
-          } else if ((pastDays + i) % 5 === 0) {
-            periodsToWork.push('MORNING', 'AFTERNOON');
-          } else {
-            periodsToWork.push('AFTERNOON');
-          }
-
-          for (const period of periodsToWork) {
-            await prisma.history.upsert({
-              where: {
-                accountId_workDate_period: {
-                  accountId: ctv.id,
-                  workDate: pastDate,
-                  period,
-                },
-              },
-              create: {
-                accountId: ctv.id,
-                workDate: pastDate,
-                period,
-                roomCode: assignedRoom,
-                status: 'COMPLETED',
-                recordedAt: new Date(pastDate.getTime() + 17 * 3600 * 1000 + 30 * 60 * 1000),
-              },
-              update: {},
-            });
-          }
-        }
+      // Tìm xem ngày trong tuần đó CTV có ca trực hay không
+      const matchingShifts = shifts.filter((s) => s.weekday === weekdayIso);
+      for (const shift of matchingShifts) {
+        await prisma.history.upsert({
+          where: {
+            accountId_workDate_period: {
+              accountId: ctv.id,
+              workDate: pastDate,
+              period: shift.period,
+            },
+          },
+          create: {
+            accountId: ctv.id,
+            workDate: pastDate,
+            period: shift.period,
+            roomCode,
+            status: 'COMPLETED',
+            recordedAt: new Date(pastDate.getTime() + 17 * 3600 * 1000 + 30 * 60 * 1000),
+          },
+          update: {},
+        });
       }
     }
   }
 
-  // 4. Seed sample Registration Requests
-  console.log('📝 Seeding sample Registration Requests for review...');
+  // 3. Tạo 3 Hồ sơ/Tài khoản đang chờ duyệt (RegistrationRequest PENDING)
+  console.log('📝 Tạo 3 yêu cầu đăng ký đang chờ duyệt...');
   await prisma.registrationRequest.createMany({
     data: [
       {
-        email: 'applicant.hoa@gmail.com',
-        displayName: 'Vũ Thị Hoa',
+        email: 'choduyet1@gmail.com',
+        displayName: 'Phạm Minh Đức',
         phone: '0933112233',
-        gender: 'Nữ',
-        dateOfBirth: new Date('2001-04-10T00:00:00.000Z'),
-        address: 'Hà Đông, Hà Nội',
-        status: 'PENDING',
-      },
-      {
-        email: 'applicant.khoa@gmail.com',
-        displayName: 'Đặng Đăng Khoa',
-        phone: '0944223344',
         gender: 'Nam',
-        dateOfBirth: new Date('1999-12-01T00:00:00.000Z'),
-        address: 'Hoàng Mai, Hà Nội',
+        dateOfBirth: new Date('2001-05-15T00:00:00.000Z'),
+        address: 'Thanh Xuân, Hà Nội',
+        passwordHash: sharedPasswordHash,
         status: 'PENDING',
       },
       {
-        email: 'applicant.lan@gmail.com',
-        displayName: 'Ngô Ngọc Lan',
-        phone: '0955334455',
+        email: 'choduyet2@gmail.com',
+        displayName: 'Vũ Thị Hoa',
+        phone: '0944223344',
         gender: 'Nữ',
-        dateOfBirth: new Date('2002-08-19T00:00:00.000Z'),
-        address: 'Tây Hồ, Hà Nội',
-        status: 'REJECTED',
-        rejectionReason: 'Hồ sơ chưa cung cấp đầy đủ thông tin căn cước công dân.',
-        reviewedById: mainAdmin.id,
-        reviewedAt: new Date(),
+        dateOfBirth: new Date('2002-08-20T00:00:00.000Z'),
+        address: 'Hà Đông, Hà Nội',
+        passwordHash: sharedPasswordHash,
+        status: 'PENDING',
+      },
+      {
+        email: 'choduyet3@gmail.com',
+        displayName: 'Đặng Hoàng Long',
+        phone: '0955334455',
+        gender: 'Nam',
+        dateOfBirth: new Date('2000-11-10T00:00:00.000Z'),
+        address: 'Hai Bà Trưng, Hà Nội',
+        passwordHash: sharedPasswordHash,
+        status: 'PENDING',
       },
     ],
   });
 
   console.log('\n======================================================');
-  console.log('🎉 SEEDING COMPLETED SUCCESSFULLY!');
+  console.log('🎉 KHỞI TẠO DỮ LIỆU THÀNH CÔNG!');
   console.log('======================================================');
-  console.log('\n🔑 ACCOUNTS AVAILABLE:');
+  console.log(`🔐 MẬT KHẨU CHUNG CHO TẤT CẢ TÀI KHOẢN: ${SHARED_PASSWORD}`);
   console.log('------------------------------------------------------');
-  console.log('👑 1 Admin Account (Password: Admin@123456):');
-  console.log(`   - ${mainAdmin.email} (${mainAdmin.displayName})`);
-  console.log('\n💼 5 CTV Accounts (Password: Ctv@123456):');
-  ctvAccounts.forEach((c) => {
-    console.log(`   - ${c.email} [${c.ctvCode}] - ${c.displayName}`);
+  console.log('👑 1 TÀI KHOẢN ADMIN:');
+  console.log(`   - Email: ${adminAccount.email} | Tên: ${adminAccount.displayName} | Mã: ${adminAccount.ctvCode}`);
+  console.log('\n💼 3 TÀI KHOẢN CTV HOẠT ĐỘNG:');
+  createdCtvs.forEach((c) => {
+    console.log(`   - Email: ${c.email} | Tên: ${c.displayName} | Mã: ${c.ctvCode} | Phòng: ${c.roomCode}`);
   });
-  console.log('\n🧪 5 Acceptance Accounts (Password: Test@123456):');
-  acceptanceAccounts.forEach((a) => {
-    console.log(`   - ${a.email} [${a.role}] (${a.status}) - ${a.displayName}`);
-  });
-  console.log('\n✨ All CTVs have active schedules, shifts, and historical records.');
+  console.log('\n⏳ 3 TÀI KHOẢN ĐANG CHỜ DUYỆT (PENDING):');
+  console.log('   - Email: choduyet1@gmail.com | Tên: Phạm Minh Đức | SĐT: 0933112233');
+  console.log('   - Email: choduyet2@gmail.com | Tên: Vũ Thị Hoa    | SĐT: 0944223344');
+  console.log('   - Email: choduyet3@gmail.com | Tên: Đặng Hoàng Long | SĐT: 0955334455');
   console.log('======================================================\n');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error during seeding:', e);
+    console.error('❌ Lỗi khi khởi tạo dữ liệu mẫu:', e);
     process.exit(1);
   })
   .finally(async () => {
