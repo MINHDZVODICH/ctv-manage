@@ -1,0 +1,24 @@
+name: Wake Backend for Daily Snapshot
+
+on:
+  schedule:
+    - cron: '20 17 * * 1-5'
+      timezone: 'Asia/Bangkok'
+
+    - cron: '31 17 * * 1-5'
+      timezone: 'Asia/Bangkok'
+
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wake Render backend
+        run: |
+          curl --fail \
+               --retry 5 \
+               --retry-delay 20 \
+               --max-time 180 \
+               "${{ vars.BACKEND_HEALTH_URL }}"

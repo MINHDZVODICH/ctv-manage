@@ -11,6 +11,7 @@ export const Errors = {
   notFound: (msg = 'Không tìm thấy') => new AppError(404, 'NOT_FOUND', msg),
   conflict: (code: string, msg: string) => new AppError(409, code, msg),
   badRequest: (code: string, msg: string) => new AppError(400, code, msg),
+  internal: (msg = 'Lỗi hệ thống') => new AppError(500, 'INTERNAL_ERROR', msg),
 };
 
 export function toErrorBody(err: AppError) {

@@ -16,7 +16,9 @@ build/
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+!*.example
 
 # Legacy SQLite files retained locally only as migration/rollback sources
 app/backend/prisma/*.db

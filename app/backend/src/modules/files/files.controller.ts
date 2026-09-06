@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
 import * as filesService from './files.service.js';
 import { Errors } from '../../shared/errors.js';
-import { fileExists, streamFile } from '../../shared/fileStorage.js';
+import { fileExists, downloadFile } from '../../shared/fileStorage.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const upload = multer({
@@ -23,7 +23,7 @@ function requireUser(req: Request) {
   return user;
 }
 
-// GET /files/:fileId/content — authorize then stream with Content-Type/Disposition
+// GET /files/:fileId/content — authorize then send buffer with Content-Type/Disposition
 export async function getContent(req: Request, res: Response, next: NextFunction) {
   try {
     const user = requireUser(req);
@@ -33,16 +33,11 @@ export async function getContent(req: Request, res: Response, next: NextFunction
     if (!(await fileExists(info.storageKey))) {
       throw Errors.notFound('Tệp không tồn tại trên hệ thống lưu trữ');
     }
+    const buffer = await downloadFile(info.storageKey);
     res.setHeader('Content-Type', info.mimeType);
     res.setHeader('Content-Length', String(info.sizeBytes));
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(info.originalName)}`);
-
-    const stream = streamFile(info.storageKey);
-    stream.on('error', (err: any) => {
-      if (!res.headersSent) next(err);
-      else res.destroy(err);
-    });
-    stream.pipe(res);
+    res.send(buffer);
   } catch (e) {
     next(e);
   }

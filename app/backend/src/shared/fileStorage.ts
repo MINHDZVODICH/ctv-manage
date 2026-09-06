@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Errors } from './errors.js';
 import { config } from '../config.js';
 
@@ -51,16 +52,71 @@ export function getStoragePath(storageKey: string): string {
   return full;
 }
 
-/** Write a buffer to disk asynchronously at the given storageKey. Creates parent directories as needed. */
+let activeDriverOverride: 'local' | 'supabase' | null = null;
+let customSupabaseClient: SupabaseClient | any | null = null;
+
+export function setStorageDriverForTest(driver: 'local' | 'supabase' | null): void {
+  activeDriverOverride = driver;
+}
+
+export function setSupabaseClientForTest(client: SupabaseClient | any | null): void {
+  customSupabaseClient = client;
+}
+
+export function getStorageDriver(): 'local' | 'supabase' {
+  return activeDriverOverride ?? config.STORAGE_DRIVER;
+}
+
+export function getSupabaseClient(): SupabaseClient {
+  if (customSupabaseClient) {
+    return customSupabaseClient;
+  }
+  if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) {
+    throw Errors.internal('Supabase configuration (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) is required');
+  }
+  return createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+/** Write a buffer asynchronously at the given storageKey (local disk or Supabase Storage). */
 export async function saveBufferToFile(buffer: Buffer, storageKey: string): Promise<string> {
+  const driver = getStorageDriver();
+  if (driver === 'supabase') {
+    const client = getSupabaseClient();
+    const contentType = sniffMimeType(buffer) ?? 'application/octet-stream';
+    const { error } = await client.storage
+      .from(config.SUPABASE_STORAGE_BUCKET)
+      .upload(storageKey, buffer, {
+        contentType,
+        upsert: true,
+      });
+    if (error) {
+      throw Errors.internal(`Supabase upload failed: ${error.message}`);
+    }
+    return storageKey;
+  }
+
   const fullPath = getStoragePath(storageKey);
   await fsPromises.mkdir(path.dirname(fullPath), { recursive: true });
   await fsPromises.writeFile(fullPath, buffer);
   return fullPath;
 }
 
-/** Delete a file by storageKey asynchronously. Ignores ENOENT; best-effort removes the emptied yyyy/MM dir. */
+/** Delete a file by storageKey asynchronously (local disk or Supabase Storage). */
 export async function deleteFile(storageKey: string): Promise<void> {
+  const driver = getStorageDriver();
+  if (driver === 'supabase') {
+    const client = getSupabaseClient();
+    const { error } = await client.storage
+      .from(config.SUPABASE_STORAGE_BUCKET)
+      .remove([storageKey]);
+    if (error) {
+      throw Errors.internal(`Supabase delete failed: ${error.message}`);
+    }
+    return;
+  }
+
   const fullPath = getStoragePath(storageKey);
   try {
     await fsPromises.unlink(fullPath);
@@ -81,19 +137,61 @@ export async function deleteFile(storageKey: string): Promise<void> {
   }
 }
 
-/** Return a read stream for the file at storageKey. */
-export function streamFile(storageKey: string): fs.ReadStream {
-  return fs.createReadStream(getStoragePath(storageKey));
-}
-
-/** Check whether a file exists on disk for the given storageKey asynchronously. */
+/** Check whether a file exists for the given storageKey (local disk or Supabase Storage). */
 export async function fileExists(storageKey: string): Promise<boolean> {
+  const driver = getStorageDriver();
+  if (driver === 'supabase') {
+    const client = getSupabaseClient();
+    const lastSlash = storageKey.lastIndexOf('/');
+    const folder = lastSlash >= 0 ? storageKey.slice(0, lastSlash) : '';
+    const fileName = lastSlash >= 0 ? storageKey.slice(lastSlash + 1) : storageKey;
+    const { data, error } = await client.storage
+      .from(config.SUPABASE_STORAGE_BUCKET)
+      .list(folder, {
+        search: fileName,
+        limit: 100,
+      });
+    if (error || !data) return false;
+    return data.some((item: any) => item.name === fileName);
+  }
+
   try {
     const stat = await fsPromises.stat(getStoragePath(storageKey));
     return stat.isFile();
   } catch {
     return false;
   }
+}
+
+/** Download the file buffer by storageKey asynchronously (local disk or Supabase Storage). */
+export async function downloadFile(storageKey: string): Promise<Buffer> {
+  const driver = getStorageDriver();
+  if (driver === 'supabase') {
+    const client = getSupabaseClient();
+    const { data, error } = await client.storage
+      .from(config.SUPABASE_STORAGE_BUCKET)
+      .download(storageKey);
+    if (error || !data) {
+      throw Errors.notFound('Tệp không tồn tại trên hệ thống lưu trữ');
+    }
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  const fullPath = getStoragePath(storageKey);
+  try {
+    return await fsPromises.readFile(fullPath);
+  } catch (e: any) {
+    if (e?.code === 'ENOENT') {
+      throw Errors.notFound('Tệp không tồn tại trên hệ thống lưu trữ');
+    }
+    throw e;
+  }
+}
+
+/** Return a read stream for the file at storageKey. Deprecated: use downloadFile instead. */
+export function streamFile(storageKey: string): fs.ReadStream {
+  return fs.createReadStream(getStoragePath(storageKey));
 }
 
 export function sha256Of(buffer: Buffer): string {
