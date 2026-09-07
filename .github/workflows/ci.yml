@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  ci:
+    name: CI & Full Acceptance Verification
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ctv_manage
+          POSTGRES_PASSWORD: ctv_manage
+          POSTGRES_DB: ctv_manage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      CI: "true"
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_test?schema=public
+      DATABASE_TEST_URL: postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_test?schema=public
+      STORAGE_DRIVER: local
+      FILE_STORAGE_ROOT: .acceptance-uploads
+      SESSION_SECRET: ci-acceptance-session-secret-min-32-chars-long
+      RATE_LIMIT_KEY_SECRET: ci-acceptance-rate-limit-secret-32-chars-long
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Verify frontend architectural import boundaries
+        run: npm run check:boundaries --workspace=app/frontend
+
+      - name: Build applications
+        run: npm run build
+
+      - name: Run backend integration tests
+        run: npm run test:api
+        env:
+          STORAGE_DRIVER: local
+
+      - name: Install Playwright browsers and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: npm run test:e2e
+        env:
+          STORAGE_DRIVER: local
+
+      - name: Upload JUnit XML test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports
+          path: |
+            app/backend/test-results/**/*.xml
+            app/frontend/test-results/**/*.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            app/frontend/playwright-report/
+            app/frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
