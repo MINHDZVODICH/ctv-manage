@@ -1,10 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+dotenv.config({ path: path.join(backendRoot, '.env') });
+dotenv.config();
 const workspaceRoot = path.resolve(backendRoot, '../..');
 const defaultTestDatabaseUrl =
   'postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_test?schema=public';
