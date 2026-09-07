@@ -41,7 +41,7 @@ export function startScheduleSnapshotJob(): ScheduleSnapshotJobController {
   const runReconcile = async () => {
     try {
       await coordinator.reconcilePass();
-      logger.info('Daily schedule snapshot completed successfully');
+      logger.debug('Schedule snapshot reconciliation pass completed');
     } catch (error) {
       logger.error({ error }, 'Failed to snapshot today work history');
     }

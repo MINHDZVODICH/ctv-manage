@@ -87,11 +87,15 @@ export class SnapshotCoordinatorService {
         workDate: targetDate,
         OR: [
           {
-            status: { in: ['PENDING', 'FAILED'] },
+            status: 'PENDING',
             OR: [
               { nextAttemptAt: null },
               { nextAttemptAt: { lte: nowTime } },
             ],
+          },
+          {
+            status: 'FAILED',
+            nextAttemptAt: { lte: nowTime },
           },
           {
             status: 'RUNNING',
@@ -246,8 +250,11 @@ export class SnapshotCoordinatorService {
 
     const nextAttemptAt = this.calculateNextAttemptAt(run.attemptCount, nowTime);
 
-    await this.db.snapshotRun.update({
-      where: { id: run.id },
+    await this.db.snapshotRun.updateMany({
+      where: {
+        workDate: targetDate,
+        leaseToken,
+      },
       data: {
         status: 'FAILED',
         errorCode,
@@ -307,8 +314,8 @@ export class SnapshotCoordinatorService {
     const eligibleToRun =
       todayRun &&
       (todayRun.status === 'PENDING' ||
-        (todayRun.status === 'FAILED' && (!todayRun.nextAttemptAt || todayRun.nextAttemptAt <= nowTime)) ||
-        (todayRun.status === 'RUNNING' && todayRun.leaseExpiresAt && todayRun.leaseExpiresAt < nowTime));
+        (todayRun.status === 'FAILED' && !!todayRun.nextAttemptAt && todayRun.nextAttemptAt <= nowTime) ||
+        (todayRun.status === 'RUNNING' && !!todayRun.leaseExpiresAt && todayRun.leaseExpiresAt < nowTime));
 
     if (eligibleToRun) {
       const leaseToken = randomUUID();
