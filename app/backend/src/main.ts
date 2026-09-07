@@ -29,6 +29,11 @@ const rateLimitCleanupTimer = setInterval(async () => {
 }, rateLimitCleanupIntervalMs);
 rateLimitCleanupTimer.unref?.();
 
+// Run initial rate limit cleanup on startup
+void cleanupExpiredRateLimits(new Date()).catch((error) => {
+  logger.error({ error }, 'Initial rate limit cleanup error');
+});
+
 let isShuttingDown = false;
 
 const shutdown = async (signal: string) => {

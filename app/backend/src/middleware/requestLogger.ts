@@ -16,9 +16,9 @@ declare global {
 function sanitizeUrl(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl, 'http://localhost');
-    const sensitiveKeys = ['password', 'token', 'secret', 'authorization', 'apiKey', 'api_key'];
+    const sensitiveKeys = ['password', 'token', 'secret', 'authorization', 'apikey', 'api_key'];
     let modified = false;
-    for (const key of parsed.searchParams.keys()) {
+    for (const key of Array.from(parsed.searchParams.keys())) {
       if (sensitiveKeys.some((k) => key.toLowerCase().includes(k))) {
         parsed.searchParams.set(key, '[REDACTED]');
         modified = true;
