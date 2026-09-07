@@ -43,6 +43,16 @@ export const envSchema = z
         });
       }
     }
+    if (
+      data.NODE_ENV === 'production' &&
+      data.RATE_LIMIT_KEY_SECRET === 'development-default-rate-limit-secret-32-chars-long'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RATE_LIMIT_KEY_SECRET'],
+        message: 'RATE_LIMIT_KEY_SECRET must be explicitly set in production',
+      });
+    }
   });
 
 const parsed = envSchema.safeParse(process.env);
