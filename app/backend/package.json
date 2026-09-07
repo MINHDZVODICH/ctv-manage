@@ -8,10 +8,14 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/main.js",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx prisma/seed.ts",
+    "seed": "tsx scripts/seed-demo.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:acceptance": "tsx scripts/seed-acceptance.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "tsx scripts/seed-demo.ts",
     "db:migrate-sqlite": "node scripts/migrate-sqlite-to-postgres.mjs",
     "db:summary": "node scripts/database-summary.mjs",
     "test:prepare": "node scripts/run-integration-tests.mjs --prepare-only",
@@ -19,7 +23,7 @@
     "test:integration": "node scripts/run-integration-tests.mjs"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@prisma/client": "6.4.1",
