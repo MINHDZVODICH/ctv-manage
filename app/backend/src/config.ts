@@ -15,6 +15,9 @@ export const envSchema = z
     SUPABASE_URL: z.string().url().optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
     SUPABASE_STORAGE_BUCKET: z.string().min(1).default('ctv-files'),
+    SNAPSHOT_TRACKING_START_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    RATE_LIMIT_KEY_SECRET: z.string().min(16).default('development-default-rate-limit-secret-32-chars-long'),
+    TRUSTED_PROXY_IPS: z.string().default(''),
   })
   .superRefine((data, ctx) => {
     if (data.STORAGE_DRIVER === 'supabase') {
