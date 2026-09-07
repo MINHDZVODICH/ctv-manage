@@ -14,6 +14,7 @@ import {
   summaryRouter,
   workHistoryRouter,
 } from './modules/schedule/schedule.routes.js';
+import operationsRouter from './modules/operations/operations.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { config } from './config.js';
 
@@ -60,6 +61,7 @@ export function createApp() {
   app.use('/api/v1/schedule', scheduleRouter);
   app.use('/api/v1/schedule-summary', summaryRouter);
   app.use('/api/v1/work-history', workHistoryRouter);
+  app.use('/api/v1/operations', operationsRouter);
 
   app.use(errorHandler);
   return app;

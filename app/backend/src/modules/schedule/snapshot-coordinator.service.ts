@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma, PrismaClient, SnapshotRun } from '@prisma/client';
 import { prisma as defaultPrisma } from '../../shared/prisma.js';
-import { todayInBangkok, parseYmdToUtcDate } from '../../shared/timezone.js';
+import {
+  todayInBangkok,
+  parseYmdToUtcDate,
+  addDays,
+  weekdayUtc,
+} from '../../shared/timezone.js';
+import { config } from '../../config.js';
 
 export interface ClaimResult {
   claimed: boolean;
@@ -10,7 +16,10 @@ export interface ClaimResult {
 }
 
 export class SnapshotCoordinatorService {
-  constructor(private readonly db: PrismaClient = defaultPrisma) {}
+  constructor(
+    private readonly db: PrismaClient = defaultPrisma,
+    private readonly trackingStartDate?: string,
+  ) {}
 
   /**
    * Queries current database time via SELECT NOW().
@@ -266,13 +275,84 @@ export class SnapshotCoordinatorService {
   }
 
   /**
+   * Reconciles missed dates between startDate and yesterday:
+   * Finds all Monday-Friday dates between startDate and yesterday.
+   * If no run exists, creates with status = 'MISSED' and insertedCount = 0.
+   * If a run exists with PENDING or FAILED (or expired RUNNING), updates to MISSED.
+   * Never inserts historical work entries for a MISSED date.
+   */
+  async reconcileMissedDates(startDate: string, now?: Date): Promise<void> {
+    const nowTime = now ?? (await this.getDbTime());
+    const todayStr = todayInBangkok(nowTime);
+    const yesterdayStr = addDays(todayStr, -1);
+
+    if (startDate > yesterdayStr) {
+      return;
+    }
+
+    let currentDate = startDate;
+    while (currentDate <= yesterdayStr) {
+      const targetUtc = parseYmdToUtcDate(currentDate);
+      const dayOfWeek = weekdayUtc(targetUtc); // 1 = Monday .. 5 = Friday, 6 = Saturday, 7 = Sunday
+
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const existingRun = await this.db.snapshotRun.findUnique({
+          where: { workDate: targetUtc },
+        });
+
+        if (!existingRun) {
+          try {
+            await this.db.snapshotRun.create({
+              data: {
+                workDate: targetUtc,
+                status: 'MISSED',
+                attemptCount: 0,
+                insertedCount: 0,
+              },
+            });
+          } catch {
+            // Concurrent creation handled gracefully
+          }
+        } else if (
+          existingRun.status === 'PENDING' ||
+          existingRun.status === 'FAILED' ||
+          (existingRun.status === 'RUNNING' &&
+            !!existingRun.leaseExpiresAt &&
+            existingRun.leaseExpiresAt < nowTime)
+        ) {
+          await this.db.snapshotRun.update({
+            where: { id: existingRun.id },
+            data: {
+              status: 'MISSED',
+              leaseToken: null,
+              leaseExpiresAt: null,
+            },
+          });
+        }
+      }
+
+      currentDate = addDays(currentDate, 1);
+    }
+  }
+
+  /**
    * Executes a reconciliation pass:
    * 1. Evaluates cutoff strictly using database time.
-   * 2. If eligible (weekday >= 17:30 Bangkok time) and no SnapshotRun exists, creates PENDING run.
-   * 3. Claims and executes eligible runs.
+   * 2. Reconciles missed dates if SNAPSHOT_TRACKING_START_DATE is configured.
+   * 3. If eligible (weekday >= 17:30 Bangkok time) and no SnapshotRun exists, creates PENDING run.
+   * 4. Claims and executes eligible runs.
    */
   async reconcilePass(now?: Date): Promise<void> {
     const nowTime = now ?? (await this.getDbTime());
+
+    const startDate =
+      this.trackingStartDate ??
+      process.env.SNAPSHOT_TRACKING_START_DATE ??
+      config.SNAPSHOT_TRACKING_START_DATE;
+
+    if (startDate) {
+      await this.reconcileMissedDates(startDate, nowTime);
+    }
 
     // Asia/Bangkok is UTC+7 (no DST)
     const bkkMs = nowTime.getTime() + 7 * 3600 * 1000;
