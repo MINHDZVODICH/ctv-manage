@@ -38,7 +38,30 @@ const msgOnlyStream = new Writable({
   },
 });
 
+const useJson =
+  process.env.LOG_FORMAT === 'json' ||
+  (process.env.NODE_ENV === 'production' && process.env.LOG_FORMAT !== 'pretty');
+
 export const logger = pino(
-  { level: process.env.LOG_LEVEL ?? 'info' },
-  process.env.LOG_FORMAT === 'json' ? process.stdout : msgOnlyStream,
+  {
+    level: process.env.LOG_LEVEL ?? 'info',
+    redact: {
+      paths: [
+        'password',
+        '*.password',
+        'token',
+        '*.token',
+        'authorization',
+        '*.authorization',
+        'cookie',
+        '*.cookie',
+        'headers.authorization',
+        'headers.cookie',
+        'body.password',
+      ],
+      censor: '[REDACTED]',
+    },
+  },
+  useJson ? process.stdout : msgOnlyStream,
 );
+

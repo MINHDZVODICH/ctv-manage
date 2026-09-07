@@ -15,6 +15,8 @@ import {
   workHistoryRouter,
 } from './modules/schedule/schedule.routes.js';
 import operationsRouter from './modules/operations/operations.routes.js';
+import healthRouter from './modules/health/health.routes.js';
+import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { config } from './config.js';
 
@@ -43,10 +45,9 @@ export function createApp() {
     }),
   );
   app.use(cookieParser());
+  app.use(requestLogger);
 
-  app.get('/api/v1/health', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
+  app.use('/api/v1/health', healthRouter);
 
   app.use('/api/v1/auth/sessions', authRouter);
   app.use(express.json());
