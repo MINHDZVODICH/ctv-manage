@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
+import type { Account } from '@prisma/client';
 import { z } from 'zod';
 import * as authService from './auth.service.js';
-import { prisma } from '../../shared/prisma.js';
+import type { AuthUserDto } from './auth.service.js';
 import { Errors } from '../../shared/errors.js';
 import {
   COOKIE_NAME,
@@ -14,25 +15,8 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function toUserDto(account: any) {
-  return {
-    id: account.id,
-    email: account.email,
-    displayName: account.displayName,
-    phone: account.phone,
-    role: account.role,
-    status: account.status,
-    version: account.version,
-    mustChangePassword: account.mustChangePassword,
-    ctvCode: account.ctvCode,
-    dateOfBirth: account.dateOfBirth,
-    gender: account.gender,
-    address: account.address,
-    adminNotes: account.adminNotes,
-    joinedAt: account.joinedAt,
-    lastLoginAt: account.lastLoginAt,
-    createdAt: account.createdAt,
-  };
+function toUserDto(account: Account): AuthUserDto {
+  return authService.toUserDto(account);
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
@@ -42,8 +26,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
       throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation failed');
     }
     const { email, password } = parsed.data;
-    const ipAddress =
-      (req.headers['x-forwarded-for'] as string) ?? req.ip ?? undefined;
+    const ipAddress = req.ip ?? undefined;
     const userAgent = req.headers['user-agent'] as string | undefined;
 
     const { account, token } = await authService.authenticate(
@@ -78,12 +61,8 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
     const user = req.user;
     if (!user) throw Errors.unauthorized();
 
-    const account = await prisma.account.findUnique({
-      where: { id: user.id },
-    });
-    if (!account || account.deletedAt) throw Errors.unauthorized();
-
-    res.json({ user: toUserDto(account) });
+    const profile = await authService.getAccountProfile(user.id);
+    res.json({ user: profile });
   } catch (e) {
     next(e);
   }

@@ -5,6 +5,7 @@ export default defineConfig({
     include: ['tests/**/*.integration.test.ts', 'tests/**/*.unit.test.ts'],
     setupFiles: ['./tests/setup.ts'],
     fileParallelism: false,
+    maxConcurrency: 1,
     testTimeout: 30_000,
     hookTimeout: 30_000,
     reporters: ['default', 'junit'],

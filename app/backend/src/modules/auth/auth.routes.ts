@@ -1,11 +1,37 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import * as authController from './auth.controller.js';
 import { auth } from '../../middleware/auth.js';
+import { createRateLimiter } from '../../middleware/rateLimiter.js';
+import { normalizeEmail } from '../../shared/crypto.js';
 
 const router = Router();
 
+export const loginIpRateLimiter = createRateLimiter({
+  scope: 'LOGIN_IP',
+  maxRequests: 60,
+  windowSeconds: 15 * 60,
+  keyGenerator: (req) => req.ip || '127.0.0.1',
+});
+
+export const loginAccountRateLimiter = createRateLimiter({
+  scope: 'LOGIN_ACCOUNT',
+  maxRequests: 10,
+  windowSeconds: 15 * 60,
+  keyGenerator: (req) => {
+    const ip = req.ip || '127.0.0.1';
+    const email = typeof req.body?.email === 'string' ? normalizeEmail(req.body.email) : '';
+    return `${ip}:${email}`;
+  },
+});
+
 // POST /  -> login  (mounted at /api/v1/auth/sessions)
-router.post('/', authController.login);
+router.post(
+  '/',
+  loginIpRateLimiter,
+  express.json(),
+  loginAccountRateLimiter,
+  authController.login,
+);
 
 // DELETE /current or /me -> logout
 router.delete('/current', authController.logout);

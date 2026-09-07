@@ -9,6 +9,7 @@ export const TEST_PASSWORD = 'Test@123456';
 let passwordHash: string | undefined;
 
 export async function resetDatabase() {
+  await prisma.rateLimitWindow.deleteMany().catch(() => {});
   await prisma.snapshotRun.deleteMany().catch(() => {});
   await prisma.history.deleteMany();
   await prisma.shift.deleteMany();

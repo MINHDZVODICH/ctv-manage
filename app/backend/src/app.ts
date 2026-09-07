@@ -24,6 +24,11 @@ export function createApp() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const trustedIps = config.TRUSTED_PROXY_IPS
+    ? config.TRUSTED_PROXY_IPS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  app.set('trust proxy', trustedIps.length > 0 ? trustedIps : false);
+
   app.use(
     cors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -36,7 +41,6 @@ export function createApp() {
       credentials: true,
     }),
   );
-  app.use(express.json());
   app.use(cookieParser());
 
   app.get('/api/v1/health', (_req, res) => {
@@ -44,6 +48,7 @@ export function createApp() {
   });
 
   app.use('/api/v1/auth/sessions', authRouter);
+  app.use(express.json());
   app.use('/api/v1/users/me', usersRouter);
   app.use('/api/v1/users/me/files', myFileRouter);
   app.use('/api/v1/users/me', myScheduleRouter);
