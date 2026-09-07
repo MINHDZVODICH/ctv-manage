@@ -168,3 +168,33 @@ model History {
   @@index([accountId, workDate])
   @@index([workDate, period])
 }
+
+model SnapshotRun {
+  id             String    @id @default(cuid())
+  workDate       DateTime  @unique @db.Date
+  status         String    // PENDING | RUNNING | SUCCEEDED | FAILED | MISSED
+  attemptCount   Int       @default(0)
+  nextAttemptAt  DateTime?
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  insertedCount  Int       @default(0)
+  errorCode      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+}
+
+model RateLimitWindow {
+  id             String   @id @default(cuid())
+  scope          String   // LOGIN_IP | LOGIN_ACCOUNT | REGISTRATION_IP | UPLOAD_ACCOUNT
+  identityDigest String
+  windowStart    DateTime
+  requestCount   Int      @default(1)
+  expiresAt      DateTime
+
+  @@unique([scope, identityDigest, windowStart])
+  @@index([expiresAt])
+}
