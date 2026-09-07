@@ -4,6 +4,7 @@ import { prisma as defaultPrisma } from '../../shared/prisma.js';
 import {
   todayInBangkok,
   parseYmdToUtcDate,
+  formatUtcDateToYmd,
   addDays,
   weekdayUtc,
 } from '../../shared/timezone.js';
@@ -290,15 +291,29 @@ export class SnapshotCoordinatorService {
       return;
     }
 
+    const startUtc = parseYmdToUtcDate(startDate);
+    const yesterdayUtc = parseYmdToUtcDate(yesterdayStr);
+
+    const existingRuns = await this.db.snapshotRun.findMany({
+      where: {
+        workDate: {
+          gte: startUtc,
+          lte: yesterdayUtc,
+        },
+      },
+    });
+    const runMap = new Map<string, (typeof existingRuns)[number]>();
+    for (const run of existingRuns) {
+      runMap.set(formatUtcDateToYmd(run.workDate), run);
+    }
+
     let currentDate = startDate;
     while (currentDate <= yesterdayStr) {
       const targetUtc = parseYmdToUtcDate(currentDate);
       const dayOfWeek = weekdayUtc(targetUtc); // 1 = Monday .. 5 = Friday, 6 = Saturday, 7 = Sunday
 
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const existingRun = await this.db.snapshotRun.findUnique({
-          where: { workDate: targetUtc },
-        });
+        const existingRun = runMap.get(currentDate);
 
         if (!existingRun) {
           try {
