@@ -6,7 +6,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(err.status).json(toErrorBody(err));
     return;
   }
-  const errorObj = err as { name?: string; message?: string; errors?: unknown; status?: number; body?: unknown } | null | undefined;
+  const errorObj = err as { name?: string; message?: string; code?: string; errors?: unknown; status?: number; body?: unknown } | null | undefined;
   if (errorObj?.name === 'ZodError') {
     res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Dữ liệu không hợp lệ', details: errorObj.errors } });
     return;
@@ -16,6 +16,10 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
   if (errorObj?.name === 'MulterError') {
+    if (errorObj.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({ error: { code: 'FILE_TOO_LARGE', message: errorObj.message } });
+      return;
+    }
     res.status(400).json({ error: { code: 'FILE_UPLOAD_ERROR', message: errorObj.message } });
     return;
   }

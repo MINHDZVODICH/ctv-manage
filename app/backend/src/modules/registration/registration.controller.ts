@@ -10,7 +10,20 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 3,
+    fields: 7,
+    parts: 10,
+    fieldSize: 16 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!['cccdFront', 'cccdBack', 'cv'].includes(file.fieldname)) {
+      cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];

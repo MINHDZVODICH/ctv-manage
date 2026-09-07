@@ -7,7 +7,19 @@ import { fileExists, downloadFile } from '../../shared/fileStorage.js';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1,
+    fields: 1,
+    parts: 2,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.fieldname !== 'file') {
+      cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
 function parseCategory(raw: string): filesService.FileCategory {
