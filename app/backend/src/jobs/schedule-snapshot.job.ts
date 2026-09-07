@@ -1,4 +1,4 @@
-import { snapshotTodayWorkHistory } from '../modules/schedule/work-history.service.js';
+import { SnapshotCoordinatorService } from '../modules/schedule/snapshot-coordinator.service.js';
 import { logger } from '../shared/logger.js';
 
 export interface ScheduleSnapshotJobController {
@@ -30,48 +30,43 @@ export function getDelayUntilNextBangkok1730(now: Date = new Date()): number {
 }
 
 /**
- * Starts the daily schedule snapshot job at 17:30 Asia/Bangkok,
- * and performs an initial snapshot check on startup.
+ * Starts the persistent schedule snapshot coordinator with a 60-second reconciliation interval,
+ * and performs an initial reconciliation check on startup.
  */
 export function startScheduleSnapshotJob(): ScheduleSnapshotJobController {
+  const coordinator = new SnapshotCoordinatorService();
   let timer: NodeJS.Timeout | null = null;
   let isStopped = false;
 
-  const runSnapshot = async () => {
+  const runReconcile = async () => {
     try {
-      await snapshotTodayWorkHistory();
+      await coordinator.reconcilePass();
       logger.info('Daily schedule snapshot completed successfully');
     } catch (error) {
       logger.error({ error }, 'Failed to snapshot today work history');
     }
   };
 
-  const scheduleNext = () => {
-    if (isStopped) return;
-    const delayMs = getDelayUntilNextBangkok1730();
-    timer = setTimeout(() => {
-      void runSnapshot().then(() => {
-        scheduleNext();
-      });
-    }, delayMs);
-    timer.unref();
-  };
+  // Run initial pass on startup
+  void runReconcile();
 
-  // Run initial snapshot on startup
-  void runSnapshot();
-
-  // Schedule next recurring snapshot
-  scheduleNext();
+  // Run periodic reconciliation pass every 60 seconds
+  timer = setInterval(() => {
+    if (!isStopped) {
+      void runReconcile();
+    }
+  }, 60_000);
+  timer.unref();
 
   return {
     stop: () => {
       isStopped = true;
       if (timer) {
-        clearTimeout(timer);
+        clearInterval(timer);
         timer = null;
       }
       logger.info('Schedule snapshot background job stopped');
     },
-    triggerNow: runSnapshot,
+    triggerNow: runReconcile,
   };
 }
