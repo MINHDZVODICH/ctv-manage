@@ -234,8 +234,8 @@ describe('Operations Snapshot Runs & Missed Date Tracking Integration Tests', ()
       const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
 
       const todayStr = todayInBangkok();
-      const inRangeDateStr = addDays(todayStr, -15);
-      const outOfRangeDateStr = addDays(todayStr, -35);
+      const inRangeDateStr = addDays(todayStr, -29); // 30th day inclusive
+      const outOfRangeDateStr = addDays(todayStr, -30); // 31st day, out of range
 
       await prisma.snapshotRun.create({
         data: {
@@ -267,15 +267,22 @@ describe('Operations Snapshot Runs & Missed Date Tracking Integration Tests', ()
       expect(workDates).not.toContain(outOfRangeDateStr);
     });
 
-    it('returns 400 if date range exceeds 90 days', async () => {
+    it('allows date range of exactly 90 days but returns 400 if date range is 91 days', async () => {
       const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
 
-      const res = await request(app)
-        .get('/api/v1/operations/snapshot-runs?from=2026-01-01&to=2026-04-10')
+      // 2026-01-01 to 2026-03-31 is exactly 90 days inclusive (31 + 28 + 31)
+      const res90 = await request(app)
+        .get('/api/v1/operations/snapshot-runs?from=2026-01-01&to=2026-03-31')
         .set('Cookie', adminCookie);
+      expect(res90.status).toBe(200);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBeDefined();
+      // 2026-01-01 to 2026-04-01 is 91 days inclusive (exceeds 90-day limit)
+      const res91 = await request(app)
+        .get('/api/v1/operations/snapshot-runs?from=2026-01-01&to=2026-04-01')
+        .set('Cookie', adminCookie);
+      expect(res91.status).toBe(400);
+      expect(res91.body.error).toBeDefined();
+      expect(res91.body.error.code).toBe('DATE_RANGE_EXCEEDED');
     });
 
     it('returns 400 if from is after to', async () => {

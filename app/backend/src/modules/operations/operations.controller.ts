@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
+import { standardizeSnapshotErrorCode } from '../schedule/snapshot-coordinator.service.js';
 import {
   todayInBangkok,
   addDays,
@@ -36,7 +37,7 @@ export async function listSnapshotRuns(req: Request, res: Response, next: NextFu
     const rawFrom = req.query.from as string | undefined;
 
     const toStr = rawTo ?? todayInBangkok();
-    const fromStr = rawFrom ?? addDays(toStr, -30);
+    const fromStr = rawFrom ?? addDays(toStr, -29);
 
     if (rawFrom !== undefined && !isValidYmd(rawFrom)) {
       throw Errors.badRequest('INVALID_DATE_FORMAT', 'from must be in YYYY-MM-DD format');
@@ -53,7 +54,8 @@ export async function listSnapshotRuns(req: Request, res: Response, next: NextFu
     }
 
     const diffDays = Math.round((toDate.getTime() - fromDate.getTime()) / (24 * 3600 * 1000));
-    if (diffDays > 90) {
+    const totalDays = diffDays + 1;
+    if (totalDays > 90) {
       throw Errors.badRequest('DATE_RANGE_EXCEEDED', 'Date range cannot exceed 90 days');
     }
 
@@ -78,7 +80,7 @@ export async function listSnapshotRuns(req: Request, res: Response, next: NextFu
       startedAt: run.startedAt ? run.startedAt.toISOString() : null,
       completedAt: run.completedAt ? run.completedAt.toISOString() : null,
       insertedCount: run.insertedCount,
-      errorCode: run.errorCode ?? null,
+      errorCode: run.errorCode ? standardizeSnapshotErrorCode(run.errorCode) : null,
       createdAt: run.createdAt.toISOString(),
       updatedAt: run.updatedAt.toISOString(),
     }));

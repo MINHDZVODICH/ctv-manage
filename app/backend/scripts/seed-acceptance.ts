@@ -13,7 +13,7 @@ export interface SeedAcceptanceOptions {
 export function validateAcceptanceSeedEnvironment(env: {
   nodeEnv?: string;
   databaseUrl?: string;
-}): { databaseName: string } {
+}): { databaseName: string; databaseUrl: string } {
   const nodeEnv = env.nodeEnv ?? process.env.NODE_ENV;
   if (nodeEnv !== 'test') {
     throw new Error(
@@ -22,6 +22,9 @@ export function validateAcceptanceSeedEnvironment(env: {
   }
 
   const databaseUrl = env.databaseUrl ?? process.env.DATABASE_TEST_URL ?? process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('Database connection URL is not provided.');
+  }
   const databaseName = extractDatabaseName(databaseUrl);
   if (!/(^|[_-])test($|[_-])/.test(databaseName)) {
     throw new Error(
@@ -29,7 +32,7 @@ export function validateAcceptanceSeedEnvironment(env: {
     );
   }
 
-  return { databaseName };
+  return { databaseName, databaseUrl };
 }
 
 export async function cleanAcceptanceDatabase(prisma: any): Promise<void> {
@@ -51,10 +54,19 @@ export async function cleanAcceptanceDatabase(prisma: any): Promise<void> {
 }
 
 export async function runAcceptanceSeed(options: SeedAcceptanceOptions = {}): Promise<void> {
-  validateAcceptanceSeedEnvironment(options);
+  const { databaseUrl } = validateAcceptanceSeedEnvironment(options);
+  process.env.DATABASE_URL = databaseUrl;
 
   const isInternalClient = !options.prisma;
-  const prisma = options.prisma ?? new PrismaClient();
+  const prisma =
+    options.prisma ??
+    new PrismaClient({
+      datasources: {
+        db: {
+          url: databaseUrl,
+        },
+      },
+    });
   const testPassword = options.testPassword ?? process.env.TEST_PASSWORD ?? 'Test@123456';
 
   try {

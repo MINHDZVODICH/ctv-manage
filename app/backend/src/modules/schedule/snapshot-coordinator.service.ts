@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { Prisma, PrismaClient, SnapshotRun } from '@prisma/client';
+import { Prisma, type PrismaClient, type SnapshotRun } from '@prisma/client';
 import { prisma as defaultPrisma } from '../../shared/prisma.js';
+import { logger } from '../../shared/logger.js';
 import {
   todayInBangkok,
   parseYmdToUtcDate,
@@ -9,6 +10,24 @@ import {
   weekdayUtc,
 } from '../../shared/timezone.js';
 import { config } from '../../config.js';
+
+export function standardizeSnapshotErrorCode(err: unknown): string {
+  if (!err) return 'SNAPSHOT_EXECUTION_FAILED';
+  if (typeof err === 'string') {
+    if (/^[A-Z0-9_]+$/.test(err)) return err;
+    return 'SNAPSHOT_EXECUTION_FAILED';
+  }
+  const msg = (err as any)?.message;
+  const code = (err as any)?.code;
+  if (msg === 'LEASE_LOST' || code === 'LEASE_LOST') return 'LEASE_LOST';
+  if (msg === 'DATE_PASSED' || code === 'DATE_PASSED') return 'DATE_PASSED';
+  if (typeof code === 'string' && /^[A-Z0-9_]+$/.test(code)) return code;
+  if (typeof msg === 'string') {
+    if (msg.toLowerCase().includes('timeout') || code === 'P2024' || code === '57014') return 'DB_TIMEOUT';
+    if (/^[A-Z0-9_]+$/.test(msg)) return msg;
+  }
+  return 'SNAPSHOT_EXECUTION_FAILED';
+}
 
 export interface ClaimResult {
   claimed: boolean;
@@ -23,12 +42,13 @@ export class SnapshotCoordinatorService {
   ) {}
 
   /**
-   * Queries current database time via SELECT NOW().
+   * Reads wall-clock time, including time spent waiting inside a transaction.
    */
   async getDbTime(tx?: Prisma.TransactionClient): Promise<Date> {
     const client = tx ?? this.db;
-    const rows = await client.$queryRaw<Array<{ now: Date }>>`SELECT NOW() as now`;
-    return rows[0]?.now ?? new Date();
+    const rows = await client.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() as now`;
+    if (!rows[0]?.now) throw new Error('DB_TIME_UNAVAILABLE');
+    return rows[0].now;
   }
 
   /**
@@ -137,25 +157,42 @@ export class SnapshotCoordinatorService {
     now?: Date,
   ): Promise<{ insertedCount: number }> {
     const targetDate = parseYmdToUtcDate(workDate);
+    const startAttemptMs = Date.now();
 
-    return await this.db.$transaction(
+    const result = await this.db.$transaction(
       async (tx) => {
-        const nowTime = now ?? (await this.getDbTime(tx));
-
-        // Lock and verify lease token
-        const run = await tx.snapshotRun.findUnique({
-          where: { workDate: targetDate },
-        });
+        // Lock and verify lease token with row-level lock (FOR UPDATE)
+        const runs = await tx.$queryRaw<
+          Array<{
+            id: string;
+            workDate: Date;
+            status: string;
+            leaseToken: string | null;
+            leaseExpiresAt: Date | null;
+            attemptCount: number;
+          }>
+        >`
+          SELECT "id", "workDate", "status", "leaseToken", "leaseExpiresAt", "attemptCount"
+          FROM "SnapshotRun"
+          WHERE "workDate" = ${targetDate}::date
+          FOR UPDATE
+        `;
+        const run = runs[0];
 
         if (!run || run.leaseToken !== leaseToken || run.status !== 'RUNNING') {
           throw new Error('LEASE_LOST');
         }
 
+        const nowTime = now ?? (await this.getDbTime(tx));
         // Date Guard: Verify Bangkok date is still the current active date
         const currentBangkokDate = todayInBangkok(nowTime);
         if (workDate !== currentBangkokDate) {
-          await tx.snapshotRun.update({
-            where: { id: run.id },
+          const missedResult = await tx.snapshotRun.updateMany({
+            where: {
+              id: run.id,
+              leaseToken,
+              status: 'RUNNING',
+            },
             data: {
               status: 'MISSED',
               errorCode: 'DATE_PASSED',
@@ -164,7 +201,14 @@ export class SnapshotCoordinatorService {
               completedAt: nowTime,
             },
           });
-          return { insertedCount: 0 };
+          if (missedResult.count === 0) {
+            throw new Error('LEASE_LOST');
+          }
+          return { insertedCount: 0, status: 'MISSED' as const, attemptCount: run.attemptCount };
+        }
+
+        if (!run.leaseExpiresAt || run.leaseExpiresAt <= nowTime) {
+          throw new Error('LEASE_LOST');
         }
 
         // Determine target day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
@@ -209,6 +253,11 @@ export class SnapshotCoordinatorService {
           }
         }
 
+        // Schedule reads can also cross midnight or consume the remaining lease.
+        const writeTime = now ?? (await this.getDbTime(tx));
+        if (todayInBangkok(writeTime) !== workDate) throw new Error('DATE_PASSED');
+        if (run.leaseExpiresAt <= writeTime) throw new Error('LEASE_LOST');
+
         let insertedCount = 0;
         if (historyEntries.length > 0) {
           const insertResult = await tx.history.createMany({
@@ -218,12 +267,16 @@ export class SnapshotCoordinatorService {
           insertedCount = insertResult.count;
         }
 
-        // Complete run atomically in the same transaction
-        await tx.snapshotRun.update({
-          where: { id: run.id },
+        // Complete run atomically in the same transaction, verifying lease ownership
+        const updateResult = await tx.snapshotRun.updateMany({
+          where: {
+            id: run.id,
+            leaseToken,
+            status: 'RUNNING',
+          },
           data: {
             status: 'SUCCEEDED',
-            completedAt: nowTime,
+            completedAt: writeTime,
             insertedCount,
             leaseToken: null,
             leaseExpiresAt: null,
@@ -231,10 +284,37 @@ export class SnapshotCoordinatorService {
           },
         });
 
-        return { insertedCount };
+        if (updateResult.count === 0) {
+          throw new Error('LEASE_LOST');
+        }
+
+        return { insertedCount, status: 'SUCCEEDED' as const, attemptCount: run.attemptCount };
       },
-      { timeout: 90_000 },
+      {
+        timeout: 90_000,
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      },
     );
+
+    // The transaction promise resolves only after commit has succeeded.
+    if (result.status === 'MISSED') {
+      logger.warn(
+        { event: 'snapshot.missed', date: workDate, reason: 'DATE_PASSED' },
+        'Snapshot missed due to date transition',
+      );
+    } else {
+      logger.info(
+        {
+          event: 'snapshot.succeeded',
+          date: workDate,
+          attempt: result.attemptCount,
+          insertedCount: result.insertedCount,
+          durationMs: Date.now() - startAttemptMs,
+        },
+        'Snapshot succeeded',
+      );
+    }
+    return { insertedCount: result.insertedCount };
   }
 
   /**
@@ -259,20 +339,34 @@ export class SnapshotCoordinatorService {
     }
 
     const nextAttemptAt = this.calculateNextAttemptAt(run.attemptCount, nowTime);
+    const sanitizedErrorCode = standardizeSnapshotErrorCode(errorCode);
 
-    await this.db.snapshotRun.updateMany({
+    const updateResult = await this.db.snapshotRun.updateMany({
       where: {
         workDate: targetDate,
         leaseToken,
       },
       data: {
         status: 'FAILED',
-        errorCode,
+        errorCode: sanitizedErrorCode,
         nextAttemptAt,
         leaseToken: null,
         leaseExpiresAt: null,
       },
     });
+
+    if (updateResult.count > 0) {
+      logger.info(
+        {
+          event: 'snapshot.retry_scheduled',
+          date: workDate,
+          attempt: run.attemptCount,
+          nextAttemptAt,
+          reason: sanitizedErrorCode,
+        },
+        'Snapshot retry scheduled',
+      );
+    }
   }
 
   /**
@@ -325,6 +419,10 @@ export class SnapshotCoordinatorService {
                 insertedCount: 0,
               },
             });
+            logger.warn(
+              { event: 'snapshot.missed', date: currentDate, reason: 'MISSED_DOWNTIME' },
+              'Snapshot marked as missed',
+            );
           } catch {
             // Concurrent creation handled gracefully
           }
@@ -343,6 +441,10 @@ export class SnapshotCoordinatorService {
               leaseExpiresAt: null,
             },
           });
+          logger.warn(
+            { event: 'snapshot.missed', date: currentDate, reason: 'UNFINISHED_RUN' },
+            'Snapshot marked as missed',
+          );
         }
       }
 
@@ -414,13 +516,13 @@ export class SnapshotCoordinatorService {
 
     if (eligibleToRun) {
       const leaseToken = randomUUID();
-      const claimed = await this.claimRun(todayStr, leaseToken, nowTime);
+      const claimed = await this.claimRun(todayStr, leaseToken, now);
       if (claimed) {
         try {
-          await this.executeAttempt(todayStr, leaseToken, nowTime);
+          await this.executeAttempt(todayStr, leaseToken, now);
         } catch (err: any) {
-          const errorCode = err?.code || err?.message || 'SNAPSHOT_EXECUTION_FAILED';
-          await this.recordFailure(todayStr, leaseToken, errorCode, nowTime);
+          const errorCode = standardizeSnapshotErrorCode(err);
+          await this.recordFailure(todayStr, leaseToken, errorCode, now);
         }
       }
     }

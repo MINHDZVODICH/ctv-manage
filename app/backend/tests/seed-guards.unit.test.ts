@@ -203,6 +203,16 @@ describe('Seed Guards and Admin Bootstrap Unit Tests', () => {
         }),
       ).not.toThrow();
     });
+
+    it('5b. returns validated databaseUrl even when DATABASE_URL points to a production database', () => {
+      process.env.NODE_ENV = 'test';
+      process.env.DATABASE_TEST_URL = 'postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public';
+      process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/ctv_production?schema=public';
+
+      const result = validateAcceptanceSeedEnvironment({});
+      expect(result.databaseUrl).toBe('postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public');
+      expect(result.databaseName).toBe('ctv_manage_test');
+    });
   });
 
   describe('Admin Bootstrap (bootstrap-admin.ts)', () => {

@@ -69,10 +69,16 @@ jobs:
       - name: Install Playwright browsers and system dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Create dedicated E2E test database
+        run: |
+          docker exec ${{ job.services.postgres.id }} psql -U ctv_manage -d ctv_manage_test -c "CREATE DATABASE ctv_manage_e2e_test;"
+
       - name: Run Playwright E2E tests
         run: npm run test:e2e
         env:
           STORAGE_DRIVER: local
+          DATABASE_URL: postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_e2e_test?schema=public
+          DATABASE_TEST_URL: postgresql://ctv_manage:ctv_manage@localhost:5432/ctv_manage_e2e_test?schema=public
 
       - name: Upload JUnit XML test reports
         if: always()
@@ -95,3 +101,19 @@ jobs:
             app/frontend/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  deployment-gate:
+    name: Deployment Gate (Blocks Deploy On Failure)
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify CI gate passed
+        run: echo "All verification checks passed. Deployment gate approved."
+
+      - name: Trigger deployment webhook (optional)
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          curl -f -X POST "$RENDER_DEPLOY_HOOK_URL" || exit 1

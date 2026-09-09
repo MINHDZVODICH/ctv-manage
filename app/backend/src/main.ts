@@ -17,22 +17,37 @@ const server = app.listen(PORT, HOST, () => {
 const snapshotJob = startScheduleSnapshotJob();
 
 const rateLimitCleanupIntervalMs = 60 * 60 * 1000;
-const rateLimitCleanupTimer = setInterval(async () => {
-  try {
-    const count = await cleanupExpiredRateLimits(new Date());
-    if (count > 0) {
-      logger.info({ count }, 'Cleaned up expired rate limits');
+let activeCleanupPromise: Promise<void> | null = null;
+
+const runRateLimitCleanup = async () => {
+  if (activeCleanupPromise) return activeCleanupPromise;
+  const task = (async () => {
+    try {
+      const count = await cleanupExpiredRateLimits(new Date());
+      if (count > 0) {
+        logger.info({ count }, 'Cleaned up expired rate limits');
+      }
+    } catch (error) {
+      logger.error({ error }, 'Failed to cleanup expired rate limits');
     }
-  } catch (error) {
-    logger.error({ error }, 'Failed to cleanup expired rate limits');
+  })();
+  activeCleanupPromise = task;
+  try {
+    await task;
+  } finally {
+    if (activeCleanupPromise === task) {
+      activeCleanupPromise = null;
+    }
   }
+};
+
+const rateLimitCleanupTimer = setInterval(() => {
+  void runRateLimitCleanup();
 }, rateLimitCleanupIntervalMs);
 rateLimitCleanupTimer.unref?.();
 
 // Run initial rate limit cleanup on startup
-void cleanupExpiredRateLimits(new Date()).catch((error) => {
-  logger.error({ error }, 'Initial rate limit cleanup error');
-});
+void runRateLimitCleanup();
 
 let isShuttingDown = false;
 
@@ -46,36 +61,46 @@ const shutdown = async (signal: string) => {
   setShuttingDown(true);
 
   // Stop reconciliation and rate limit cleanup background timers
-  snapshotJob.stop();
+  const stopSnapshotPromise = snapshotJob.stop();
   clearInterval(rateLimitCleanupTimer);
 
-  // Allow up to 30s for active requests
-  const forceExitTimer = setTimeout(async () => {
-    logger.warn('Active requests did not complete within 30s, forcing shutdown');
-    try {
-      await prisma.$disconnect();
-    } catch (err) {
-      logger.error({ err }, 'Error during forced database disconnect');
-    }
+  // Allow up to 30s for active requests and background tasks
+  const forceExitTimer = setTimeout(() => {
+    logger.warn('Active tasks/requests did not complete within 30s, forcing shutdown');
     process.exit(1);
   }, 30_000);
-  forceExitTimer.unref?.();
 
   if (typeof server.closeIdleConnections === 'function') {
     server.closeIdleConnections();
   }
 
-  server.close(async () => {
+  const closeServerPromise = new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  try {
+    // Wait for HTTP server, ongoing snapshot execution, and rate-limit cleanup to complete
+    await Promise.all([
+      closeServerPromise,
+      stopSnapshotPromise,
+      activeCleanupPromise ?? Promise.resolve(),
+    ]);
+
+    await prisma.$disconnect();
     clearTimeout(forceExitTimer);
+    logger.info('Database disconnected cleanly');
+    process.exit(0);
+  } catch (err) {
+    logger.error({ err }, 'Error during graceful shutdown');
     try {
       await prisma.$disconnect();
-      logger.info('Database disconnected cleanly');
-      process.exit(0);
-    } catch (err) {
-      logger.error({ err }, 'Error during database disconnect');
-      process.exit(1);
-    }
-  });
+    } catch {}
+    clearTimeout(forceExitTimer);
+    process.exit(1);
+  }
 };
 
 process.on('SIGTERM', () => void shutdown('SIGTERM'));

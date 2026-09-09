@@ -16,12 +16,15 @@ import {
 } from './modules/schedule/schedule.routes.js';
 import operationsRouter from './modules/operations/operations.routes.js';
 import healthRouter from './modules/health/health.routes.js';
-import { requestLogger } from './middleware/requestLogger.js';
+import { requestLogger, routeLogContext } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { config } from './config.js';
 
 export function createApp() {
   const app = express();
+  const mountRouter = (path: string, router: express.Router) => {
+    app.use(path, routeLogContext(path), router);
+  };
   const allowedOrigins = config.CORS_ORIGIN
     .split(',')
     .map((origin) => origin.trim())
@@ -47,22 +50,22 @@ export function createApp() {
   app.use(cookieParser());
   app.use(requestLogger);
 
-  app.use('/api/v1/health', healthRouter);
+  mountRouter('/api/v1/health', healthRouter);
 
-  app.use('/api/v1/auth/sessions', authRouter);
+  mountRouter('/api/v1/auth/sessions', authRouter);
   app.use(express.json());
-  app.use('/api/v1/users/me', usersRouter);
-  app.use('/api/v1/users/me/files', myFileRouter);
-  app.use('/api/v1/users/me', myScheduleRouter);
-  app.use('/api/v1/accounts', accountsRouter);
-  app.use('/api/v1/accounts/:accountId/files', accountFileRouter);
-  app.use('/api/v1/registration-requests', registrationRouter);
-  app.use('/api/v1/files', fileRouter);
-  app.use('/api/v1/shifts', shiftRouter);
-  app.use('/api/v1/schedule', scheduleRouter);
-  app.use('/api/v1/schedule-summary', summaryRouter);
-  app.use('/api/v1/work-history', workHistoryRouter);
-  app.use('/api/v1/operations', operationsRouter);
+  mountRouter('/api/v1/users/me', usersRouter);
+  mountRouter('/api/v1/users/me/files', myFileRouter);
+  mountRouter('/api/v1/users/me', myScheduleRouter);
+  mountRouter('/api/v1/accounts', accountsRouter);
+  mountRouter('/api/v1/accounts/:accountId/files', accountFileRouter);
+  mountRouter('/api/v1/registration-requests', registrationRouter);
+  mountRouter('/api/v1/files', fileRouter);
+  mountRouter('/api/v1/shifts', shiftRouter);
+  mountRouter('/api/v1/schedule', scheduleRouter);
+  mountRouter('/api/v1/schedule-summary', summaryRouter);
+  mountRouter('/api/v1/work-history', workHistoryRouter);
+  mountRouter('/api/v1/operations', operationsRouter);
 
   app.use(errorHandler);
   return app;

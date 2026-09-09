@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { logger } from '../src/shared/logger.js';
 import { setShuttingDown } from '../src/modules/health/health.controller.js';
+import { standardizeSnapshotErrorCode } from '../src/modules/schedule/snapshot-coordinator.service.js';
 import { seedActors, loginCookie, resetDatabase } from './helpers.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -173,7 +174,7 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
           typeof c[0] === 'object' &&
           c[0] !== null &&
           'durationMs' in (c[0] as object) &&
-          (c[0] as any).url === '/api/v1/users/me',
+          (c[0] as any).route === '/api/v1/users/me',
       );
       expect(finishCall).toBeDefined();
       const finishObj = finishCall![0] as any;
@@ -183,5 +184,37 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
     } finally {
       infoSpy.mockRestore();
     }
+  });
+
+  test('11. Request logger strips query params completely from logs and messages', async () => {
+    const infoSpy = vi.spyOn(logger, 'info');
+    try {
+      const res = await request(app)
+        .get('/api/v1/health?q=sensitive-search-query-email-or-phone&token=supersecret')
+        .set('X-Request-ID', crypto.randomUUID());
+
+      expect(res.status).toBe(200);
+
+      const logCalls = infoSpy.mock.calls;
+      for (const call of logCalls) {
+        const logObj = call[0];
+        const logMsg = call[1];
+        const serialized = JSON.stringify(logObj) + ' ' + String(logMsg);
+        expect(serialized).not.toContain('sensitive-search-query-email-or-phone');
+        expect(serialized).not.toContain('supersecret');
+        expect(serialized).not.toContain('?q=');
+      }
+    } finally {
+      infoSpy.mockRestore();
+    }
+  });
+
+  test('12. Standardized snapshot error codes correctly map known and unknown errors', () => {
+    expect(standardizeSnapshotErrorCode('LEASE_LOST')).toBe('LEASE_LOST');
+    expect(standardizeSnapshotErrorCode(new Error('LEASE_LOST'))).toBe('LEASE_LOST');
+    expect(standardizeSnapshotErrorCode('DATE_PASSED')).toBe('DATE_PASSED');
+    expect(standardizeSnapshotErrorCode(new Error('DATE_PASSED'))).toBe('DATE_PASSED');
+    expect(standardizeSnapshotErrorCode(new Error('Query timeout occurred'))).toBe('DB_TIMEOUT');
+    expect(standardizeSnapshotErrorCode(new Error('FATAL syntax error in SQL query at char 42'))).toBe('SNAPSHOT_EXECUTION_FAILED');
   });
 });

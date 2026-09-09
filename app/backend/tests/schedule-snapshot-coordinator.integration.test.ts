@@ -350,4 +350,110 @@ describe('SnapshotCoordinatorService Integration Tests', () => {
       expect(historyRows).toHaveLength(3);
     });
   });
+
+  // 7. Mid-flight midnight date guard and execution timing (Issue 2)
+  describe('7. Mid-Flight Midnight Date Guard and Execution Timing', () => {
+    it('marks run as MISSED with DATE_PASSED if midnight passes before execution executes', async () => {
+      // Work date is Monday 2026-09-07
+      const workDate = '2026-09-07';
+      const targetDate = parseYmdToUtcDate(workDate);
+      const claimTime = new Date('2026-09-07T16:59:00.000Z'); // 23:59:00 Bangkok
+
+      // Create and claim run before midnight
+      await prisma.snapshotRun.create({
+        data: {
+          workDate: targetDate,
+          status: 'PENDING',
+          nextAttemptAt: claimTime,
+        },
+      });
+
+      const leaseToken = 'midnight-cross-token';
+      const claimed = await coordinator.claimRun(workDate, leaseToken, claimTime);
+      expect(claimed).toBe(true);
+
+      // Now execution happens at 00:01:00 Bangkok Tuesday (17:01:00 UTC)
+      const afterMidnight = new Date('2026-09-07T17:01:00.000Z');
+      const result = await coordinator.executeAttempt(workDate, leaseToken, afterMidnight);
+
+      expect(result.insertedCount).toBe(0);
+
+      const run = await prisma.snapshotRun.findUnique({
+        where: { workDate: targetDate },
+      });
+      expect(run?.status).toBe('MISSED');
+      expect(run?.errorCode).toBe('DATE_PASSED');
+      expect(run?.leaseToken).toBeNull();
+    });
+  });
+
+  // 8. Transaction Isolation and Lease Ownership Protection (Issue 3)
+  describe('8. Transaction Isolation and Lease Ownership Protection', () => {
+    it('throws LEASE_LOST if leaseToken is stolen or modified before completion', async () => {
+      const now = new Date('2026-09-07T10:30:00.000Z');
+      const workDate = '2026-09-07';
+      const targetDate = parseYmdToUtcDate(workDate);
+
+      const { ctv } = await seedActors();
+      await prisma.schedule.create({
+        data: {
+          accountId: ctv.id,
+          roomCode: 'ROOM_1',
+          shifts: {
+            create: [{ weekday: 1, period: 'MORNING' }],
+          },
+        },
+      });
+
+      await prisma.snapshotRun.create({
+        data: {
+          workDate: targetDate,
+          status: 'PENDING',
+          nextAttemptAt: now,
+        },
+      });
+
+      const leaseToken = 'original-owner-token';
+      const claimed = await coordinator.claimRun(workDate, leaseToken, now);
+      expect(claimed).toBe(true);
+
+      // We intercept the transaction so that updateMany finds 0 rows (simulating stolen lease)
+      const interceptingDb = {
+        ...prisma,
+        $transaction: async (callback: any, options: any) => {
+          return prisma.$transaction(async (realTx: any) => {
+            const originalUpdateMany = realTx.snapshotRun.updateMany.bind(realTx.snapshotRun);
+            const wrappedTx = {
+              ...realTx,
+              snapshotRun: {
+                ...realTx.snapshotRun,
+                updateMany: async (args: any) => {
+                  return originalUpdateMany({
+                    ...args,
+                    where: {
+                      ...args.where,
+                      leaseToken: 'stolen-token-mismatch',
+                    },
+                  });
+                },
+              },
+            };
+            return callback(wrappedTx);
+          }, options);
+        },
+      };
+
+      const customCoordinator = new SnapshotCoordinatorService(interceptingDb as any);
+      await expect(customCoordinator.executeAttempt(workDate, leaseToken, now)).rejects.toThrow(
+        'LEASE_LOST',
+      );
+
+      // Verify rollback: no history rows inserted
+      const history = await prisma.history.findMany({
+        where: { workDate: targetDate },
+      });
+      expect(history).toHaveLength(0);
+    });
+  });
 });
+

@@ -28,6 +28,14 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
           1,
           Math.ceil((expiresAt.getTime() - Date.now()) / 1000),
         );
+        logger.warn(
+          {
+            event: 'ratelimit.rejected',
+            scope: options.scope,
+            retryAfter: retryAfterSeconds,
+          },
+          'Rate limit rejected',
+        );
         res.setHeader('Retry-After', String(retryAfterSeconds));
         res.status(429).json({
           error: {

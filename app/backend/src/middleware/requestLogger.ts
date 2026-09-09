@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import crypto from 'node:crypto';
 import { logger } from '../shared/logger.js';
 
@@ -13,33 +13,24 @@ declare global {
   }
 }
 
-function sanitizeUrl(rawUrl: string): string {
-  try {
-    const parsed = new URL(rawUrl, 'http://localhost');
-    const sensitiveKeys = ['password', 'token', 'secret', 'authorization', 'apikey', 'api_key'];
-    let modified = false;
-    for (const key of Array.from(parsed.searchParams.keys())) {
-      if (sensitiveKeys.some((k) => key.toLowerCase().includes(k))) {
-        parsed.searchParams.set(key, '[REDACTED]');
-        modified = true;
-      }
-    }
-    return modified ? `${parsed.pathname}${parsed.search}` : rawUrl;
-  } catch {
-    return rawUrl;
-  }
+// Store the configured mount pattern, never req.baseUrl (which contains real IDs).
+export function routeLogContext(mountPath: string): RequestHandler {
+  return (_req, res, next) => {
+    res.locals.logRouteBase = mountPath;
+    next();
+  };
 }
 
-function getRouteTemplate(req: Request): string {
-  if (req.route?.path) {
-    const routePath = typeof req.route.path === 'string' ? req.route.path : req.route.path.toString();
-    const base = req.baseUrl || '';
+function getRouteTemplate(req: Request, res: Response): string {
+  if (typeof req.route?.path === 'string') {
+    const routePath = req.route.path;
+    const base = res.locals.logRouteBase ?? '';
     if (routePath === '/' || routePath === '') {
       return base || '/';
     }
     return `${base}${routePath}`;
   }
-  return req.baseUrl || req.path || req.originalUrl;
+  return 'UNMATCHED';
 }
 
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
@@ -54,34 +45,31 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   res.setHeader('X-Request-ID', requestId);
 
   const startTime = Date.now();
-  const safeUrl = sanitizeUrl(req.originalUrl || req.url);
 
   // Log request start
   logger.info(
     {
       requestId,
       method: req.method,
-      url: safeUrl,
       actorId: req.user?.id,
     },
-    `--> ${req.method} ${safeUrl}`,
+    `--> ${req.method}`,
   );
 
   res.on('finish', () => {
     const durationMs = Date.now() - startTime;
-    const route = getRouteTemplate(req);
+    const route = getRouteTemplate(req, res);
 
     logger.info(
       {
         requestId,
         method: req.method,
-        url: safeUrl,
         route,
         status: res.statusCode,
         durationMs,
         actorId: req.user?.id,
       },
-      `<-- ${req.method} ${safeUrl} ${res.statusCode} ${durationMs}ms`,
+      `<-- ${req.method} ${route} ${res.statusCode} ${durationMs}ms`,
     );
   });
 
