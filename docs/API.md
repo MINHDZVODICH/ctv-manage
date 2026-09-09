@@ -842,17 +842,14 @@ Admin xóa một tệp khỏi hồ sơ của một tài khoản bất kỳ.
 
 ---
 
-## 10. Tác vụ nền (Background Jobs & Startup Recovery)
+## 10. T?c v? n?n v? ghi b? l?ch s?
 
-Các tác vụ này chạy ngầm độc lập ở phía Backend, không phải là HTTP endpoint mở ra ngoài client:
+Backend ch?y `SnapshotCoordinatorService.reconcilePass()` khi kh?i ??ng v? m?i 60 gi?y. H? th?ng ??c m?c `WorkHistoryProgress.lastProcessedDate` v? x? l? l?n l??t c?c ng?y c?n thi?u t? `trackingStartDate`, k? c? khi backend b?t l?i v?o s?ng h?m sau ho?c cu?i tu?n.
 
-1. **Daily Snapshot lúc 17:30 Asia/Bangkok**:
-   - Chạy đúng 17:30 Thứ 2 đến Thứ 6 (UTC+7 / 10:30 UTC).
-   - Kiểm tra các CTV `ACTIVE` có `Schedule` và `Shift` khớp với thứ của ngày hôm nay.
-   - Chụp lại bản ghi vào bảng `History` với `status = 'COMPLETED'`.
-   - Sử dụng `prisma.history.createMany({ skipDuplicates: true })` dựa trên ràng buộc `@@unique([accountId, workDate, period])` để đảm bảo tính lũy tiến, bất biến (Idempotent).
-   - Tuyệt đối không quét ngược backfill 14 ngày cũ.
+- Ng?y hi?n t?i ch? ???c ch?t t? 17:30 Asia/Bangkok; c?c ng?y tr??c ?? ???c ghi b? b?t k? l?c n?o.
+- D? li?u l?y t? phi?n b?n l?ch v? tr?ng th?i CTV c? hi?u l?c t?i gi? ch?t c?a t?ng ng?y trong `WorkHistorySource`.
+- Ghi `History`, ??nh d?u `SnapshotRun.SUCCEEDED` v? c?p nh?t m?c trong c?ng transaction; ng?y l?i ???c th? l?i, kh?ng ??y m?c v??t qua.
+- C?c API GET l?ch s? ch? ??c d? li?u ?? l?u, kh?ng k?ch ho?t job.
+- Migration ??t ranh gi?i tri?n khai, kh?ng t? ghi c?c ng?y tr??c ??.
 
-2. **Startup Recovery khi máy chủ khởi động lại**:
-   - Khi tiến trình `main.ts` khởi động, tự động gọi `snapshotTodayWorkHistory()` một lần.
-   - Nếu thời điểm khởi động là sau 17:30 Bangkok của một ngày làm việc (T2-T6), hệ thống tự động bù đắp snapshot của ngày hôm nay nếu trước đó máy chủ bị tắt ngang.
+Xem [c? ch?, ranh gi?i tri?n khai v? c?ch ki?m tra ti?n ??](WORK-HISTORY-RECOVERY.md).

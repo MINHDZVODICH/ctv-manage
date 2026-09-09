@@ -1,5 +1,7 @@
 # KIẾN TRÚC HỆ THỐNG (ARCHITECTURE)
 
+> C?p nh?t lu?ng l?ch s? ng?y 09/09/2026: [Ghi b? theo m?c ti?n ??](WORK-HISTORY-RECOVERY.md) thay th? m? t? snapshot ch? trong ng?y v? kh?ng ghi b? ? t?i li?u n?y.
+
 ## 1. Ranh giới ứng dụng và tổng quan kiến trúc
 
 Hệ thống Quản lý và Điều phối Lịch trình Cộng tác viên (CTV Manage) được xây dựng theo mô hình Client-Server phân tách rõ rệt giữa giao diện người dùng (Frontend SPA) và dịch vụ xử lý nghiệp vụ (Backend RESTful API), kết nối qua giao thức HTTP/HTTPS với phiên làm việc dựa trên Cookie an toàn.

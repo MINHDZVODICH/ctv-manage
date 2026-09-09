@@ -293,6 +293,8 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
         expectedVersion: 1,
       });
 
+    // The update happened before the simulated cutoff.
+    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T10:15:00Z') } });
     // Run snapshot at 18:00 Asia/Bangkok on 2026-09-02
     const afterCutoff = new Date('2026-09-02T11:00:00.000Z');
     await snapshotTodayWorkHistory(afterCutoff);

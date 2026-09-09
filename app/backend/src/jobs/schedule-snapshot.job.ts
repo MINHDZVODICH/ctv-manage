@@ -49,7 +49,7 @@ export function startScheduleSnapshotJob(): ScheduleSnapshotJobController {
         await coordinator.reconcilePass();
         logger.debug('Schedule snapshot reconciliation pass completed');
       } catch (error) {
-        logger.error({ error }, 'Failed to snapshot today work history');
+        logger.error({ error }, 'Failed to reconcile work history');
       }
     })();
     activeReconcilePromise = task;

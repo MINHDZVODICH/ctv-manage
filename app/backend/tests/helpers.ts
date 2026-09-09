@@ -9,6 +9,7 @@ export const TEST_PASSWORD = 'Test@123456';
 let passwordHash: string | undefined;
 
 export async function resetDatabase() {
+  await prisma.workHistoryProgress.deleteMany();
   await prisma.rateLimitWindow.deleteMany().catch(() => {});
   await prisma.snapshotRun.deleteMany().catch(() => {});
   await prisma.history.deleteMany();
@@ -96,4 +97,3 @@ export const validPng = Buffer.from([
 ]);
 
 export const validPdf = Buffer.from('%PDF-1.4\n%âãÏÓ\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
-

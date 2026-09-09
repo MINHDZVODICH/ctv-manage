@@ -1,459 +1,202 @@
-import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
+﻿import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/shared/prisma.js';
 import { resetDatabase, seedActors } from './helpers.js';
-import { parseYmdToUtcDate } from '../src/shared/timezone.js';
 import { SnapshotCoordinatorService } from '../src/modules/schedule/snapshot-coordinator.service.js';
+import { upsertSchedule } from '../src/modules/schedule/schedule.command.service.js';
+import { addDays, parseYmdToUtcDate } from '../src/shared/timezone.js';
 
-describe('SnapshotCoordinatorService Integration Tests', () => {
-  let coordinator: SnapshotCoordinatorService;
+const date = parseYmdToUtcDate;
+const monday = '2026-09-07';
+const morningTuesday = new Date('2026-09-08T01:00:00Z');
+async function progress(start = monday, last = addDays(start, -1)) {
+  return prisma.workHistoryProgress.create({ data: {
+    id: 'default', trackingStartDate: date(start), lastProcessedDate: date(last),
+  } });
+}
+async function seedSchedule() {
+  const { ctv } = await seedActors();
+  const schedule = await upsertSchedule(ctv.id, { roomCode: 'ROOM_1', slots: [
+    { weekday: 1, period: 'MORNING' }, { weekday: 2, period: 'AFTERNOON' }, { weekday: 3, period: 'MORNING' },
+  ] });
+  // Fixtures predate the simulated outage. Production effectiveAt is set by DB triggers.
+  await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-07T09:00:00Z') } });
+  return { ctv, schedule };
+}
+async function lastProcessed() {
+  return (await prisma.workHistoryProgress.findUniqueOrThrow({ where: { id: 'default' } })).lastProcessedDate;
+}
 
-  beforeEach(async () => {
-    await resetDatabase();
-    coordinator = new SnapshotCoordinatorService();
+describe('Persistent work history recovery', () => {
+  beforeEach(async () => { delete process.env.SNAPSHOT_TRACKING_START_DATE; await resetDatabase(); });
+  afterAll(async () => { delete process.env.SNAPSHOT_TRACKING_START_DATE; await prisma.$disconnect(); });
+
+  it('starts today on first boot, even if old tracking config and runs exist', async () => {
+    await seedSchedule();
+    process.env.SNAPSHOT_TRACKING_START_DATE = '2020-01-01';
+    await prisma.snapshotRun.create({ data: { workDate: date(monday), status: 'MISSED' } });
+    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    expect(await lastProcessed()).toEqual(date(monday));
+    expect(await prisma.history.count()).toBe(0);
+    expect((await prisma.snapshotRun.findUniqueOrThrow({ where: { workDate: date(monday) } })).status).toBe('MISSED');
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
+  it('remembers a Monday pre-cutoff boot and backfills Monday on Tuesday morning exactly once', async () => {
+    await seedSchedule();
+    await new SnapshotCoordinatorService().reconcilePass(new Date('2026-09-07T10:00:00Z'));
+    expect(await prisma.history.count()).toBe(0);
+    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    const rows = await prisma.history.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ workDate: date(monday), period: 'MORNING', roomCode: 'ROOM_1' });
+    expect(await lastProcessed()).toEqual(date(monday));
+    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    expect(await prisma.history.count()).toBe(1);
+    expect(await prisma.snapshotRun.count()).toBe(1);
   });
 
-  // 1. Reconcile creates a PENDING run once Bangkok time >= 17:30 (10:30 UTC)
-  describe('1. Reconciliation Pass Cutoff and Initialization', () => {
-    it('does not create a run before 17:30 Bangkok time (10:30 UTC)', async () => {
-      // Monday 2026-09-07 10:29:59 UTC = 17:29:59 Bangkok
-      const beforeCutoff = new Date('2026-09-07T10:29:59.000Z');
-      await coordinator.reconcilePass(beforeCutoff);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: parseYmdToUtcDate('2026-09-07') },
-      });
-      expect(run).toBeNull();
-    });
-
-    it('does not create a run on weekends even after 17:30 Bangkok time', async () => {
-      // Sunday 2026-09-06 11:00:00 UTC = 18:00:00 Bangkok
-      const weekendAfterCutoff = new Date('2026-09-06T11:00:00.000Z');
-      await coordinator.reconcilePass(weekendAfterCutoff);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: parseYmdToUtcDate('2026-09-06') },
-      });
-      expect(run).toBeNull();
-    });
-
-    it('creates a PENDING run for today once Bangkok time reaches 17:30 on a weekday', async () => {
-      // Monday 2026-09-07 10:30:00 UTC = 17:30:00 Bangkok
-      const atCutoff = new Date('2026-09-07T10:30:00.000Z');
-
-      // Prevent immediate claim/execution so we can verify the created PENDING state
-      vi.spyOn(coordinator, 'claimRun').mockResolvedValueOnce(false);
-
-      await coordinator.reconcilePass(atCutoff);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: parseYmdToUtcDate('2026-09-07') },
-      });
-      expect(run).not.toBeNull();
-      expect(run?.status).toBe('PENDING');
-      expect(run?.attemptCount).toBe(0);
-      expect(run?.nextAttemptAt).toEqual(atCutoff);
-      expect(run?.leaseToken).toBeNull();
-    });
+  it('catches up multiple days, skips weekends, and waits for the current cutoff', async () => {
+    await seedSchedule();
+    await progress('2026-09-04');
+    const coordinator = new SnapshotCoordinatorService();
+    await coordinator.reconcilePass(new Date('2026-09-10T01:00:00Z'));
+    expect(await prisma.history.count()).toBe(3);
+    expect(await lastProcessed()).toEqual(date('2026-09-09'));
+    const runs = await prisma.snapshotRun.findMany({ orderBy: { workDate: 'asc' } });
+    expect(runs.map(r => r.workDate)).toEqual(['2026-09-04', monday, '2026-09-08', '2026-09-09'].map(date));
+    expect(runs.every(r => r.status === 'SUCCEEDED')).toBe(true);
+    await coordinator.reconcilePass(new Date('2026-09-10T10:30:00Z'));
+    expect(await lastProcessed()).toEqual(date('2026-09-10'));
   });
 
-  // 2. Atomic claiming: first instance claims, second fails
-  describe('2. Atomic Claiming', () => {
-    it('allows first instance to claim with leaseToken, and second concurrent instance fails', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const workDate = '2026-09-07';
-
-      // Seed a PENDING run
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: parseYmdToUtcDate(workDate),
-          status: 'PENDING',
-          nextAttemptAt: now,
-        },
-      });
-
-      const tokenA = 'token-instance-a-uuid';
-      const tokenB = 'token-instance-b-uuid';
-
-      const claimedA = await coordinator.claimRun(workDate, tokenA, now);
-      const claimedB = await coordinator.claimRun(workDate, tokenB, now);
-
-      expect(claimedA).toBe(true);
-      expect(claimedB).toBe(false);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: parseYmdToUtcDate(workDate) },
-      });
-      expect(run?.status).toBe('RUNNING');
-      expect(run?.leaseToken).toBe(tokenA);
-      expect(run?.attemptCount).toBe(1);
-      // 2-minute lease duration
-      expect(run?.leaseExpiresAt).toEqual(new Date(now.getTime() + 2 * 60 * 1000));
-      expect(run?.startedAt).toEqual(now);
-    });
-
-    it('rejects claim if nextAttemptAt is in the future for FAILED run', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const futureAttempt = new Date('2026-09-07T10:35:00.000Z');
-      const workDate = '2026-09-07';
-
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: parseYmdToUtcDate(workDate),
-          status: 'FAILED',
-          nextAttemptAt: futureAttempt,
-          attemptCount: 1,
-        },
-      });
-
-      const claimed = await coordinator.claimRun(workDate, 'token-early', now);
-      expect(claimed).toBe(false);
-    });
+  it('uses the final transaction schedule at the original cutoff despite later schedule and account changes', async () => {
+    const { ctv, schedule } = await seedSchedule();
+    await progress();
+    await upsertSchedule(ctv.id, { expectedVersion: schedule.version, roomCode: 'ROOM_2', slots: [{ weekday: 1, period: 'AFTERNOON' }] });
+    await prisma.account.update({ where: { id: ctv.id }, data: { status: 'DISABLED' } });
+    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    expect(await prisma.history.findMany()).toEqual([expect.objectContaining({ period: 'MORNING', roomCode: 'ROOM_1' })]);
+    const revisions = await prisma.workHistorySource.findMany({ where: { accountId: ctv.id }, orderBy: { id: 'asc' } });
+    expect(revisions.at(-2)).toMatchObject({ roomCode: 'ROOM_2', shifts: [{ weekday: 1, period: 'AFTERNOON' }] });
+    expect(revisions.at(-1)?.eligible).toBe(false);
+    expect(new Set(revisions.map(r => r.transactionId)).size).toBe(revisions.length);
   });
 
-  // 3. Expired lease reclamation
-  describe('3. Expired Lease Reclamation', () => {
-    it('allows another instance to reclaim run if leaseExpiresAt is in the past', async () => {
-      const now = new Date('2026-09-07T10:35:00.000Z');
-      const workDate = '2026-09-07';
-
-      // Seed a RUNNING run whose lease has expired
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: parseYmdToUtcDate(workDate),
-          status: 'RUNNING',
-          leaseToken: 'stale-token-dead-instance',
-          leaseExpiresAt: new Date(now.getTime() - 10_000), // 10s expired
-          startedAt: new Date(now.getTime() - 130_000),
-          attemptCount: 1,
-        },
-      });
-
-      const newToken = 'recovery-token-new-instance';
-      const claimed = await coordinator.claimRun(workDate, newToken, now);
-
-      expect(claimed).toBe(true);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: parseYmdToUtcDate(workDate) },
-      });
-      expect(run?.status).toBe('RUNNING');
-      expect(run?.leaseToken).toBe(newToken);
-      expect(run?.attemptCount).toBe(2);
-      expect(run?.leaseExpiresAt).toEqual(new Date(now.getTime() + 2 * 60 * 1000));
-    });
+  it('does not apply a newly created schedule to an earlier day', async () => {
+    await seedSchedule();
+    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-08T00:00:00Z') } });
+    await progress();
+    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    expect(await prisma.history.count()).toBe(0);
+    expect(await lastProcessed()).toEqual(date(monday));
   });
 
-  // 4. Exponential backoff calculation
-  describe('4. Exponential Backoff Calculation', () => {
-    it('calculates +1m, +5m, +15m, +30m intervals capped at Bangkok midnight', () => {
-      // 2026-09-07 10:30:00 UTC = 17:30 Bangkok
-      const baseNow = new Date('2026-09-07T10:30:00.000Z');
-
-      // Attempt 1: +1 minute
-      const next1 = coordinator.calculateNextAttemptAt(1, baseNow);
-      expect(next1).toEqual(new Date('2026-09-07T10:31:00.000Z'));
-
-      // Attempt 2: +5 minutes
-      const next2 = coordinator.calculateNextAttemptAt(2, baseNow);
-      expect(next2).toEqual(new Date('2026-09-07T10:35:00.000Z'));
-
-      // Attempt 3: +15 minutes
-      const next3 = coordinator.calculateNextAttemptAt(3, baseNow);
-      expect(next3).toEqual(new Date('2026-09-07T10:45:00.000Z'));
-
-      // Attempt 4: +30 minutes
-      const next4 = coordinator.calculateNextAttemptAt(4, baseNow);
-      expect(next4).toEqual(new Date('2026-09-07T11:00:00.000Z'));
-
-      // Attempt 5+: +30 minutes
-      const next5 = coordinator.calculateNextAttemptAt(5, baseNow);
-      expect(next5).toEqual(new Date('2026-09-07T11:00:00.000Z'));
-
-      // Bangkok midnight capping:
-      // Bangkok date 2026-09-07 ends at 2026-09-08 00:00:00 Bangkok = 2026-09-07 17:00:00 UTC
-      const lateTime = new Date('2026-09-07T16:45:00.000Z'); // 23:45 Bangkok
-      // Attempt 4 (+30m) would normally be 17:15:00 UTC, which exceeds midnight
-      const capped = coordinator.calculateNextAttemptAt(4, lateTime);
-      expect(capped).toEqual(new Date('2026-09-07T17:00:00.000Z'));
-
-      // Once midnight has arrived or passed, returns null (no more retries for this date)
-      const atMidnight = new Date('2026-09-07T17:00:00.000Z');
-      expect(coordinator.calculateNextAttemptAt(1, atMidnight)).toBeNull();
-
-      const afterMidnight = new Date('2026-09-07T17:05:00.000Z');
-      expect(coordinator.calculateNextAttemptAt(1, afterMidnight)).toBeNull();
-    });
+  it('does not retain source revisions from rolled-back schedule changes', async () => {
+    const { ctv, schedule } = await seedSchedule();
+    const before = await prisma.workHistorySource.count({ where: { accountId: ctv.id } });
+    await expect(prisma.$transaction(async tx => {
+      await tx.schedule.update({ where: { id: schedule.id }, data: { roomCode: 'ROOM_4' } });
+      // Flush deferred triggers to verify revision writes themselves roll back too.
+      await tx.$executeRawUnsafe('SET CONSTRAINTS ALL IMMEDIATE');
+      throw new Error('ROLLBACK');
+    })).rejects.toThrow('ROLLBACK');
+    expect(await prisma.workHistorySource.count({ where: { accountId: ctv.id } })).toBe(before);
+    expect((await prisma.schedule.findUniqueOrThrow({ where: { id: schedule.id } })).roomCode).toBe('ROOM_1');
   });
 
-  // 5. Transaction rollback and recordFailure
-  describe('5. Transaction Rollback and Error Recording', () => {
-    it('rolls back inserted history rows upon error and records FAILED status with retry timestamp', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const workDate = '2026-09-07';
-      const targetDate = parseYmdToUtcDate(workDate);
-
-      // Seed actors and schedule
-      const { ctv } = await seedActors();
-      await prisma.schedule.create({
-        data: {
-          accountId: ctv.id,
-          roomCode: 'ROOM_1',
-          shifts: {
-            create: [{ weekday: 1, period: 'MORNING' }],
-          },
-        },
-      });
-
-      // Create and claim run
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: targetDate,
-          status: 'PENDING',
-          nextAttemptAt: now,
-        },
-      });
-
-      const leaseToken = 'test-rollback-token';
-      const claimed = await coordinator.claimRun(workDate, leaseToken, now);
-      expect(claimed).toBe(true);
-
-      // Simulate failure in history insertion by injecting an error inside transaction
-      const failingDb = {
-        ...prisma,
-        $transaction: async (callback: any, options: any) => {
-          return prisma.$transaction(async (realTx: any) => {
-            const failingTx = {
-              ...realTx,
-              history: {
-                ...realTx.history,
-                createMany: async () => {
-                  throw new Error('SIMULATED_DB_ERROR');
-                },
-              },
-            };
-            return callback(failingTx);
-          }, options);
-        },
-      };
-      const failingCoordinator = new SnapshotCoordinatorService(failingDb as any);
-
-      await expect(failingCoordinator.executeAttempt(workDate, leaseToken, now)).rejects.toThrow(
-        'SIMULATED_DB_ERROR',
-      );
-
-      // Verify transaction rollback: no history rows exist
-      const historyRows = await prisma.history.findMany({
-        where: { workDate: targetDate },
-      });
-      expect(historyRows).toHaveLength(0);
-
-      // Record failure
-      await coordinator.recordFailure(workDate, leaseToken, 'SIMULATED_DB_ERROR', now);
-
-      // Verify persistent run state
-      const failedRun = await prisma.snapshotRun.findUnique({
-        where: { workDate: targetDate },
-      });
-      expect(failedRun?.status).toBe('FAILED');
-      expect(failedRun?.errorCode).toBe('SIMULATED_DB_ERROR');
-      // attemptCount was 1 when claimed, so next retry is +1m
-      expect(failedRun?.nextAttemptAt).toEqual(new Date(now.getTime() + 60 * 1000));
-      expect(failedRun?.leaseToken).toBeNull();
-      expect(failedRun?.leaseExpiresAt).toBeNull();
-    });
+  it('serializes source revisions across concurrent schedule and eligibility changes', async () => {
+    const { ctv, schedule } = await seedSchedule();
+    await Promise.all([
+      upsertSchedule(ctv.id, { expectedVersion: schedule.version, roomCode: 'ROOM_2', slots: [{ weekday: 2, period: 'MORNING' }] }),
+      prisma.account.update({ where: { id: ctv.id }, data: { status: 'DISABLED' } }),
+    ]);
+    const latest = await prisma.workHistorySource.findFirstOrThrow({ where: { accountId: ctv.id }, orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }] });
+    expect(latest).toMatchObject({ eligible: false, roomCode: 'ROOM_2', shifts: [{ weekday: 2, period: 'MORNING' }] });
   });
 
-  // 6. Zero-entry snapshot
-  describe('6. Zero-Entry Snapshot and Normal Execution', () => {
-    it('completes as SUCCEEDED with insertedCount: 0 when no accounts have active schedules', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const workDate = '2026-09-07';
-      const targetDate = parseYmdToUtcDate(workDate);
-
-      // No CTVs seeded or CTVs have no schedule
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: targetDate,
-          status: 'PENDING',
-          nextAttemptAt: now,
-        },
-      });
-
-      const leaseToken = 'zero-entry-token';
-      const claimed = await coordinator.claimRun(workDate, leaseToken, now);
-      expect(claimed).toBe(true);
-
-      const result = await coordinator.executeAttempt(workDate, leaseToken, now);
-      expect(result.insertedCount).toBe(0);
-
-      const completedRun = await prisma.snapshotRun.findUnique({
-        where: { workDate: targetDate },
-      });
-      expect(completedRun?.status).toBe('SUCCEEDED');
-      expect(completedRun?.insertedCount).toBe(0);
-      expect(completedRun?.completedAt).not.toBeNull();
-      expect(completedRun?.leaseToken).toBeNull();
-      expect(completedRun?.leaseExpiresAt).toBeNull();
-      expect(completedRun?.errorCode).toBeNull();
-    });
-
-    it('inserts active CTV shifts, marks SUCCEEDED, and prevents duplicate insertion', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const workDate = '2026-09-07';
-      const targetDate = parseYmdToUtcDate(workDate);
-
-      const { ctv, otherCtv } = await seedActors();
-
-      // CTV 1 has Monday Morning + Monday Afternoon
-      await prisma.schedule.create({
-        data: {
-          accountId: ctv.id,
-          roomCode: 'ROOM_1',
-          shifts: {
-            create: [
-              { weekday: 1, period: 'MORNING' },
-              { weekday: 1, period: 'AFTERNOON' },
-            ],
-          },
-        },
-      });
-
-      // CTV 2 has Monday Morning
-      await prisma.schedule.create({
-        data: {
-          accountId: otherCtv.id,
-          roomCode: 'ROOM_2',
-          shifts: {
-            create: [{ weekday: 1, period: 'MORNING' }],
-          },
-        },
-      });
-
-      // Run full reconcilePass
-      await coordinator.reconcilePass(now);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: targetDate },
-      });
-      expect(run?.status).toBe('SUCCEEDED');
-      expect(run?.insertedCount).toBe(3);
-      expect(run?.completedAt).not.toBeNull();
-      expect(run?.leaseToken).toBeNull();
-
-      const historyRows = await prisma.history.findMany({
-        where: { workDate: targetDate },
-      });
-      expect(historyRows).toHaveLength(3);
-    });
+  it('resumes a long outage in bounded passes instead of losing the remaining days', async () => {
+    await progress('2026-08-01');
+    const coordinator = new SnapshotCoordinatorService();
+    const now = new Date('2026-09-10T01:00:00Z');
+    await coordinator.reconcilePass(now);
+    expect(await lastProcessed()).toEqual(date('2026-08-31'));
+    await coordinator.reconcilePass(now);
+    expect(await lastProcessed()).toEqual(date('2026-09-09'));
+    expect(await prisma.history.count()).toBe(0);
   });
 
-  // 7. Mid-flight midnight date guard and execution timing (Issue 2)
-  describe('7. Mid-Flight Midnight Date Guard and Execution Timing', () => {
-    it('marks run as MISSED with DATE_PASSED if midnight passes before execution executes', async () => {
-      // Work date is Monday 2026-09-07
-      const workDate = '2026-09-07';
-      const targetDate = parseYmdToUtcDate(workDate);
-      const claimTime = new Date('2026-09-07T16:59:00.000Z'); // 23:59:00 Bangkok
-
-      // Create and claim run before midnight
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: targetDate,
-          status: 'PENDING',
-          nextAttemptAt: claimTime,
-        },
-      });
-
-      const leaseToken = 'midnight-cross-token';
-      const claimed = await coordinator.claimRun(workDate, leaseToken, claimTime);
-      expect(claimed).toBe(true);
-
-      // Now execution happens at 00:01:00 Bangkok Tuesday (17:01:00 UTC)
-      const afterMidnight = new Date('2026-09-07T17:01:00.000Z');
-      const result = await coordinator.executeAttempt(workDate, leaseToken, afterMidnight);
-
-      expect(result.insertedCount).toBe(0);
-
-      const run = await prisma.snapshotRun.findUnique({
-        where: { workDate: targetDate },
-      });
-      expect(run?.status).toBe('MISSED');
-      expect(run?.errorCode).toBe('DATE_PASSED');
-      expect(run?.leaseToken).toBeNull();
-    });
+  it('stops at a failed date and retries later without advancing beyond the gap', async () => {
+    await seedSchedule(); await progress();
+    const coordinator = new SnapshotCoordinatorService();
+    const fail = vi.spyOn(coordinator, 'executeAttempt').mockRejectedValueOnce(new Error('DB_TIMEOUT'));
+    const now = new Date('2026-09-10T01:00:00Z');
+    await coordinator.reconcilePass(now);
+    expect(await lastProcessed()).toEqual(date('2026-09-06'));
+    expect(await prisma.snapshotRun.count()).toBe(1);
+    fail.mockRestore();
+    await coordinator.reconcilePass(new Date(now.getTime() + 30_000));
+    expect(await prisma.history.count()).toBe(0);
+    await coordinator.reconcilePass(new Date(now.getTime() + 60_000));
+    expect(await prisma.history.count()).toBe(3);
+    expect(await lastProcessed()).toEqual(date('2026-09-09'));
   });
 
-  // 8. Transaction Isolation and Lease Ownership Protection (Issue 3)
-  describe('8. Transaction Isolation and Lease Ownership Protection', () => {
-    it('throws LEASE_LOST if leaseToken is stolen or modified before completion', async () => {
-      const now = new Date('2026-09-07T10:30:00.000Z');
-      const workDate = '2026-09-07';
-      const targetDate = parseYmdToUtcDate(workDate);
+  it('rolls history and success back if saving the cursor fails', async () => {
+    await seedSchedule(); await progress();
+    const coordinator = new SnapshotCoordinatorService();
+    await prisma.snapshotRun.create({ data: { workDate: date(monday), status: 'PENDING' } });
+    await coordinator.claimRun(monday, 'owner', morningTuesday);
+    const db = { $transaction: (callback: any, options: any) => prisma.$transaction(tx => callback({
+      ...tx, workHistoryProgress: { update: () => { throw new Error('CURSOR_WRITE_FAILED'); } },
+    }), options) };
+    await expect(new SnapshotCoordinatorService(db as any).executeAttempt(monday, 'owner', morningTuesday)).rejects.toThrow('CURSOR_WRITE_FAILED');
+    expect(await prisma.history.count()).toBe(0);
+    expect(await lastProcessed()).toEqual(date('2026-09-06'));
+    expect((await prisma.snapshotRun.findUniqueOrThrow({ where: { workDate: date(monday) } })).status).toBe('RUNNING');
+  });
 
-      const { ctv } = await seedActors();
-      await prisma.schedule.create({
-        data: {
-          accountId: ctv.id,
-          roomCode: 'ROOM_1',
-          shifts: {
-            create: [{ weekday: 1, period: 'MORNING' }],
-          },
-        },
-      });
+  it('allows only one concurrent claim and recovers an expired lease', async () => {
+    await seedSchedule(); await progress();
+    const coordinator = new SnapshotCoordinatorService();
+    await prisma.snapshotRun.create({ data: { workDate: date(monday), status: 'PENDING' } });
+    const claims = await Promise.all([coordinator.claimRun(monday, 'a', morningTuesday), coordinator.claimRun(monday, 'b', morningTuesday)]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    const later = new Date(morningTuesday.getTime() + 120_000);
+    expect(await coordinator.claimRun(monday, 'recovered', later)).toBe(true);
+    await coordinator.executeAttempt(monday, 'recovered', later);
+    expect(await prisma.history.count()).toBe(1);
+  });
 
-      await prisma.snapshotRun.create({
-        data: {
-          workDate: targetDate,
-          status: 'PENDING',
-          nextAttemptAt: now,
-        },
-      });
+  it('two concurrent reconciliation instances never duplicate history or move the cursor backwards', async () => {
+    await seedSchedule(); await progress();
+    await Promise.all([new SnapshotCoordinatorService().reconcilePass(morningTuesday), new SnapshotCoordinatorService().reconcilePass(morningTuesday)]);
+    expect(await prisma.history.count()).toBe(1);
+    expect(await lastProcessed()).toEqual(date(monday));
+  });
 
-      const leaseToken = 'original-owner-token';
-      const claimed = await coordinator.claimRun(workDate, leaseToken, now);
-      expect(claimed).toBe(true);
+  it('respects the persisted boundary and adopts an already successful day without rewriting it', async () => {
+    await seedSchedule(); await progress('2026-09-08');
+    await prisma.snapshotRun.createMany({ data: [
+      { workDate: date(monday), status: 'MISSED' },
+      { workDate: date('2026-09-08'), status: 'SUCCEEDED', insertedCount: 7 },
+    ] });
+    await new SnapshotCoordinatorService(prisma, '2020-01-01').reconcilePass(new Date('2026-09-09T01:00:00Z'));
+    expect(await prisma.history.count()).toBe(0);
+    expect(await lastProcessed()).toEqual(date('2026-09-08'));
+    expect((await prisma.snapshotRun.findUniqueOrThrow({ where: { workDate: date('2026-09-08') } })).insertedCount).toBe(7);
+    expect((await prisma.snapshotRun.findUniqueOrThrow({ where: { workDate: date(monday) } })).status).toBe('MISSED');
+  });
 
-      // We intercept the transaction so that updateMany finds 0 rows (simulating stolen lease)
-      const interceptingDb = {
-        ...prisma,
-        $transaction: async (callback: any, options: any) => {
-          return prisma.$transaction(async (realTx: any) => {
-            const originalUpdateMany = realTx.snapshotRun.updateMany.bind(realTx.snapshotRun);
-            const wrappedTx = {
-              ...realTx,
-              snapshotRun: {
-                ...realTx.snapshotRun,
-                updateMany: async (args: any) => {
-                  return originalUpdateMany({
-                    ...args,
-                    where: {
-                      ...args.where,
-                      leaseToken: 'stolen-token-mismatch',
-                    },
-                  });
-                },
-              },
-            };
-            return callback(wrappedTx);
-          }, options);
-        },
-      };
+  it('refuses direct execution before the boundary or out of order', async () => {
+    await progress('2026-09-08');
+    const coordinator = new SnapshotCoordinatorService();
+    await expect(coordinator.executeAttempt(monday, 'owner', morningTuesday)).rejects.toThrow('HISTORY_PROGRESS_CONFLICT');
+    await expect(coordinator.executeAttempt('2026-09-09', 'owner', morningTuesday)).rejects.toThrow('HISTORY_PROGRESS_CONFLICT');
+    expect(await prisma.history.count()).toBe(0);
+  });
 
-      const customCoordinator = new SnapshotCoordinatorService(interceptingDb as any);
-      await expect(customCoordinator.executeAttempt(workDate, leaseToken, now)).rejects.toThrow(
-        'LEASE_LOST',
-      );
-
-      // Verify rollback: no history rows inserted
-      const history = await prisma.history.findMany({
-        where: { workDate: targetDate },
-      });
-      expect(history).toHaveLength(0);
-    });
+  it('keeps retrying across midnight', () => {
+    const coordinator = new SnapshotCoordinatorService();
+    expect(coordinator.calculateNextAttemptAt(4, new Date('2026-09-07T16:45:00Z'))).toEqual(new Date('2026-09-07T17:15:00Z'));
+    expect(coordinator.calculateNextAttemptAt(1, morningTuesday)).toEqual(new Date('2026-09-08T01:01:00Z'));
   });
 });
-

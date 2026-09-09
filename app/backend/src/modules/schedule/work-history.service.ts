@@ -1,6 +1,7 @@
+import { SnapshotCoordinatorService } from './snapshot-coordinator.service.js';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
-import { formatUtcDateToYmd, parseYmdToUtcDate } from '../../shared/timezone.js';
+import { formatUtcDateToYmd, todayInBangkok } from '../../shared/timezone.js';
 import { monthRangeToUtcDates } from './schedule.types.js';
 
 // ---------------------------------------------------------------------------
@@ -61,81 +62,17 @@ export interface WorkHistoryResponseDto {
 // snapshotTodayWorkHistory (17:30 Asia/Bangkok snapshot cutoff)
 // ---------------------------------------------------------------------------
 
-export async function snapshotTodayWorkHistory(
-  now = new Date(),
-): Promise<SnapshotTodayWorkHistoryResult> {
-  // Asia/Bangkok is UTC+7 (no DST)
-  const bkkMs = now.getTime() + 7 * 3600 * 1000;
-  const bkkDate = new Date(bkkMs);
-  const y = bkkDate.getUTCFullYear();
-  const m = bkkDate.getUTCMonth();
-  const d = bkkDate.getUTCDate();
-  const hours = bkkDate.getUTCHours();
-  const minutes = bkkDate.getUTCMinutes();
-  const jsDay = bkkDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-  // If before 17:30 Bangkok time, do nothing
-  if (hours < 17 || (hours === 17 && minutes < 30)) {
-    return { processedCount: 0, skipped: true, reason: 'BEFORE_CUTOFF' };
+/** Compatibility entry point: all writers use the same persisted cursor. */
+export async function snapshotTodayWorkHistory(now = new Date()): Promise<SnapshotTodayWorkHistoryResult> {
+  const processedCount = await new SnapshotCoordinatorService().reconcilePass(now);
+  const today = todayInBangkok(now);
+  if (processedCount === 0 && now < new Date(today + 'T10:30:00.000Z')) {
+    return { processedCount, skipped: true, reason: 'BEFORE_CUTOFF' };
   }
-
-  // If weekend (Sunday = 0, Saturday = 6), do nothing
-  if (jsDay === 0 || jsDay === 6) {
-    return { processedCount: 0, skipped: true, reason: 'WEEKEND' };
+  if (processedCount === 0 && [0, 6].includes(new Date(today).getUTCDay())) {
+    return { processedCount, skipped: true, reason: 'WEEKEND' };
   }
-
-  // Only snapshot today (Monday-Friday: jsDay 1..5)
-  const todayYmd = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  const todayUtc = parseYmdToUtcDate(todayYmd);
-
-  const activeCtvs = await prisma.account.findMany({
-    where: {
-      role: 'CTV',
-      status: 'ACTIVE',
-      deletedAt: null,
-      schedule: { isNot: null },
-    },
-    include: {
-      schedule: {
-        include: {
-          shifts: true,
-        },
-      },
-    },
-  });
-
-  const historyEntries: Array<{
-    accountId: string;
-    workDate: Date;
-    period: string;
-    roomCode: string;
-    status: string;
-  }> = [];
-
-  for (const ctv of activeCtvs) {
-    if (!ctv.schedule) continue;
-    const matchingShifts = ctv.schedule.shifts.filter((s) => s.weekday === jsDay);
-    for (const shift of matchingShifts) {
-      historyEntries.push({
-        accountId: ctv.id,
-        workDate: todayUtc,
-        period: shift.period,
-        roomCode: ctv.schedule.roomCode,
-        status: 'COMPLETED',
-      });
-    }
-  }
-
-  if (historyEntries.length === 0) {
-    return { processedCount: 0 };
-  }
-
-  const result = await prisma.history.createMany({
-    data: historyEntries,
-    skipDuplicates: true,
-  });
-
-  return { processedCount: result.count };
+  return { processedCount };
 }
 
 // ---------------------------------------------------------------------------

@@ -225,6 +225,8 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
         ],
       });
 
+    // Put the fixture schedule before the simulated cutoff.
+    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T09:00:00Z') } });
     const targetDateStr = '2026-09-02';
     const targetDateUtc = parseYmdToUtcDate(targetDateStr);
 
@@ -250,11 +252,6 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const todayEntriesBefore = (entriesBefore || []).filter((e: any) => e.workDate === targetDateStr);
     expect(todayEntriesBefore).toHaveLength(0);
 
-    // 2. Run snapshotTodayWorkHistory on a weekend (Saturday 2026-09-05 at 11:00 UTC / 18:00 Bangkok)
-    const weekendDate = new Date('2026-09-05T11:00:00.000Z');
-    const weekendRes = await snapshotTodayWorkHistory(weekendDate);
-    expect(weekendRes).toEqual({ processedCount: 0, skipped: true, reason: 'WEEKEND' });
-
     // 3. Run snapshotTodayWorkHistory at exactly 10:30 UTC (17:30 Asia/Bangkok) on Wednesday 2026-09-02
     const atCutoff = new Date('2026-09-02T10:30:00.000Z');
     const snapshotRes = await snapshotTodayWorkHistory(atCutoff);
@@ -263,6 +260,11 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     // 4. Run snapshotTodayWorkHistory again at 11:00 UTC on 2026-09-02 -> Idempotent, 0 new rows
     const duplicateRes = await snapshotTodayWorkHistory(new Date('2026-09-02T11:00:00.000Z'));
     expect(duplicateRes.processedCount).toBe(0);
+
+    // 2. Run snapshotTodayWorkHistory on a weekend (Saturday 2026-09-05 at 11:00 UTC / 18:00 Bangkok)
+    const weekendDate = new Date('2026-09-05T11:00:00.000Z');
+    const weekendRes = await snapshotTodayWorkHistory(weekendDate);
+    expect(weekendRes).toEqual({ processedCount: 0, skipped: true, reason: 'WEEKEND' });
 
     // Verify 2026-09-02 IS recorded in History with roomCode = ROOM_3 and status = COMPLETED
     const historyAfter = await prisma.history.findMany({
@@ -314,6 +316,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       });
     expect(regRes.status).toBe(200);
 
+    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T09:00:00Z') } });
     // 2. Snapshot Wednesday 2026-09-02 after 17:30
     await snapshotTodayWorkHistory(new Date('2026-09-02T11:00:00.000Z'));
 

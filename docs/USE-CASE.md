@@ -1,5 +1,7 @@
 **VIỆN KHOA HỌC VÀ CÔNG NGHỆ QUÂN SỰ**
 
+> C?p nh?t lu?ng l?ch s? ng?y 09/09/2026: [Ghi b? theo m?c ti?n ??](WORK-HISTORY-RECOVERY.md) thay th? m? t? snapshot ch? trong ng?y v? kh?ng ghi b? ? t?i li?u n?y.
+
 **VIỆN CÔNG NGHỆ THÔNG TIN - ĐIỆN TỬ**
 
 ––––––––––––––––––––––
