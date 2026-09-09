@@ -162,21 +162,23 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   const ctv = await getActiveCtv(page);
   const workDate = todayInBangkok();
 
+  const currentWeekday = ((new Date().getDay() + 6) % 7) + 1;
+  const targetWeekdays = Array.from(new Set([1, currentWeekday]));
   const weeklySummaryPayload = {
     data: {
-      cells: [{
-        weekday: 1,
+      cells: targetWeekdays.map((wd) => ({
+        weekday: wd,
         period: 'MORNING',
         count: 1,
         shiftAssignments: [{
-          id: 'assignment-room-summary',
+          id: `assignment-room-summary-${wd}`,
           accountId: ctv.id,
           displayName: ctv.displayName,
           phone: ctv.phone,
           roomCode: 'ROOM_2',
           status: 'ACTIVE',
         }],
-      }],
+      })),
     },
   };
   await page.route('**/api/v1/schedule/weekly-summary*', async (route) => {
@@ -240,9 +242,10 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   }
 
   await page.getByRole('button', { name: 'Lịch tuần tổng hợp', exact: true }).click();
-  await page.getByTitle('Bấm xem danh sách CTV ca sáng').click();
+  await page.getByTitle('Bấm xem danh sách CTV ca sáng').first().click();
 
-  await expect(page.getByText('Buồng làm việc', { exact: true })).toBeVisible();
-  await expect(page.getByText('Buồng 2', { exact: true })).toBeVisible();
+  const shiftModal = page.getByRole('heading', { name: /Ca Sáng/ }).locator('xpath=ancestor::div[contains(@class, "max-w-2xl")][1]');
+  await expect(shiftModal.getByText('Buồng làm việc', { exact: true })).toBeVisible();
+  await expect(shiftModal.getByText('Buồng 2', { exact: true })).toBeVisible();
   await expect(page.getByText('ROOM_2', { exact: true })).toHaveCount(0);
 });

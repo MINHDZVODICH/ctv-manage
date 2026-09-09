@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShiftSlot, UserAccount, AssignedCTV } from "../../../types";
 import {
   getAssignedCTVsForDate,
@@ -207,6 +207,16 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const getAssignedCTVs = (workDate: string, type: "morning" | "afternoon") =>
     getAssignedCTVsForDate(historyShifts, workDate, type);
 
+  const avatarMap = useMemo(() => {
+    const map = new Map<string, string>();
+    initialShifts?.forEach((s) => {
+      s.assignedCTVs?.forEach((c) => {
+        if (c.id && c.avatar) map.set(c.id, c.avatar);
+      });
+    });
+    return map;
+  }, [initialShifts]);
+
   // Aggregate weekly schedule across all CTVs for Monday-Friday (dayIndex 0..4)
   const getWeeklySummaryCTVs = (
     dayIndex: number,
@@ -223,6 +233,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       return {
         id: a.accountId,
         name: a.displayName,
+        avatar: avatarMap.get(a.accountId),
         initials: a.displayName.slice(0, 2).toUpperCase(),
         phone: a.phone ?? undefined,
         room: roomFormatted,
@@ -271,7 +282,12 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       if (map.has(ctv.id)) map.get(ctv.id)!.shifts.push("Ca Chiều");
       else map.set(ctv.id, { ctv, shifts: ["Ca Chiều"] });
     });
-    return { dayLabel, list: Array.from(map.values()) };
+    return {
+      dayLabel,
+      list: Array.from(map.values()),
+      morningList,
+      afternoonList,
+    };
   };
   const todayData = getTodayCTVList();
 
@@ -342,37 +358,187 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
         </div>
 
         {todayData.list.length === 0 ? (
-          <div className="text-center py-6 text-slate-400">
-            <span className="material-symbols-outlined text-[32px] block mb-1 opacity-50">person_off</span>
+          <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+            <span className="material-symbols-outlined text-[36px] block mb-1 opacity-50">person_off</span>
             <p className="text-sm font-medium">{t("no_ctv_today")}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {todayData.list.map(({ ctv, shifts: sfs }) => (
-              <div
-                key={ctv.id}
-                onClick={() => handleCTVClick(ctv)}
-                className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-[#1f2023] border border-slate-200/80 dark:border-slate-800 hover:border-accent hover:shadow-xs transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {ctv.avatar ? (
-                    <img src={ctv.avatar} alt={ctv.name} className="w-11 h-11 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-accent transition-all" />
+          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <th className="py-3.5 px-4 w-[160px] text-center border-r border-slate-200 dark:border-slate-800">
+                      {language === "Tiếng Anh" ? "Shift" : "Ca làm việc"}
+                    </th>
+                    <th className="py-3.5 px-4 min-w-[200px]">
+                      {language === "Tiếng Anh" ? "Collaborator" : "Cộng tác viên"}
+                    </th>
+                    <th className="py-3.5 px-4 min-w-[150px]">
+                      {language === "Tiếng Anh" ? "Phone Number" : "Số điện thoại"}
+                    </th>
+                    <th className="py-3.5 px-4 min-w-[150px]">
+                      {language === "Tiếng Anh" ? "Assigned Room" : "Buồng làm việc"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs">
+                  {/* --- Ca Sáng --- */}
+                  {todayData.morningList.length === 0 ? (
+                    <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
+                      <td
+                        rowSpan={1}
+                        className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-b border-slate-200 dark:border-slate-800"
+                      >
+                        <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                          <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
+                          <span>{language === "Tiếng Anh" ? "Morning" : "Sáng"}</span>
+                        </div>
+                      </td>
+                      <td
+                        colSpan={3}
+                        className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 italic text-xs"
+                      >
+                        {language === "Tiếng Anh" ? "No collaborators registered for morning shift" : "Chưa có CTV đăng ký ca sáng"}
+                      </td>
+                    </tr>
                   ) : (
-                    <div className="w-11 h-11 rounded-full bg-[#1b365d] text-white font-bold text-sm flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-accent transition-all">
-                      {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
-                    </div>
+                    todayData.morningList.map((ctv, idx) => {
+                      const isLast = idx === todayData.morningList.length - 1;
+                      return (
+                        <tr
+                          key={`morning-${ctv.id || idx}`}
+                          className="hover:bg-slate-50/60 dark:hover:bg-[#1f2023]/60 transition-colors"
+                        >
+                          {idx === 0 && (
+                            <td
+                              rowSpan={todayData.morningList.length}
+                              className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-b border-slate-200 dark:border-slate-800"
+                            >
+                              <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                                <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
+                                <span>{language === "Tiếng Anh" ? "Morning" : "Sáng"}</span>
+                              </div>
+                            </td>
+                          )}
+                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div
+                              onClick={() => handleCTVClick(ctv)}
+                              className="inline-flex items-center gap-3 cursor-pointer group"
+                              title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                            >
+                              {ctv.avatar ? (
+                                <img
+                                  src={ctv.avatar}
+                                  alt={ctv.name}
+                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all">
+                                  {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all">
+                                {ctv.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                              <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
+                              <span>{ctv.phone || "—"}</span>
+                            </div>
+                          </td>
+                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                              <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
+                              <span>{ctv.roomDisplay || "Chưa cập nhật"}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-accent transition-colors truncate">{ctv.name}</h4>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 ${sfs.length > 1 ? "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300" : sfs[0] === "Ca Sáng" ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300" : "bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300"}`}>
-                        <span className="whitespace-nowrap">{sfs.map((s) => (language === "Tiếng Anh" ? (s === "Ca Sáng" ? "Morning" : "Afternoon") : s.replace("Ca ", ""))).join(", ")}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+
+                  {/* --- Ca Chiều --- */}
+                  {todayData.afternoonList.length === 0 ? (
+                    <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
+                      <td
+                        rowSpan={1}
+                        className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800"
+                      >
+                        <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                          <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
+                          <span>{language === "Tiếng Anh" ? "Afternoon" : "Chiều"}</span>
+                        </div>
+                      </td>
+                      <td
+                        colSpan={3}
+                        className="py-4 px-4 text-slate-400 dark:text-slate-500 italic text-xs"
+                      >
+                        {language === "Tiếng Anh" ? "No collaborators registered for afternoon shift" : "Chưa có CTV đăng ký ca chiều"}
+                      </td>
+                    </tr>
+                  ) : (
+                    todayData.afternoonList.map((ctv, idx) => {
+                      const isLast = idx === todayData.afternoonList.length - 1;
+                      return (
+                        <tr
+                          key={`afternoon-${ctv.id || idx}`}
+                          className="hover:bg-slate-50/60 dark:hover:bg-[#1f2023]/60 transition-colors"
+                        >
+                          {idx === 0 && (
+                            <td
+                              rowSpan={todayData.afternoonList.length}
+                              className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800"
+                            >
+                              <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                                <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
+                                <span>{language === "Tiếng Anh" ? "Afternoon" : "Chiều"}</span>
+                              </div>
+                            </td>
+                          )}
+                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div
+                              onClick={() => handleCTVClick(ctv)}
+                              className="inline-flex items-center gap-3 cursor-pointer group"
+                              title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                            >
+                              {ctv.avatar ? (
+                                <img
+                                  src={ctv.avatar}
+                                  alt={ctv.name}
+                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all">
+                                  {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all">
+                                {ctv.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                              <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
+                              <span>{ctv.phone || "—"}</span>
+                            </div>
+                          </td>
+                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                              <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
+                              <span>{ctv.roomDisplay || "Chưa cập nhật"}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
