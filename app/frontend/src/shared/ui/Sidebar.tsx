@@ -181,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="material-symbols-outlined text-[22px] shrink-0"
               style={{ fontVariationSettings: currentTab === "meetings" ? "'FILL' 1" : "'FILL' 0" }}
             >
-              calendar_view_week
+              calendar_month
             </span>
             {!isCollapsed && <span className="truncate">{t("nav_summary")}</span>}
           </button>

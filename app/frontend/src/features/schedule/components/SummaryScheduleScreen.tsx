@@ -566,7 +566,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
           <div className="space-y-4 p-4 sm:p-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_view_week</span>
+                <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_weekly_summary")}</h3>
               </div>
               {isLoadingWeekly && (
