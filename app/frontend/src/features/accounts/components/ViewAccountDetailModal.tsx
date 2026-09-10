@@ -613,7 +613,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   className="material-symbols-outlined text-[22px] text-blue-700 dark:text-blue-300"
                   aria-hidden="true"
                 >
-                  calendar_view_week
+                  calendar_month
                 </span>
                 <span>Lịch trình làm việc</span>
               </h5>

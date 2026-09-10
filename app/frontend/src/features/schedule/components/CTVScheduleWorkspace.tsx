@@ -513,7 +513,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 className="material-symbols-outlined text-[22px] text-accent"
                 aria-hidden="true"
               >
-                calendar_view_week
+                calendar_month
               </span>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{language === "Tiếng Anh" ? "Weekly Schedule" : "Lịch tuần"}</h3>
