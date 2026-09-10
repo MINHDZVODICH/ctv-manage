@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.codegraph
+**/.env
+**/.env.*
+!**/.env.example
+**/uploads
+**/playwright-report
+**/test-results
+backup
+release
+*.tar
+docs

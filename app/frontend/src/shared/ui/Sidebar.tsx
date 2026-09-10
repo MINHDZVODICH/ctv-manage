@@ -11,6 +11,7 @@ interface SidebarProps {
   userName?: string;
   userRole?: string;
   userAvatar?: string;
+  userInitials?: string;
   onOpenSettings?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -24,7 +25,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   userName = "Admin Quản trị",
   userRole = "Admin",
-  userAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+  userAvatar,
+  userInitials,
   onOpenSettings,
   isCollapsed = false,
   onToggleCollapse,
@@ -263,8 +265,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-9 h-9 rounded-full object-cover border border-white dark:border-[#3b3d45] shadow-2xs shrink-0"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-accent text-white font-bold flex items-center justify-center text-xs shrink-0">
-                {userName.slice(0, 2).toUpperCase()}
+              <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold flex items-center justify-center text-xs shrink-0 border border-white dark:border-[#3b3d45] shadow-2xs">
+                {userInitials ||
+                  userName
+                    .trim()
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((p) => p[0]?.toUpperCase() ?? "")
+                    .join("") ||
+                  userName.slice(0, 2).toUpperCase()}
               </div>
             )}
             {!isCollapsed && (

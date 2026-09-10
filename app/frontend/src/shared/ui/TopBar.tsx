@@ -11,6 +11,8 @@ interface TopBarProps {
   onOpenSettings: () => void;
   onSelectTab: (tab: ViewTab) => void;
   userAvatar?: string;
+  userName?: string;
+  userInitials?: string;
   onToggleMobileMenu?: () => void;
 }
 
@@ -21,7 +23,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleNotifications,
   onOpenSettings,
   onSelectTab,
-  userAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+  userAvatar,
+  userName = 'Admin',
+  userInitials,
   onToggleMobileMenu
 }) => {
   const { t } = useSystemSettings();
@@ -54,11 +58,25 @@ export const TopBar: React.FC<TopBarProps> = ({
           className="relative focus:outline-none focus:ring-2 focus:ring-accent rounded-full cursor-pointer"
           title={t('nav_profile')}
         >
-          <img
-            src={userAvatar}
-            alt="Avatar người dùng"
-            className="w-9 h-9 rounded-full object-cover border border-[#E2E8F0] shadow-xs hover:opacity-90 transition-opacity"
-          />
+          {userAvatar ? (
+            <img
+              src={userAvatar}
+              alt="Avatar người dùng"
+              className="w-9 h-9 rounded-full object-cover border border-[#E2E8F0] shadow-xs hover:opacity-90 transition-opacity"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold flex items-center justify-center text-xs border border-[#E2E8F0] shadow-xs hover:opacity-90 transition-opacity">
+              {userInitials ||
+                (userName
+                  ? userName
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((p) => p[0]?.toUpperCase() ?? '')
+                      .join('')
+                  : 'U')}
+            </div>
+          )}
         </button>
       </div>
     </header>

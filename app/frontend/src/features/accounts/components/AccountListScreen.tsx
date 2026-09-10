@@ -3,6 +3,7 @@ import { UserAccount, UserRole } from "../../../types";
 import { formatPhoneNumber } from "../../../shared/utils/formatters";
 import { ResetPasswordModal } from "./ResetPasswordModal";
 import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { Pagination } from "../../../shared/ui";
 
 interface AccountListScreenProps {
   accounts: UserAccount[];
@@ -214,37 +215,12 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
 
         {/* Pagination Footer */}
         <div className="flex items-center justify-end p-4 border-t border-[#E2E8F0] bg-white h-[61px]">
-          <div className="flex items-center gap-1">
-            <button
-              disabled={page === 1 || loading}
-              onClick={() => onPageChange(Math.max(page - 1, 1))}
-              className="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-[#44474e] hover:bg-[#f4f3f7] transition-colors disabled:opacity-40 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-              <button
-                key={pageNum}
-                onClick={() => onPageChange(pageNum)}
-                className={`w-8 h-8 flex items-center justify-center rounded text-xs font-semibold transition-colors cursor-pointer ${
-                  page === pageNum
-                    ? "bg-accent text-white"
-                    : "border border-[#E2E8F0] dark:border-slate-700 text-[#44474e] dark:text-slate-200 hover:bg-[#f4f3f7] dark:hover:bg-slate-800"
-                }`}
-              >
-                {pageNum}
-              </button>
-            ))}
-
-            <button
-              disabled={page === totalPages || loading}
-              onClick={() => onPageChange(Math.min(page + 1, totalPages))}
-              className="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-[#44474e] hover:bg-[#f4f3f7] transition-colors disabled:opacity-40 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-            </button>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            loading={loading}
+            onPageChange={onPageChange}
+          />
         </div>
       </div>
 

@@ -750,9 +750,9 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       {selectedShiftDetail && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-[#25262b] rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
               <div>
-                <div className="flex items-center gap-2 text-xs font-bold text-accent mb-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
                   <span className="material-symbols-outlined text-[18px]">event_note</span>
                   <span>CHI TIẾT CA LÀM VIỆC</span>
                 </div>
@@ -760,15 +760,25 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                   {selectedShiftDetail.shiftName} - {selectedShiftDetail.dayName} ({selectedShiftDetail.dateFormatted})
                 </h3>
               </div>
-              <button type="button" onClick={() => setSelectedShiftDetail(null)} className="w-9 h-9 rounded-full bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {t("total_label")}{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    {selectedShiftDetail.ctvList.length}
+                  </strong>{" "}
+                  {t("ctv_unit")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedShiftDetail(null)}
+                  className="w-9 h-9 rounded-full bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
+                  title={language === "Tiếng Anh" ? "Close" : "Đóng"}
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
             </div>
             <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-              <div className="flex items-center justify-between bg-blue-50/80 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-200 font-medium">
-                <span>Danh sách CTV đã được phê duyệt phân công ca</span>
-                <span className="font-bold bg-blue-100 dark:bg-blue-900 text-accent dark:text-blue-200 px-2.5 py-0.5 rounded-lg">Tổng số: {selectedShiftDetail.ctvList.length} CTV</span>
-              </div>
               {selectedShiftDetail.ctvList.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 space-y-2">
                   <span className="material-symbols-outlined text-[44px] block opacity-40">group_off</span>
@@ -789,9 +799,28 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         {selectedShiftDetail.ctvList.map((ctv, idx) => (
                           <tr key={ctv.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-[#1f2023]/60 transition-colors">
                             <td className="py-3.5 px-4">
-                              <div onClick={() => { handleCTVClick(ctv); setSelectedShiftDetail(null); }} className="inline-flex items-center gap-3 cursor-pointer group" title="Bấm xem chi tiết thông tin CTV">
-                                {ctv.avatar ? <img src={ctv.avatar} alt={ctv.name} className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-accent transition-all" /> : <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-accent transition-all">{ctv.initials || ctv.name.substring(0, 2).toUpperCase()}</div>}
-                                <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-accent transition-colors">{ctv.name}</span>
+                              <div
+                                onClick={() => {
+                                  handleCTVClick(ctv);
+                                  setSelectedShiftDetail(null);
+                                }}
+                                className="inline-flex items-center gap-3 cursor-pointer group"
+                                title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                              >
+                                {ctv.avatar ? (
+                                  <img
+                                    src={ctv.avatar}
+                                    alt={ctv.name}
+                                    className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all"
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all">
+                                    {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all">
+                                  {ctv.name}
+                                </span>
                               </div>
                             </td>
                             <td className="py-3.5 px-4">

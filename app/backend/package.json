@@ -11,6 +11,7 @@
     "seed": "tsx scripts/seed-demo.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:acceptance": "tsx scripts/seed-acceptance.ts",
+    "seed:pending": "tsx scripts/seed-pending-registrations.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

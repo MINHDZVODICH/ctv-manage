@@ -19,6 +19,7 @@ build/
 .env.production
 .env.production.local
 !*.example
+.env.docker
 
 # Legacy SQLite files retained locally only as migration/rollback sources
 app/backend/prisma/*.db
@@ -35,6 +36,7 @@ app/frontend/test-results-old/
 # Uploads
 app/backend/uploads/*
 !app/backend/uploads/.gitkeep
+app/backend/uploads/
 
 # Logs
 *.log
@@ -58,9 +60,13 @@ Thumbs.db
 .playwright-mcp/
 .superpowers/
 
-# Auto-generated / local config
-app/backend/uploads/
-
+# Documentation / Scratch
 Deploy-React-Nodejs-EN.md
-
 prototype/
+
+# Release & Archive
+*.zip
+*.tar
+*.tar.gz
+backup/
+release/

@@ -1,16 +1,14 @@
+name: ctv-release
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ctv_manage
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ctv_manage}
       POSTGRES_DB: ctv_manage
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ctv_manage -d ctv_manage"]
       interval: 5s
@@ -18,10 +16,7 @@ services:
       retries: 12
 
   backend:
-    image: ctv-backend:1.0.1
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
+    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-backend:1.0.1
     restart: unless-stopped
     environment:
       NODE_ENV: development
@@ -43,13 +38,10 @@ services:
       - npm run prisma:deploy && npm run start --workspace=app/backend
 
   frontend:
-    image: ctv-frontend:1.0.0
-    build:
-      context: .
-      dockerfile: docker/frontend.Dockerfile
+    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-frontend:1.0.0
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${CTV_HTTP_PORT:-8080}:80"
     depends_on:
       - backend
 
