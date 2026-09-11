@@ -1,8 +1,40 @@
 # Ghi bù lịch sử làm việc
 
-Backend chạy đối soát ngay khi khởi động và mỗi 60 giây. Ca của một ngày làm việc được chốt theo dữ liệu có hiệu lực lúc **17:30 Asia/Bangkok** của ngày đó. Nếu backend tắt, lần chạy tiếp theo ghi bù từ mốc tiến độ đã lưu, kể cả khi đã qua ngày hôm sau.
+Backend chạy đối soát tự động theo cơ chế điều phối sự kiện (Event-Driven Scheduler):
+- **Khởi động**: Chạy ngay một lượt đối soát (`reconcilePass()`) để ghi bù ngay lập tức mọi ngày làm việc bị lỡ trong thời gian backend ngừng hoạt động.
+- **Hẹn giờ thông minh**: Sau khi hoàn thành lượt đối soát, hệ thống tự động tính toán thời điểm thức tiếp theo (`getNextWakeDelay`):
+  - Nếu có lượt chạy thất bại cần thử lại: hẹn giờ chính xác vào thời điểm thử lại gần nhất (`nextAttemptAt`).
+  - Nếu không có lượt lỗi: hẹn giờ chính xác vào mốc chốt ca **17:30 Asia/Bangkok** (10:30 UTC) của ngày kế tiếp.
+  - Loại bỏ hoàn toàn vòng lặp busy polling 60 giây liên tục, loại bỏ lãng phí tài nguyên CPU và truy vấn cơ sở dữ liệu khi nhàn rỗi.
+- **Môi trường hosting ngủ (Render Free Tier)**: Workflow GitHub Actions pings định kỳ trước và sau 17:30 các ngày trong tuần để đánh thức server nếu rơi vào trạng thái ngủ.
+
+## Vòng đời và chuyển trạng thái SnapshotRun
+
+```text
+[Không tồn tại]
+       │
+       ▼
+   PENDING ────(claimRun: leaseToken, leaseExpiresAt)────► RUNNING
+                                                             │
+                                   ┌─────────────────────────┴─────────────────────────┐
+                                   ▼                                                   ▼
+                               SUCCEEDED                                             FAILED
+                    (Atomic tx: History + Cursor)                   (Record errorCode + nextAttemptAt)
+                                                                                       │
+                                                                   (Hẹn giờ thử lại: 1, 5, 15, 30 phút)
+                                                                                       │
+                                                                                       ▼
+                                                                           PENDING / Thử lại claimRun
+```
+
+- `PENDING`: Ca của ngày làm việc đã đến hạn (từ 17:30) hoặc ngày quá khứ bị lỡ, sẵn sàng để worker nhận quyền xử lý.
+- `RUNNING`: Worker nhận quyền (`claimRun`) thành công với `leaseToken` ngẫu nhiên và thời gian hết hạn hợp đồng thuê `leaseExpiresAt` (120 giây). Nếu worker bị sập, worker khác có thể nhận lại sau khi lease hết hạn.
+- `SUCCEEDED`: Giao dịch xử lý thành công, tạo các bản ghi `History`, tịnh tiến mốc tiến độ `WorkHistoryProgress.lastProcessedDate`, và chuyển trạng thái sang `SUCCEEDED` trong cùng một database transaction.
+- `FAILED`: Gặp lỗi trong quá trình thực thi. Worker ghi nhận mã lỗi chuẩn hóa (`errorCode`), tính toán thời điểm thử lại (`nextAttemptAt`) theo thuật toán backoff lũy tiến (1m, 5m, 15m, 30m) và trả lease.
+- `MISSED`: Trạng thái kế thừa của các ngày trước ranh giới theo dõi hoặc không thể khôi phục an toàn.
 
 ## Mốc tiến độ
+
 
 Bảng `WorkHistoryProgress` có một dòng `id = 'default'`:
 

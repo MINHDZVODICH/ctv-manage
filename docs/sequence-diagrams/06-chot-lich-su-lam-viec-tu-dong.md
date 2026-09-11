@@ -1,10 +1,10 @@
-﻿# Chốt và ghi bù lịch sử làm việc
+# Chốt và ghi bù lịch sử làm việc
 
 Quy tắc hiện hành: [Ghi bù theo mốc tiến độ](../WORK-HISTORY-RECOVERY.md).
 
 ```mermaid
 sequenceDiagram
-    participant Job as Khởi động / bộ hẹn giờ 60 giây
+    participant Job as Khởi động / Bộ hẹn giờ sự kiện (17:30 / Retry)
     participant S as SnapshotCoordinatorService
     participant DB as PostgreSQL
     Job->>S: reconcilePass()
@@ -14,7 +14,7 @@ sequenceDiagram
             S->>DB: Tiến mốc, không tạo ca
         else Ngày làm việc
             S->>DB: Tạo hoặc đọc SnapshotRun, claim lease
-            S->>DB: BEGIN và khóa mốc tiến độ
+            S->>DB: BEGIN và khóa mốc tiến độ (advisory lock)
             S->>DB: Đọc phiên bản lịch tại 17:30 ngày cần ghi
             S->>DB: Ghi History, SUCCEEDED và lastProcessedDate
             alt Thành công
@@ -25,6 +25,9 @@ sequenceDiagram
             end
         end
     end
+    Job->>S: getNextWakeDelay()
+    S->>DB: Đọc SnapshotRun tìm nextAttemptAt gần nhất
+    S-->>Job: delayMs (Hẹn giờ wake: Retry sớm nhất hoặc 17:30 tiếp theo)
 ```
 
 Ngày không có ca vẫn hoàn tất với số dòng ghi bằng 0. Phạm vi tự động bắt đầu từ ranh giới triển khai được lưu trong database, không quét các ngày trước đó. Các lần thử lại dùng phiên bản lịch tại giờ chốt, không dùng lịch hiện tại để suy ngược.

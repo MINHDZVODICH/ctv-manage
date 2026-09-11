@@ -1,6 +1,6 @@
 # KIẾN TRÚC HỆ THỐNG (ARCHITECTURE)
 
-> C?p nh?t lu?ng l?ch s? ng?y 09/09/2026: [Ghi b? theo m?c ti?n ??](WORK-HISTORY-RECOVERY.md) thay th? m? t? snapshot ch? trong ng?y v? kh?ng ghi b? ? t?i li?u n?y.
+> Cập nhật tiến trình chốt lịch sử (Phase 5 & 6): [Ghi bù theo mốc tiến độ](WORK-HISTORY-RECOVERY.md) kết hợp cơ chế Event-Driven Scheduler (Startup Reconciliation + Dynamic Next Wake tại 17:30 Asia/Bangkok hoặc thời điểm Retry sớm nhất). Hệ thống loại bỏ hoàn toàn polling 60 giây, bảo toàn tính bất biến và toàn vẹn nguồn dữ liệu thời gian.
 
 ## 1. Ranh giới ứng dụng và tổng quan kiến trúc
 
@@ -31,9 +31,9 @@ flowchart TB
         Routes["Feature Routers (auth, users, accounts, registration, schedule, files)"]
         Controllers["Controllers (Zod Validation, DTO mapping, HTTP responses)"]
         Services["Services (Business logic, Transactions, Invariants)"]
-        JobScheduler["Background Scheduler (17:30 Asia/Bangkok History Snapshot)"]
+        JobScheduler["Event-Driven Scheduler (Snapshot Coordinator: 17:30 Bangkok / Retry Wake)"]
         AuthMW --> Routes --> Controllers --> Services
-        JobScheduler -.->|Kích hoạt hàng ngày| Services
+        JobScheduler -.->|Reconcile & Dynamic Wake| Services
     end
 
     subgraph PersistenceLayer["LỚP LƯU TRỮ VÀ DỮ LIỆU"]
@@ -320,24 +320,34 @@ erDiagram
   - Kiểm tra xung đột phiên bản qua trường `expectedVersion`. Nếu phiên bản trong DB không khớp với phiên bản client gửi lên, hệ thống ném lỗi 409 `VERSION_CONFLICT`.
   - Trong cùng một giao dịch: cập nhật `roomCode`, tăng `version`, xóa các `Shift` cũ của `scheduleId` và thêm các `Shift` mới được chọn.
 
-### 5.2 Cơ chế chốt lịch sử làm việc bất biến (`History`)
-- Bảng `History` lưu trữ các ca làm việc đã hoàn thành trong quá khứ. Đây là bảng bất biến (Append-only / Immutable), không bị xóa hay thay đổi khi CTV cập nhật lại lịch tuần trong tương lai.
-- Ràng buộc duy nhất `@@unique([accountId, workDate, period])` đảm bảo tính lũy kế (Idempotent): một CTV không bao giờ bị ghi nhận trùng ca trong cùng một ngày.
-- **Tiến trình Snapshot tự động (`snapshotTodayWorkHistory`)**:
-  - Chạy tự động vào lúc **17:30 Asia/Bangkok** (10:30 UTC) mỗi ngày và chạy một lần khi khởi động backend (Startup Recovery).
-  - **Quy tắc bỏ qua (Skip Rules)**:
-    - Nếu thời gian hiện tại trước 17:30 Asia/Bangkok -> Bỏ qua với lý do `BEFORE_CUTOFF`.
-    - Nếu hôm nay là Thứ 7 hoặc Chủ Nhật -> Bỏ qua với lý do `WEEKEND`.
-  - **Quy tắc chụp (Snapshot Rules)**:
-    - Chỉ chụp ca của **chính ngày hôm nay** (`todayUtc`), tuyệt đối không tự ý backfill các ngày cũ.
-    - Lấy danh sách các tài khoản CTV đang `ACTIVE`, có `Schedule` hợp lệ và có ca đăng ký trong `Shift` trùng với `weekday` của ngày hôm nay.
-    - Thực hiện ghi nhận hàng loạt vào bảng `History` với tùy chọn `skipDuplicates: true`.
+### 5.2 Mô hình nguồn lịch sử theo thời gian và Điều phối Chốt ca (Temporal Source & Snapshot Coordinator)
+
+Bảng `History` lưu trữ các ca làm việc đã hoàn thành trong quá khứ. Đây là bảng bất biến (Append-only / Immutable), không bị xóa hay thay đổi khi CTV cập nhật lại lịch tuần trong tương lai. Ràng buộc duy nhất `@@unique([accountId, workDate, period])` đảm bảo tính lũy kế (Idempotent): một CTV không bao giờ bị ghi nhận trùng ca trong cùng một ngày.
+
+Để đảm bảo tính đúng đắn theo dòng thời gian (Temporal Truth) khi có sự cố mạng/máy chủ bị tắt hoặc triển khai lại, hệ thống triển khai kiến trúc chốt lịch sử 4 thành phần:
+
+1. **Bảng nguồn lịch sử theo phiên bản (`WorkHistorySource`)**:
+   - Chụp lại trạng thái phân ca/phòng và tính hợp lệ của CTV tại thời điểm commit giao dịch thông qua PostgreSQL Triggers (`trg_capture_account_source`, `trg_capture_schedule_source`, `trg_capture_shift_source`).
+   - Đảm bảo bất biến quan trọng: **Snapshot cho ngày D luôn phản ánh trạng thái có hiệu lực tại thời điểm 17:30 của ngày D** (`effectiveAt <= cutoff(D)`). Hệ thống tuyệt đối không dùng lịch tuần hiện tại để suy ngược hay ghi đè dữ liệu quá khứ.
+2. **Con trỏ tiến độ đơn thể (`WorkHistoryProgress`)**:
+   - Bản ghi singleton (`id = 'default'`) lưu giữ `trackingStartDate` (mốc bắt đầu theo dõi; tuyệt đối không tự ý hồi tố các ngày trước mốc này) và `lastProcessedDate` (ngày làm việc gần nhất đã hoàn tất chốt lịch sử).
+3. **Quản lý phiên chốt theo ngày (`SnapshotRun`)**:
+   - Quản lý trạng thái xử lý của từng ngày làm việc cụ thể (`workDate`), với chu trình chuyển trạng thái: `PENDING` -> `PROCESSING` -> `SUCCEEDED` hoặc `FAILED`.
+   - Kiểm soát số lần thử lại (`attemptCount`), thời điểm thử lại kế tiếp (`nextAttemptAt`) theo thuật toán Exponential Backoff có jitter (30s, 60s, 120s, tối đa 15 phút).
+   - Kiểm soát quyền xử lý độc quyền tạm thời qua `leaseToken` và thời hạn `leaseExpiresAt` (5 phút).
+   - Lưu trữ số bản ghi đã chèn (`insertedCount`) và mã lỗi nếu thất bại (`errorCode`).
+4. **Kiểm soát đồng thời đa phiên bản (Multi-Instance Concurrency & Advisory Lock)**:
+   - Sử dụng PostgreSQL Transaction-level Advisory Lock với mã định danh cố định:
+     ```sql
+     SELECT pg_advisory_xact_lock(17300909)
+     ```
+   - Ngăn chặn triệt để race condition khi nhiều worker backend hoặc container chạy đồng thời.
 
 ### 5.3 Hiển thị chỉ đọc trên giao diện (Read-only Projections)
 - Toàn bộ các thẻ ca làm việc trên màn hình **Lịch tuần** của CTV, **Lịch sử làm việc** của CTV, và các modal xem chi tiết đều được hiển thị ở chế độ **chỉ đọc (Read-only)** thông qua component huy hiệu ca `ShiftBadge`.
 - Người dùng không thể bấm trực tiếp vào từng ô thẻ để sửa hoặc xóa ca đơn lẻ. Mọi thao tác thay đổi lịch chỉ được thực hiện thông qua luồng biểu mẫu modal "Cập nhật lịch làm việc" với thao tác gửi nguyên vẹn toàn bộ mẫu tuần.
 
-### 5.4 Phân tách dịch vụ nghiệp vụ lịch trình (Modular Service Layer Architecture)
+#### 5.4 Phân tách dịch vụ nghiệp vụ lịch trình (Modular Service Layer Architecture)
 Sau đợt tái cấu trúc dịch vụ nhằm loại bỏ khối mã đơn khối (monolith), tầng dịch vụ lịch trình (`src/modules/schedule/`) được chia tách thành các module miền chuyên trách theo nguyên lý Single Responsibility (SRP) và mô hình phân tách lệnh-truy vấn (CQRS lightweight):
 
 ```mermaid
@@ -349,14 +359,17 @@ flowchart TD
     end
 
     subgraph FacadeLayer["Lớp tương thích ngược (Facade)"]
-        Facade["schedule.service.ts\n(Re-exports all methods & types)"]
+        Facade["schedule.service.ts\n(Re-exports commands, queries & history)"]
     end
 
     subgraph DomainServices["Tầng dịch vụ miền chuyên trách"]
         Types["schedule.types.ts\n(Domain types, Constants, Pure Validators)"]
         CommandSvc["schedule.command.service.ts\n(upsertSchedule, upsertRegistration,\nAdvisory Lock, Optimistic Lock)"]
         QuerySvc["schedule.query.service.ts\n(getMySchedule, getAccountSchedule,\ngetWeeklySummary, getScheduleSummary, listMyShifts)"]
-        HistorySvc["work-history.service.ts\n(snapshotTodayWorkHistory [17:30 Bangkok],\ngetMyWorkHistory, getWorkHistory)"]
+        HistorySvc["work-history.service.ts\n(getMyWorkHistory, getWorkHistory)"]
+        CoordSvc["snapshot-coordinator.service.ts\n(reconcilePass, getNextWakeDelay,\nSnapshotRun, lease, lock)"]
+        SourceSvc["work-history-source.service.ts\n(getEffectiveSourceState)"]
+        ProgSvc["work-history-progress.service.ts\n(getProgress, advanceProgress)"]
     end
 
     subgraph SharedInfra["Hạ tầng & Tiện ích"]
@@ -366,11 +379,14 @@ flowchart TD
     end
 
     Controller --> Facade
-    Job --> HistorySvc
-    Job -.-> Facade
+    Job --> CoordSvc
+    CoordSvc --> SourceSvc
+    CoordSvc --> ProgSvc
+    CoordSvc --> HistorySvc
     Facade --> CommandSvc
     Facade --> QuerySvc
     Facade --> HistorySvc
+    Facade --> CoordSvc
     Facade --> Types
 
     CommandSvc --> Types
@@ -385,6 +401,10 @@ flowchart TD
     HistorySvc --> PrismaClient
     HistorySvc --> TzUtils
     HistorySvc --> ErrUtils
+
+    CoordSvc --> PrismaClient
+    CoordSvc --> TzUtils
+    CoordSvc --> ErrUtils
 ```
 
 1. **`schedule.types.ts` (Domain Types & Pure Validation)**:
@@ -402,16 +422,19 @@ flowchart TD
 3. **`schedule.query.service.ts` (Read-only Projections & Aggregations)**:
    - Đảm nhiệm toàn bộ các truy vấn đọc: `getMySchedule`, `getMyRegistration`, `getAccountSchedule`, `getWeeklySummary`, `getScheduleSummary`, `listMyShifts`, `getShiftForUser`.
    - Tổng hợp ma trận ca theo buồng phòng (`WeeklyCellDto`), gom nhóm CTV theo từng ô ca và xác định thông tin ca trực.
-4. **`work-history.service.ts` (Immutable History & Snapshot Engine)**:
-   - Chịu trách nhiệm về lịch sử làm việc bất biến và tiến trình snapshot: `snapshotTodayWorkHistory`, `getMyWorkHistory`, `getWorkHistory`.
-   - Thực thi nghiêm ngặt mốc chốt ca **17:30 Asia/Bangkok** (10:30 UTC):
-     - Bỏ qua nếu chưa tới 17:30 Bangkok (`BEFORE_CUTOFF`).
-     - Bỏ qua nếu là Thứ 7 hoặc Chủ Nhật (`WEEKEND`).
-     - Chỉ chốt ca ngày hôm nay (`todayUtc`), không tự ý backfill ngày cũ.
-     - Sử dụng `skipDuplicates: true` đảm bảo tính lũy kế (idempotence) tuyệt đối.
+4. **`work-history.service.ts` (Immutable History Query & Snapshot Engine)**:
+   - Chịu trách nhiệm truy vấn lịch sử làm việc bất biến (`getMyWorkHistory`, `getWorkHistory`) và chốt dữ liệu vào bảng `History`.
+   - Đảm bảo tính lũy kế (idempotence) tuyệt đối thông qua `skipDuplicates: true` và ràng buộc `@@unique([accountId, workDate, period])`.
    - Trả về dữ liệu lịch sử theo tháng dạng danh sách phẳng (`MyWorkHistoryEntryDto`) hoặc ma trận buồng phòng (`WorkHistoryCellDto`).
-5. **`schedule.service.ts` (Backward-Compatibility Facade)**:
-   - Đóng vai trò lớp facade mỏng, re-export toàn bộ types, constants, command functions, query functions và history functions.
+5. **`snapshot-coordinator.service.ts` (Event-Driven Snapshot Coordinator)**:
+   - Quản lý quy trình đối soát (`reconcilePass`), tính toán độ trễ đánh thức động (`getNextWakeDelay`).
+   - Quản lý vòng đời `SnapshotRun` (`PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED`), quản lý lease độc quyền (5 phút), retry backoff với jitter.
+   - Sử dụng khóa cố vấn PostgreSQL cấp giao dịch `SELECT pg_advisory_xact_lock(17300909)` bảo vệ toàn bộ bước chốt ca và cập nhật con trỏ tiến độ.
+6. **`work-history-source.service.ts` & `work-history-progress.service.ts` (Temporal Truth & Progress Clock)**:
+   - `work-history-source.service.ts`: Truy vấn phiên bản lịch tuần và trạng thái hiệu lực tại thời điểm chốt ca 17:30 Bangkok (`getEffectiveSourceState`), đảm bảo tính chân thực theo thời gian.
+   - `work-history-progress.service.ts`: Quản lý con trỏ tuần tự `WorkHistoryProgress` (`trackingStartDate`, `lastProcessedDate`), bảo đảm không nhảy cóc qua ngày lỗi và không hồi tố trước ngày bắt đầu theo dõi.
+7. **`schedule.service.ts` (Backward-Compatibility Facade)**:
+   - Đóng vai trò lớp facade mỏng, re-export toàn bộ types, constants, command functions, query functions, history functions và coordinator functions.
    - Đảm bảo 100% khả năng tương thích ngược (Zero-breakage) cho toàn bộ Controller, background job và bộ test hiện có.
 
 ---
@@ -455,17 +478,23 @@ flowchart TD
 
 ---
 
-## 7. Tiến trình nền và Lập lịch (Background Execution & Scheduler)
+## 7. Tiến trình nền và Lập lịch hướng sự kiện (Event-Driven Background Scheduler)
+
+Sau khi tối ưu hóa ở Phase 5 (Option B - Event-Driven Scheduler), hệ thống chuyển đổi từ cơ chế polling liên tục 60 giây sang mô hình hướng sự kiện:
 
 ```mermaid
 flowchart TD
     AppStart[Backend main.ts khởi động] --> StartJob[jobs/schedule-snapshot.job.ts: startScheduleSnapshotJob]
-    StartJob --> RunOnce[Chạy startup snapshot ngay lập tức\nrunSnapshot]
-    RunOnce --> CalcNext[getDelayUntilNextBangkok1730: Tính thời gian tới 17:30 Asia/Bangkok kế tiếp]
-    CalcNext --> SetTimer[Khởi tạo Timer không chặn: timer.unref]
-    SetTimer --> Wait[Đợi đến 17:30 Asia/Bangkok]
-    Wait --> ExecJob[Thực thi snapshotTodayWorkHistory]
-    ExecJob --> CalcNext
+    StartJob --> StartupReconcile[coordinator.reconcilePass: Quét đối soát từ lastProcessedDate + 1 đến hôm nay]
+    StartupReconcile --> CalcWake[coordinator.getNextWakeDelay: Lấy min giữa nextAttemptAt sớm nhất và 17:30 Bangkok tiếp theo]
+    CalcWake --> ScheduleTimer[Khởi tạo Timer không chặn: setTimeout unref]
+    ScheduleTimer --> TimerFires{Đến giờ hẹn wake}
+    TimerFires --> ReconcilePass[coordinator.reconcilePass: Chốt ca ngày mới hoặc thử lại ngày lỗi]
+    ReconcilePass --> CalcWake
+
+    ExtWake[External Wake Workflow / GitHub Actions] -.->|Đánh thức hosting ngủ Render| WakeEndpoint[GET /api/v1/health]
+    WakeEndpoint -.->|Nếu server vừa thức dậy| StartupReconcile
+
     AppStart -.-> Shutdown[SIGTERM / SIGINT] --> StopJob[job.stop: Hủy timer & đóng server êm ái]
 ```
 
@@ -473,12 +502,19 @@ flowchart TD
 - **Module độc lập (`src/jobs/schedule-snapshot.job.ts`)**: Tách biệt hoàn toàn khỏi `main.ts`, cung cấp giao diện điều khiển `{ stop: () => void, triggerNow: () => Promise<void> }`.
 - **Đóng hệ thống êm ái (Graceful Shutdown)**: Lắng nghe tín hiệu `SIGTERM` và `SIGINT`, hủy timer nền, đóng HTTP server và giải phóng kết nối cơ sở dữ liệu Prisma an toàn.
 - **Tiện ích múi giờ tập trung (`src/shared/timezone.ts`)**: Chuẩn hóa toàn bộ chuyển đổi thời gian theo múi giờ `Asia/Bangkok` (UTC+7 không DST).
-
-- **Khôi phục khi khởi động (Startup Recovery)**: Khi máy chủ khởi động lại sau 17:30 Asia/Bangkok, tiến trình gọi ngay `snapshotTodayWorkHistory()` một lần để đảm bảo không bị sót dữ liệu của ngày nếu máy chủ gặp sự cố trong mốc 17:30. Nhờ cơ chế `skipDuplicates: true`, việc chạy lại hoàn toàn an toàn và không gây trùng lặp.
-- **Lập lịch chu kỳ hàng ngày**:
-  - Không sử dụng các cơ chế polling liên tục từng giờ (loại bỏ hoàn toàn polling 60 phút).
-  - Không backfill dữ liệu 14 ngày cũ.
-  - Sau mỗi lần snapshot hoàn tất, hệ thống tự động tính toán số mili-giây chính xác tới mốc 17:30 Asia/Bangkok của ngày tiếp theo và thiết lập `setTimeout` mới.
+- **Startup Reconciliation (Đối soát khi khởi động)**:
+  - Khi backend khởi động, hàm `reconcilePass()` lập tức được kích hoạt.
+  - Quét tuần tự từng ngày từ `lastProcessedDate + 1` đến hôm nay (nếu đã qua mốc 17:30 Bangkok) trong giới hạn cửa sổ phục hồi (`catchUpWindowDays: 14`). Với mỗi ngày:
+    - Bỏ qua nếu là Thứ 7 hoặc Chủ Nhật (tiến con trỏ `lastProcessedDate`, không tạo ca).
+    - Nếu là ngày làm việc: xin lease `SnapshotRun`, lấy khóa cố vấn `17300909`, đọc `WorkHistorySource` tại 17:30 ngày đó, ghi vào bảng `History`, cập nhật `SUCCEEDED` và tiến con trỏ `lastProcessedDate`.
+    - Nếu gặp sự cố: lưu `FAILED`, ghi nhận `nextAttemptAt` theo chiến lược exponential backoff với jitter, dừng lượt đối soát để không vượt qua ngày lỗi.
+- **Hẹn giờ động theo sự kiện (`getNextWakeDelay`)**:
+  - Loại bỏ hoàn toàn polling 60 giây liên tục (`setInterval`), tiết kiệm 1,440 câu truy vấn rác mỗi ngày vào cơ sở dữ liệu khi hệ thống nhàn rỗi.
+  - Sau mỗi lần chạy `reconcilePass`, hệ thống kiểm tra các bản ghi `SnapshotRun` bị lỗi (`FAILED`) để tìm `nextAttemptAt` sớm nhất còn hiệu lực.
+  - Thiết lập độ trễ wake chính xác: `delay = min(nextAttemptAt - now, next1730Bangkok - now)`.
+- **Tích hợp External Wake cho Hosting ngủ**:
+  - Đối với môi trường triển khai có tính năng ngủ sau thời gian không có request (ví dụ: Render free tier), hệ thống duy trì GitHub Actions workflow định kỳ ping nhẹ vào `GET /api/v1/health` xung quanh mốc 17:30 Bangkok.
+  - Khi máy chủ khởi động lại sau khi thức dậy, cơ chế Startup Reconciliation tự động đối soát và chốt ca ngay lập tức mà không làm mất dữ liệu.
 
 ---
 
@@ -493,9 +529,15 @@ E:/CTV_Manage/
 │   │   ├── prisma/
 │   │   │   ├── migrations/
 │   │   │   │   ├── 20260904090000_init_postgresql/
-│   │   │   │   └── 20260905090000_redesign_schedule_shift_history/
+│   │   │   │   ├── 20260905090000_redesign_schedule_shift_history/
+│   │   │   │   ├── 20260907170407_add_snapshot_run_and_rate_limit_window/
+│   │   │   │   ├── 20260909100000_work_history_checkpoint/
+│   │   │   │   ├── 20260909110000_work_history_progress_clock/
+│   │   │   │   └── 20260911140000_strengthen_domain_integrity/
 │   │   │   └── schema.prisma
 │   │   ├── src/
+│   │   │   ├── jobs/
+│   │   │   │   └── schedule-snapshot.job.ts
 │   │   │   ├── middleware/
 │   │   │   │   ├── auth.ts
 │   │   │   │   ├── errorHandler.ts
@@ -524,7 +566,10 @@ E:/CTV_Manage/
 │   │   │   │   │   ├── schedule.routes.ts
 │   │   │   │   │   ├── schedule.service.ts
 │   │   │   │   │   ├── schedule.types.ts
-│   │   │   │   │   └── work-history.service.ts
+│   │   │   │   │   ├── snapshot-coordinator.service.ts
+│   │   │   │   │   ├── work-history.service.ts
+│   │   │   │   │   ├── work-history-progress.service.ts
+│   │   │   │   │   └── work-history-source.service.ts
 │   │   │   │   └── users/
 │   │   │   │       ├── users.controller.ts
 │   │   │   │       ├── users.routes.ts
@@ -535,7 +580,8 @@ E:/CTV_Manage/
 │   │   │   │   ├── errors.ts
 │   │   │   │   ├── fileStorage.ts
 │   │   │   │   ├── logger.ts
-│   │   │   │   └── prisma.ts
+│   │   │   │   ├── prisma.ts
+│   │   │   │   └── timezone.ts
 │   │   │   ├── app.ts
 │   │   │   └── main.ts
 │   │   ├── package.json
@@ -547,50 +593,87 @@ E:/CTV_Manage/
 │       │   ├── auth.spec.ts
 │       │   ├── ctv.spec.ts
 │       │   ├── global-setup.ts
+│       │   ├── history-fixtures.ts
 │       │   ├── history-refresh.spec.ts
 │       │   └── registration.spec.ts
 │       ├── scripts/
 │       │   └── check-boundaries.mjs
 │       ├── src/
 │       │   ├── app/
-│       │   │   └── App.tsx
-│       │   ├── components/
-│       │   │   ├── Modals/
+│       │   │   ├── App.tsx
+│       │   │   ├── index.ts
+│       │   │   └── providers.tsx
+│       │   ├── features/
+│       │   │   ├── accounts/
+│       │   │   │   ├── AccountListScreen.tsx
+│       │   │   │   ├── RequestsScreen.tsx
+│       │   │   │   ├── ResetPasswordModal.tsx
+│       │   │   │   ├── ViewAccountDetailModal.tsx
+│       │   │   │   ├── ViewRequestModal.tsx
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── types.ts
+│       │   │   │   ├── useAccounts.ts
+│       │   │   │   └── useRegistrationRequests.ts
+│       │   │   ├── auth/
+│       │   │   │   ├── LoginScreen.tsx
+│       │   │   │   └── index.ts
+│       │   │   ├── profile/
 │       │   │   │   ├── ChangePasswordModal.tsx
+│       │   │   │   ├── EditProfileModal.tsx
+│       │   │   │   ├── ProfileScreen.tsx
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── types.ts
+│       │   │   │   └── useProfile.ts
+│       │   │   └── schedule/
+│       │   │       ├── CTVScheduleWorkspace.tsx
+│       │   │       ├── ScheduleScreen.tsx
+│       │   │       ├── SummaryScheduleScreen.tsx
+│       │   │       ├── index.ts
+│       │   │       ├── types.ts
+│       │   │       ├── useSchedule.ts
+│       │   │       ├── useWeeklySummary.ts
+│       │   │       └── useWorkHistory.ts
+│       │   ├── shared/
+│       │   │   ├── api/
+│       │   │   │   ├── api.ts
+│       │   │   │   └── index.ts
+│       │   │   ├── auth/
+│       │   │   │   ├── AuthContext.tsx
+│       │   │   │   ├── index.ts
+│       │   │   │   └── types.ts
+│       │   │   ├── components/
 │       │   │   │   ├── CreateMeetingModal.tsx
 │       │   │   │   ├── CreateUserModal.tsx
-│       │   │   │   ├── EditProfileModal.tsx
+│       │   │   │   ├── MeetingsScreen.tsx
 │       │   │   │   ├── NotificationsPopover.tsx
 │       │   │   │   ├── RejectReasonModal.tsx
-│       │   │   │   ├── ResetPasswordModal.tsx
-│       │   │   │   ├── SettingsModal.tsx
-│       │   │   │   ├── ViewAccountDetailModal.tsx
-│       │   │   │   └── ViewRequestModal.tsx
-│       │   │   ├── Navigation/
+│       │   │   │   └── SettingsModal.tsx
+│       │   │   ├── context/
+│       │   │   │   ├── SystemSettingsContext.tsx
+│       │   │   │   └── index.ts
+│       │   │   ├── lib/
+│       │   │   │   ├── index.ts
+│       │   │   │   └── utils.ts
+│       │   │   ├── types/
+│       │   │   │   ├── accounts.ts
+│       │   │   │   ├── common.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── schedule.ts
+│       │   │   ├── ui/
+│       │   │   │   ├── BlurText.tsx
+│       │   │   │   ├── Pagination.tsx
 │       │   │   │   ├── Sidebar.tsx
-│       │   │   │   └── TopBar.tsx
-│       │   │   └── Screens/
-│       │   │       ├── AccountListScreen.tsx
-│       │   │       ├── CTVScheduleWorkspace.tsx
-│       │   │       ├── LoginScreen.tsx
-│       │   │       ├── MeetingsScreen.tsx
-│       │   │       ├── ProfileScreen.tsx
-│       │   │       ├── RequestsScreen.tsx
-│       │   │       ├── ScheduleScreen.tsx
-│       │   │       └── SummaryScheduleScreen.tsx
-│       │   ├── context/
-│       │   │   └── SystemSettingsContext.tsx
-│       │   ├── shared/
-│       │   │   ├── AuthContext.tsx
-│       │   │   ├── api.ts
+│       │   │   │   ├── TopBar.tsx
+│       │   │   │   └── index.ts
+│       │   │   ├── utils/
+│       │   │   │   ├── formatters.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── pagination.ts
+│       │   │   │   ├── rooms.ts
+│       │   │   │   └── scheduleSelectors.ts
 │       │   │   └── mappers.ts
-│       │   ├── utils/
-│       │   │   ├── formatters.ts
-│       │   │   ├── rooms.ts
-│       │   │   └── scheduleSelectors.ts
 │       │   ├── index.css
-│       │   ├── main.tsx
-│       │   └── types.ts
+│       │   └── main.tsx
 │       ├── package.json
 │       ├── playwright.config.ts
 │       ├── tsconfig.json

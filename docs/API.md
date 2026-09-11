@@ -839,14 +839,18 @@ Admin xóa một tệp khỏi hồ sơ của một tài khoản bất kỳ.
 
 ---
 
-## 10. T?c v? n?n v? ghi b? l?ch s?
+## 10. Tác vụ nền và ghi bù lịch sử làm việc
 
-Backend ch?y `SnapshotCoordinatorService.reconcilePass()` khi kh?i ??ng v? m?i 60 gi?y. H? th?ng ??c m?c `WorkHistoryProgress.lastProcessedDate` v? x? l? l?n l??t c?c ng?y c?n thi?u t? `trackingStartDate`, k? c? khi backend b?t l?i v?o s?ng h?m sau ho?c cu?i tu?n.
+Backend chạy đối soát `SnapshotCoordinatorService.reconcilePass()` theo cơ chế điều phối sự kiện (Option B):
+- Khởi động chạy ngay một lượt đối soát (startup recovery) để bù đắp các ngày còn thiếu kể từ mốc `WorkHistoryProgress.lastProcessedDate`.
+- Sau mỗi lượt thành công hoặc thất bại, bộ điều phối tự động tính toán thời gian thức tiếp theo (`getNextWakeDelay`):
+  - Nếu có lượt chạy thất bại cần thử lại: hẹn giờ vào thời điểm thử lại gần nhất (`nextAttemptAt`).
+  - Nếu không còn lượt chạy nào cần thử lại: hẹn giờ vào mốc 17:30 Asia/Bangkok tiếp theo.
+- Lượt đối soát loại bỏ hoàn toàn cơ chế busy polling 60 giây liên tục, giúp giảm tải truy vấn nhàn rỗi cho cơ sở dữ liệu.
+- Ngày hiện tại chỉ được chốt từ 17:30 Asia/Bangkok; các ngày làm việc quá khứ bị lỡ được ghi bù tuần tự và bảo toàn trạng thái.
+- Dữ liệu lịch sử lấy từ phiên bản lịch và trạng thái CTV có hiệu lực tại giờ chốt của từng ngày trong `WorkHistorySource`.
+- Ghi `History`, cập nhật `SnapshotRun.SUCCEEDED` và tịnh tiến mốc tiến độ nằm trong cùng transaction; ngày lỗi được thử lại theo backoff lũy tiến (1, 5, 15, 30 phút), không đẩy mốc vượt qua ngày lỗi.
+- Các API GET lịch sử (`/api/v1/work-history`, `/api/v1/users/me/work-history`) chỉ đọc dữ liệu đã lưu từ bảng `History`, không tự động sinh hay suy diễn từ `Schedule` hiện tại.
 
-- Ng?y hi?n t?i ch? ???c ch?t t? 17:30 Asia/Bangkok; c?c ng?y tr??c ?? ???c ghi b? b?t k? l?c n?o.
-- D? li?u l?y t? phi?n b?n l?ch v? tr?ng th?i CTV c? hi?u l?c t?i gi? ch?t c?a t?ng ng?y trong `WorkHistorySource`.
-- Ghi `History`, ??nh d?u `SnapshotRun.SUCCEEDED` v? c?p nh?t m?c trong c?ng transaction; ng?y l?i ???c th? l?i, kh?ng ??y m?c v??t qua.
-- C?c API GET l?ch s? ch? ??c d? li?u ?? l?u, kh?ng k?ch ho?t job.
-- Migration ??t ranh gi?i tri?n khai, kh?ng t? ghi c?c ng?y tr??c ??.
+Xem chi tiết tại [Cơ chế và ranh giới phục hồi lịch sử làm việc](WORK-HISTORY-RECOVERY.md).
 
-Xem [c? ch?, ranh gi?i tri?n khai v? c?ch ki?m tra ti?n ??](WORK-HISTORY-RECOVERY.md).

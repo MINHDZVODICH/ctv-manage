@@ -19,6 +19,10 @@ erDiagram
     ACCOUNT ||--o| SCHEDULE : "đăng ký mẫu tuần"
     SCHEDULE ||--|{ SHIFT : "chứa các ca"
     ACCOUNT ||--o{ HISTORY : "ghi nhận lịch sử hoàn thành"
+    ACCOUNT ||--o{ WORK_HISTORY_SOURCE : "ghi nhận phiên bản lịch qua trigger"
+    SNAPSHOT_RUN
+    WORK_HISTORY_PROGRESS
+    RATE_LIMIT_WINDOW
 
     ACCOUNT {
         string id PK "cuid"
@@ -117,10 +121,52 @@ erDiagram
         string id PK "cuid"
         string accountId FK "references Account.id (Cascade)"
         datetime workDate "Ngày làm việc thực tế (UTC midnight)"
-        string period "MORNING | AFTERNOON"
-        string roomCode "Buồng làm việc lúc chốt"
-        string status "default COMPLETED"
+        Period period "MORNING | AFTERNOON"
+        RoomCode roomCode "Buồng làm việc lúc chốt"
+        HistoryStatus status "default COMPLETED"
         datetime recordedAt "default now()"
+    }
+
+    WORK_HISTORY_SOURCE {
+        bigint id PK "autoincrement"
+        string accountId FK "references Account.id (Cascade)"
+        bigint transactionId "ID giao dịch PostgreSQL"
+        datetime effectiveAt "Timestamptz(3)"
+        boolean eligible "Trạng thái hợp lệ của CTV"
+        string roomCode "nullable, buồng làm việc"
+        json shifts "Danh sách ca tuần dạng JSON"
+    }
+
+    SNAPSHOT_RUN {
+        string id PK "cuid"
+        date workDate UK "Ngày chốt ca"
+        SnapshotRunStatus status "PENDING | PROCESSING | SUCCEEDED | FAILED"
+        int attemptCount "Số lần thử lại, default 0"
+        datetime nextAttemptAt "nullable, thời điểm thử lại kế tiếp"
+        string leaseToken "nullable, token lease"
+        datetime leaseExpiresAt "nullable, thời hạn lease"
+        datetime startedAt "nullable"
+        datetime completedAt "nullable"
+        int insertedCount "default 0, số ca chèn"
+        string errorCode "nullable"
+        datetime createdAt "default now()"
+        datetime updatedAt "auto-update"
+    }
+
+    WORK_HISTORY_PROGRESS {
+        string id PK "default: default"
+        date trackingStartDate "Mốc bắt đầu theo dõi"
+        date lastProcessedDate "Ngày gần nhất chốt xong"
+        datetime updatedAt "auto-update"
+    }
+
+    RATE_LIMIT_WINDOW {
+        string id PK "cuid"
+        RateLimitScope scope "AUTH_LOGIN | REGISTRATION_SUBMIT | PASSWORD_RESET"
+        string identityDigest "SHA-256 danh tính"
+        datetime windowStart "Bắt đầu cửa sổ"
+        int requestCount "default 1, số request"
+        datetime expiresAt "Hạn cửa sổ"
     }
 ```
 
@@ -271,13 +317,13 @@ Liên kết các tệp hồ sơ cá nhân chính thức của tài khoản `Acco
 ---
 
 ### 2.7 Bảng `Schedule`
-Lưu trữ mẫu đăng ký lịch tuần cố định của CTV. Đây là **Single Source of Truth** cho lịch trình hiện hành.
+Lưu trữ mẫu đăng ký lịch tuần cố định của CTV. Đây là **Single Source of Truth** cho lịch trình hiện hành (không gắn ngày tháng cụ thể).
 
 | Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
 |---|---|---|---|---|---|
 | `id` | `String` / `TEXT` | Không | `cuid()` | Primary Key | Định danh duy nhất của mẫu lịch |
 | `accountId` | `String` / `TEXT` | Không | - | Khóa ngoại -> `Account.id` (`@unique`, Cascade) | Mỗi CTV chỉ có tối đa 1 lịch ACTIVE |
-| `roomCode` | `String` / `TEXT` | Không | - | - | Buồng làm việc: `ROOM_1`, `ROOM_2`, `ROOM_3`, `ROOM_4` |
+| `roomCode` | `RoomCode` / `enum` | Không | - | - | Buồng làm việc: `ROOM_1`, `ROOM_2`, `ROOM_3`, `ROOM_4` |
 | `version` | `Int` / `INTEGER` | Không | `1` | - | Phiên bản phục vụ Optimistic Locking |
 | `createdAt` | `DateTime` / `TIMESTAMP(3)` | Không | `now()` | - | Thời điểm tạo mẫu lịch |
 | `updatedAt` | `DateTime` / `TIMESTAMP(3)` | Không | `@updatedAt` | - | Thời điểm cập nhật mẫu lịch gần nhất |
@@ -298,8 +344,8 @@ Lưu trữ các ô ca làm việc cụ thể được chọn trong tuần của 
 | Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
 |---|---|---|---|---|---|
 | `scheduleId` | `String` / `TEXT` | Không | - | Khóa ngoại -> `Schedule.id` (Cascade) | Mẫu lịch sở hữu |
-| `weekday` | `Int` / `INTEGER` | Không | - | - | Thứ trong tuần: `1` (T2) đến `5` (T6) |
-| `period` | `String` / `TEXT` | Không | - | - | Buổi làm việc: `MORNING` hoặc `AFTERNOON` |
+| `weekday` | `Int` / `INTEGER` | Không | - | `CHECK (weekday BETWEEN 1 AND 5)` | Thứ trong tuần: `1` (T2) đến `5` (T6) |
+| `period` | `Period` / `enum` | Không | - | - | Buổi làm việc: `MORNING` hoặc `AFTERNOON` |
 
 - **Khóa chính & Chỉ mục**:
   - Khóa chính phức hợp: `@@id([scheduleId, weekday, period])`
@@ -309,16 +355,16 @@ Lưu trữ các ô ca làm việc cụ thể được chọn trong tuần của 
 ---
 
 ### 2.9 Bảng `History`
-Bảng lưu trữ bất biến (Append-only / Immutable) ghi nhận các ca làm việc thực tế đã qua của CTV sau mốc chốt hàng ngày.
+Bảng lưu trữ bất biến (Append-only / Immutable) ghi nhận các ca làm việc thực tế đã qua của CTV sau mốc chốt hàng ngày, gắn ngày làm việc cụ thể (`workDate`).
 
 | Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
 |---|---|---|---|---|---|
 | `id` | `String` / `TEXT` | Không | `cuid()` | Primary Key | Định danh bản ghi lịch sử |
 | `accountId` | `String` / `TEXT` | Không | - | Khóa ngoại -> `Account.id` (Cascade) | CTV đã hoàn thành ca |
 | `workDate` | `DateTime` / `TIMESTAMP(3)` | Không | - | - | Ngày làm việc cụ thể (lưu UTC midnight) |
-| `period` | `String` / `TEXT` | Không | - | - | Buổi làm việc: `MORNING` hoặc `AFTERNOON` |
-| `roomCode` | `String` / `TEXT` | Không | - | - | Buồng làm việc tại thời điểm ca diễn ra |
-| `status` | `String` / `TEXT` | Không | `'COMPLETED'` | - | Trạng thái: `COMPLETED` |
+| `period` | `Period` / `enum` | Không | - | - | Buổi làm việc: `MORNING` hoặc `AFTERNOON` |
+| `roomCode` | `RoomCode` / `enum` | Không | - | - | Buồng làm việc tại thời điểm ca diễn ra |
+| `status` | `HistoryStatus` / `enum` | Không | `'COMPLETED'` | - | Trạng thái: `COMPLETED` |
 | `recordedAt` | `DateTime` / `TIMESTAMP(3)` | Không | `now()` | - | Thời điểm tiến trình snapshot ghi nhận vào bảng |
 
 - **Khóa chính & Chỉ mục**:
@@ -327,6 +373,106 @@ Bảng lưu trữ bất biến (Append-only / Immutable) ghi nhận các ca làm
   - Chỉ mục truy vấn cá nhân theo tháng: `@@index([accountId, workDate])`
   - Chỉ mục truy vấn tổng hợp theo ca: `@@index([workDate, period])`
 - **Hành vi quan hệ**: `onDelete: Cascade`, `onUpdate: Cascade` từ `Account`.
+
+---
+
+### 2.10 Bảng `SnapshotRun`
+Quản lý trạng thái và chu trình vòng đời của từng phiên chốt lịch sử theo ngày (`workDate`).
+
+| Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
+|---|---|---|---|---|---|
+| `id` | `String` / `TEXT` | Không | `cuid()` | Primary Key | Định danh phiên chốt |
+| `workDate` | `DateTime` / `DATE` | Không | - | `@unique` | Ngày làm việc cần chốt |
+| `status` | `SnapshotRunStatus` / `enum` | Không | - | - | Trạng thái: `PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED` |
+| `attemptCount` | `Int` / `INTEGER` | Không | `0` | `CHECK (attemptCount >= 0)` | Số lần thực hiện / thử lại |
+| `nextAttemptAt` | `DateTime` / `TIMESTAMP(3)` | Có | `NULL` | - | Thời điểm thử lại tiếp theo khi thất bại |
+| `leaseToken` | `String` / `TEXT` | Có | `NULL` | - | Token định danh worker đang giữ quyền xử lý |
+| `leaseExpiresAt` | `DateTime` / `TIMESTAMP(3)` | Có | `NULL` | - | Thời hạn lease (5 phút), tự động giải phóng nếu worker crash |
+| `startedAt` | `DateTime` / `TIMESTAMP(3)` | Có | `NULL` | - | Thời điểm bắt đầu xử lý |
+| `completedAt` | `DateTime` / `TIMESTAMP(3)` | Có | `NULL` | - | Thời điểm hoàn thành xử lý (thành công hoặc dừng) |
+| `insertedCount` | `Int` / `INTEGER` | Không | `0` | `CHECK (insertedCount >= 0)` | Số lượng bản ghi `History` đã chèn vào cơ sở dữ liệu |
+| `errorCode` | `String` / `TEXT` | Có | `NULL` | - | Mã lỗi ghi nhận khi lượt chốt thất bại |
+| `createdAt` | `DateTime` / `TIMESTAMP(3)` | Không | `now()` | - | Thời điểm tạo bản ghi |
+| `updatedAt` | `DateTime` / `TIMESTAMP(3)` | Không | `@updatedAt` | - | Thời điểm cập nhật trạng thái gần nhất |
+
+- **Khóa chính & Chỉ mục**:
+  - Primary Key: `id`
+  - Unique Constraint: `@@unique([workDate])`
+  - Index: `@@index([status, nextAttemptAt])` (phục vụ bộ lập lịch truy vấn mốc hẹn giờ wake)
+
+---
+
+### 2.11 Bảng `WorkHistoryProgress`
+Bản ghi con trỏ đơn thể (Singleton Cursor, `id = 'default'`) theo dõi tiến độ chốt lịch sử liên tục theo thời gian.
+
+| Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
+|---|---|---|---|---|---|
+| `id` | `String` / `TEXT` | Không | `'default'` | Primary Key | Khóa đơn thể cố định |
+| `trackingStartDate` | `DateTime` / `DATE` | Không | - | - | Mốc ngày bắt đầu theo dõi; tuyệt đối không tự ý hồi tố ngày trước mốc này |
+| `lastProcessedDate` | `DateTime` / `DATE` | Không | - | - | Ngày làm việc gần nhất đã hoàn tất chốt lịch sử thành công |
+| `updatedAt` | `DateTime` / `TIMESTAMP(3)` | Không | `@updatedAt` | - | Thời điểm cập nhật con trỏ gần nhất |
+
+---
+
+### 2.12 Bảng `WorkHistorySource`
+Lưu trữ ảnh chụp trạng thái phân ca/buồng và tính hợp lệ của CTV tại thời điểm commit giao dịch thông qua PostgreSQL Database Triggers, bảo đảm tính đúng đắn theo thời gian (Temporal Truth).
+
+| Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
+|---|---|---|---|---|---|
+| `id` | `BigInt` / `BIGINT` | Không | `autoincrement()` | Primary Key | Định danh tự tăng |
+| `accountId` | `String` / `TEXT` | Không | - | Khóa ngoại -> `Account.id` (Cascade) | Tài khoản CTV |
+| `transactionId` | `BigInt` / `BIGINT` | Không | - | - | Mã định danh giao dịch PostgreSQL (`txid_current()`) |
+| `effectiveAt` | `DateTime` / `TIMESTAMPTZ(3)` | Không | - | - | Thời điểm commit giao dịch có hiệu lực |
+| `eligible` | `Boolean` / `BOOLEAN` | Không | - | - | CTV có đủ điều kiện chốt ca tại thời điểm đó (ACTIVE, chưa bị xóa mềm) |
+| `roomCode` | `String` / `TEXT` | Có | `NULL` | - | Buồng làm việc tại thời điểm commit |
+| `shifts` | `Json` / `JSONB` | Không | - | - | Danh sách ca tuần `[{ weekday, period }]` tại thời điểm commit |
+
+- **Khóa chính & Chỉ mục**:
+  - Primary Key: `id`
+  - Khóa duy nhất theo tài khoản và giao dịch: `@@unique([accountId, transactionId])`
+  - Chỉ mục truy vấn nguồn theo thời gian: `@@index([accountId, effectiveAt, id])`
+- **Hành vi quan hệ**: `onDelete: Cascade` từ `Account`.
+- **Triggers kích hoạt tự động**:
+  - `trg_capture_account_source` trên bảng `Account` khi có thay đổi trạng thái hoặc xóa mềm.
+  - `trg_capture_schedule_source` trên bảng `Schedule` khi cập nhật buồng hoặc tạo lịch.
+  - `trg_capture_shift_source` trên bảng `Shift` khi thêm/bớt ca làm việc.
+
+---
+
+### 2.13 Bảng `RateLimitWindow`
+Bảng giới hạn tần suất yêu cầu phân tán (Distributed Rate Limiting) bảo vệ các tuyến API nhạy cảm (Đăng nhập, Nộp đơn, Đặt lại mật khẩu).
+
+| Tên trường | Kiểu Prisma / DB | Nullable | Mặc định | Ràng buộc / Quan hệ | Mô tả |
+|---|---|---|---|---|---|
+| `id` | `String` / `TEXT` | Không | `cuid()` | Primary Key | Định danh cửa sổ giới hạn |
+| `scope` | `RateLimitScope` / `enum` | Không | - | - | Phạm vi: `AUTH_LOGIN`, `REGISTRATION_SUBMIT`, `PASSWORD_RESET` |
+| `identityDigest` | `String` / `TEXT` | Không | - | - | Mã băm SHA-256 ẩn danh của IP hoặc email |
+| `windowStart` | `DateTime` / `TIMESTAMP(3)` | Không | - | - | Thời điểm bắt đầu cửa sổ trượt |
+| `requestCount` | `Int` / `INTEGER` | Không | `1` | `CHECK (requestCount >= 0)` | Số lượng yêu cầu đã gửi trong cửa sổ |
+| `expiresAt` | `DateTime` / `TIMESTAMP(3)` | Không | - | - | Thời điểm hết hạn bản ghi phục vụ tự động dọn dẹp |
+
+- **Khóa chính & Chỉ mục**:
+  - Primary Key: `id`
+  - Khóa duy nhất cửa sổ: `@@unique([scope, identityDigest, windowStart])`
+  - Chỉ mục dọn dẹp hết hạn: `@@index([expiresAt])`
+
+---
+
+### 2.14 Danh mục PostgreSQL Native Enums
+Toàn bộ các kiểu liệt kê trong hệ thống đã được chuyển đổi thành Native PostgreSQL Enum Type (Migration `20260911140000_strengthen_domain_integrity`), ngăn chặn hoàn toàn việc chèn các giá trị tùy ý ở cấp độ tầng lưu trữ:
+
+| Enum Name | Danh sách giá trị cho phép | Bảng sử dụng |
+|---|---|---|
+| `Role` | `'ADMIN'`, `'CTV'` | `Account.role` |
+| `AccountStatus` | `'ACTIVE'`, `'DISABLED'` | `Account.status` |
+| `RegistrationStatus` | `'PENDING'`, `'APPROVED'`, `'REJECTED'` | `RegistrationRequest.status` |
+| `FileState` | `'STAGED'`, `'ACTIVE'`, `'QUARANTINED'`, `'DELETED'` | `FileAsset.state` |
+| `FileCategory` | `'AVATAR'`, `'CCCD_FRONT'`, `'CCCD_BACK'`, `'CV'` | `RegistrationRequestFile.category`, `AccountFile.category` |
+| `RoomCode` | `'ROOM_1'`, `'ROOM_2'`, `'ROOM_3'`, `'ROOM_4'` | `Schedule.roomCode`, `History.roomCode` |
+| `Period` | `'MORNING'`, `'AFTERNOON'` | `Shift.period`, `History.period` |
+| `HistoryStatus` | `'COMPLETED'` | `History.status` |
+| `SnapshotRunStatus` | `'PENDING'`, `'PROCESSING'`, `'SUCCEEDED'`, `'FAILED'` | `SnapshotRun.status` |
+| `RateLimitScope` | `'AUTH_LOGIN'`, `'REGISTRATION_SUBMIT'`, `'PASSWORD_RESET'` | `RateLimitWindow.scope` |
 
 ---
 
