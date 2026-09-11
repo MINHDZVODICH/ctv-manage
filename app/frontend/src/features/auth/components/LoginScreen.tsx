@@ -183,6 +183,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     }
   };
 
+  const clearRegError = (field: string) => {
+    setRegErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   // Submit Register
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,11 +199,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
 
     if (!regName.trim()) errors.regName = "Vui lòng nhập họ và tên!";
     if (!regEmail.trim()) errors.regEmail = "Vui lòng nhập email!";
-    if (!regPhone.trim()) {
-      errors.regPhone = "Vui lòng nhập số điện thoại!";
-    } else if (!/^\d{10,11}$/.test(regPhone.trim())) {
+    if (regPhone.trim() && !/^\d{10,11}$/.test(regPhone.trim())) {
       errors.regPhone = "Số điện thoại phải từ 10 - 11 chữ số!";
     }
+    if (!cccdFrontFile) errors.cccdFront = "Vui lòng tải ảnh CCCD mặt trước!";
+    if (!cccdBackFile) errors.cccdBack = "Vui lòng tải ảnh CCCD mặt sau!";
     if (!regPassword) errors.regPassword = "Vui lòng nhập mật khẩu!";
     if (!regConfirmPassword) errors.regConfirmPassword = "Vui lòng nhập lại mật khẩu!";
 
@@ -221,7 +230,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
       const form = new FormData();
       form.append("email", regEmail.trim());
       form.append("displayName", regName.trim());
-      form.append("phone", regPhone.trim());
+      if (regPhone.trim()) {
+        form.append("phone", regPhone.trim());
+      }
       form.append("password", regPassword);
       if (regDay && regMonth && regYear) {
         form.append("dateOfBirth", `${regYear}-${regMonth}-${regDay}`);
@@ -383,7 +394,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 <input
                   type="text"
                   value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
+                  onFocus={() => clearRegError("regName")}
+                  onClick={() => clearRegError("regName")}
+                  onChange={(e) => {
+                    setRegName(e.target.value);
+                    clearRegError("regName");
+                  }}
                   className={`w-full px-3 py-2 bg-[#faf9fd] dark:bg-[#262730] border rounded-lg text-sm text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] ${
                     regErrors.regName ? "border-[#DC2626]" : "border-[#c4c6cf] dark:border-[#3b3d48]"
                   }`}
@@ -399,13 +415,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 <div className="grid grid-cols-3 gap-2">
                   <select
                     value={regDay}
+                    onFocus={() => clearRegError("regDob")}
+                    onClick={() => clearRegError("regDob")}
                     onChange={(e) => {
                       setRegDay(e.target.value);
-                      setRegErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.regDob;
-                        return next;
-                      });
+                      clearRegError("regDob");
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
@@ -429,6 +443,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </select>
                   <select
                     value={regMonth}
+                    onFocus={() => clearRegError("regDob")}
+                    onClick={() => clearRegError("regDob")}
                     onChange={(e) => {
                       const newMonth = e.target.value;
                       setRegMonth(newMonth);
@@ -440,11 +456,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       if (parseInt(regDay, 10) > maxDays) {
                         setRegDay(String(maxDays).padStart(2, "0"));
                       }
-                      setRegErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.regDob;
-                        return next;
-                      });
+                      clearRegError("regDob");
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
@@ -459,6 +471,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </select>
                   <select
                     value={regYear}
+                    onFocus={() => clearRegError("regDob")}
+                    onClick={() => clearRegError("regDob")}
                     onChange={(e) => {
                       const newYear = e.target.value;
                       setRegYear(newYear);
@@ -470,11 +484,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       if (parseInt(regDay, 10) > maxDays) {
                         setRegDay(String(maxDays).padStart(2, "0"));
                       }
-                      setRegErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.regDob;
-                        return next;
-                      });
+                      clearRegError("regDob");
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
@@ -506,7 +516,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <input
                     type="email"
                     value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
+                    onFocus={() => clearRegError("regEmail")}
+                    onClick={() => clearRegError("regEmail")}
+                    onChange={(e) => {
+                      setRegEmail(e.target.value);
+                      clearRegError("regEmail");
+                    }}
                     className={`w-full px-3 py-2 bg-[#faf9fd] dark:bg-[#262730] border rounded-lg text-sm text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] ${
                       regErrors.regEmail ? "border-[#DC2626]" : "border-[#c4c6cf] dark:border-[#3b3d48]"
                     }`}
@@ -521,21 +536,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {/* Số điện thoại */}
                 <div>
                   <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                    Số điện thoại <span className="text-[#DC2626]">*</span>
+                    Số điện thoại
                   </label>
                   <input
                     type="tel"
                     value={regPhone}
+                    onFocus={() => clearRegError("regPhone")}
+                    onClick={() => clearRegError("regPhone")}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "").slice(0, 11);
                       setRegPhone(val);
-                      if (regErrors.regPhone) {
-                        setRegErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.regPhone;
-                          return next;
-                        });
-                      }
+                      clearRegError("regPhone");
                     }}
                     className={`w-full px-3 py-2 bg-[#faf9fd] dark:bg-[#262730] border rounded-lg text-sm text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] ${
                       regErrors.regPhone ? "border-[#DC2626]" : "border-[#c4c6cf] dark:border-[#3b3d48]"
@@ -556,7 +567,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <span className="material-symbols-outlined text-[#1b365d] dark:text-blue-400 text-[18px]">
                       badge
                     </span>
-                    <span>Ảnh CCCD (Mặt trước & Mặt sau)</span>
+                    <span>
+                      Ảnh CCCD (Mặt trước & Mặt sau) <span className="text-[#DC2626]">*</span>
+                    </span>
                   </label>
                   <span className="text-[11px] text-[#74777f] dark:text-slate-400">Định dạng JPG, PNG</span>
                 </div>
@@ -589,7 +602,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* CCCD Mặt trước */}
-                  <div>
+                  <div onClick={() => clearRegError("cccdFront")}>
                     <div className="text-[11px] font-medium text-[#44474e] dark:text-slate-400 mb-1 flex items-center justify-between">
                       <span>Mặt trước</span>
                       {cccdFront && (
@@ -636,7 +649,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       </div>
                     ) : (
                       <div
-                        onClick={() => cccdFrontInputRef.current?.click()}
+                        data-testid="registration-cccd-front-dropzone"
+                        onClick={() => {
+                          clearRegError("cccdFront");
+                          cccdFrontInputRef.current?.click();
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           setIsDraggingFront(true);
@@ -649,7 +666,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           handleCccdFrontChange(file);
                         }}
                         className={`h-28 rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center p-3 text-center ${
-                          isDraggingFront
+                          regErrors.cccdFront
+                            ? "border-[#DC2626] bg-red-50/20 dark:border-[#DC2626] dark:bg-red-950/20"
+                            : isDraggingFront
                             ? "border-[#1b365d] bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/30"
                             : "border-slate-300 dark:border-slate-700 hover:border-[#1b365d] dark:hover:border-blue-400 bg-[#faf9fd] dark:bg-[#25262f] hover:bg-blue-50/20 dark:hover:bg-slate-800/60"
                         }`}
@@ -669,7 +688,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </div>
 
                   {/* CCCD Mặt sau */}
-                  <div>
+                  <div onClick={() => clearRegError("cccdBack")}>
                     <div className="text-[11px] font-medium text-[#44474e] dark:text-slate-400 mb-1 flex items-center justify-between">
                       <span>Mặt sau</span>
                       {cccdBack && (
@@ -716,7 +735,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       </div>
                     ) : (
                       <div
-                        onClick={() => cccdBackInputRef.current?.click()}
+                        data-testid="registration-cccd-back-dropzone"
+                        onClick={() => {
+                          clearRegError("cccdBack");
+                          cccdBackInputRef.current?.click();
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           setIsDraggingBack(true);
@@ -729,7 +752,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           handleCccdBackChange(file);
                         }}
                         className={`h-28 rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center p-3 text-center ${
-                          isDraggingBack
+                          regErrors.cccdBack
+                            ? "border-[#DC2626] bg-red-50/20 dark:border-[#DC2626] dark:bg-red-950/20"
+                            : isDraggingBack
                             ? "border-[#1b365d] bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/30"
                             : "border-slate-300 dark:border-slate-700 hover:border-[#1b365d] dark:hover:border-blue-400 bg-[#faf9fd] dark:bg-[#25262f] hover:bg-blue-50/20 dark:hover:bg-slate-800/60"
                         }`}
@@ -820,7 +845,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </div>
                 ) : (
                   <div
-                    onClick={() => cvFileInputRef.current?.click()}
+                    onClick={() => {
+                      clearRegError("cvFile");
+                      cvFileInputRef.current?.click();
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       setIsDraggingCv(true);
@@ -833,7 +861,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       handleCvFileChange(file);
                     }}
                     className={`py-4 px-3 rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center text-center ${
-                      isDraggingCv
+                      regErrors.cvFile
+                        ? "border-[#DC2626] bg-red-50/20 dark:border-[#DC2626] dark:bg-red-950/20"
+                        : isDraggingCv
                         ? "border-[#1b365d] bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/30"
                         : "border-slate-300 dark:border-slate-700 hover:border-[#1b365d] dark:hover:border-blue-400 bg-[#faf9fd] dark:bg-[#25262f] hover:bg-blue-50/20 dark:hover:bg-slate-800/60"
                     }`}
@@ -865,7 +895,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <input
                       type={showRegPassword ? "text" : "password"}
                       value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
+                      onFocus={() => clearRegError("regPassword")}
+                      onClick={() => clearRegError("regPassword")}
+                      onChange={(e) => {
+                        setRegPassword(e.target.value);
+                        clearRegError("regPassword");
+                      }}
                       className={`w-full pl-3 pr-9 py-2 bg-[#faf9fd] dark:bg-[#262730] border rounded-lg text-sm text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] ${
                         regErrors.regPassword ? "border-[#DC2626]" : "border-[#c4c6cf] dark:border-[#3b3d48]"
                       }`}
@@ -896,7 +931,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <input
                       type={showRegConfirmPassword ? "text" : "password"}
                       value={regConfirmPassword}
-                      onChange={(e) => setRegConfirmPassword(e.target.value)}
+                      onFocus={() => clearRegError("regConfirmPassword")}
+                      onClick={() => clearRegError("regConfirmPassword")}
+                      onChange={(e) => {
+                        setRegConfirmPassword(e.target.value);
+                        clearRegError("regConfirmPassword");
+                      }}
                       className={`w-full pl-3 pr-9 py-2 bg-[#faf9fd] dark:bg-[#262730] border rounded-lg text-sm text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] ${
                         regErrors.regConfirmPassword ? "border-[#DC2626]" : "border-[#c4c6cf] dark:border-[#3b3d48]"
                       }`}

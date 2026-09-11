@@ -117,3 +117,102 @@ test('giao diện đăng ký ở chế độ dark mode đảm bảo độ tươn
   expect(cvRatio).toBeGreaterThanOrEqual(4.5);
 });
 
+test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và biến mất khi người dùng nhấn vào ô lỗi', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
+  await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
+
+  // Bấm đăng ký khi chưa điền thông tin
+  await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
+
+  // Kiểm tra các thông tin bắt buộc phải có cảnh báo đỏ
+  const nameError = page.getByText('Vui lòng nhập họ và tên!');
+  const emailError = page.getByText('Vui lòng nhập email!');
+  const cccdFrontError = page.getByText('Vui lòng tải ảnh CCCD mặt trước!');
+  const cccdBackError = page.getByText('Vui lòng tải ảnh CCCD mặt sau!');
+  const passwordError = page.getByText('Vui lòng nhập mật khẩu!');
+  const confirmPasswordError = page.getByText('Vui lòng nhập lại mật khẩu!');
+
+  await expect(nameError).toBeVisible();
+  await expect(emailError).toBeVisible();
+  await expect(cccdFrontError).toBeVisible();
+  await expect(cccdBackError).toBeVisible();
+  await expect(passwordError).toBeVisible();
+  await expect(confirmPasswordError).toBeVisible();
+
+  // Số điện thoại không bắt buộc -> không được có lỗi số điện thoại
+  await expect(page.getByText('Vui lòng nhập số điện thoại!')).toHaveCount(0);
+
+  // Khi người dùng nhấn vào ô Họ và tên -> cảnh báo Họ và tên phải mất đi
+  const nameInput = page.locator('input[type="text"]').first();
+  await nameInput.click();
+  await expect(nameError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào ô Email -> cảnh báo Email phải mất đi
+  const emailInput = page.locator('input[type="email"]');
+  await emailInput.click();
+  await expect(emailError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào khung CCCD mặt trước -> cảnh báo CCCD mặt trước phải mất đi
+  const cccdFrontDropzone = page.getByTestId('registration-cccd-front-dropzone');
+  await cccdFrontDropzone.click({ force: true });
+  await expect(cccdFrontError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào khung CCCD mặt sau -> cảnh báo CCCD mặt sau phải mất đi
+  const cccdBackDropzone = page.getByTestId('registration-cccd-back-dropzone');
+  await cccdBackDropzone.click({ force: true });
+  await expect(cccdBackError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào ô Mật khẩu -> cảnh báo Mật khẩu phải mất đi
+  const passwordInputs = page.locator('input[type="password"]');
+  await passwordInputs.nth(0).click();
+  await expect(passwordError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào ô Nhập lại mật khẩu -> cảnh báo Nhập lại mật khẩu phải mất đi
+  await passwordInputs.nth(1).click();
+  await expect(confirmPasswordError).toHaveCount(0);
+});
+
+test('người dùng gửi yêu cầu đăng ký thành công mà không cần số điện thoại', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
+  const heading = page.getByRole('heading', { name: 'Đăng ký tài khoản' });
+  await expect(heading).toBeVisible();
+  const form = heading.locator('..').locator('form');
+
+  await form.locator('input[type="text"]').first().fill('Đăng ký Không SĐT');
+  await form.locator('input[type="email"]').fill('no.phone.registration@ctv.local');
+
+  const passwordInputs = page.locator('input[type="password"]');
+  await passwordInputs.nth(0).fill('Browser@123456');
+  await passwordInputs.nth(1).fill('Browser@123456');
+
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64',
+  );
+  await page.getByTestId('registration-cccd-front').setInputFiles({
+    name: 'cccd-front.png',
+    mimeType: 'image/png',
+    buffer: png,
+  });
+  await page.getByTestId('registration-cccd-back').setInputFiles({
+    name: 'cccd-back.png',
+    mimeType: 'image/png',
+    buffer: png,
+  });
+
+  const registrationResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/v1/registration-requests') &&
+      response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Gửi yêu cầu đăng ký thành công!' })).toBeVisible();
+  const responseBody = await (await registrationResponse).json();
+  expect(responseBody.request.displayName).toBe('Đăng ký Không SĐT');
+  expect(responseBody.request.phone).toBeNull();
+});
+
+
