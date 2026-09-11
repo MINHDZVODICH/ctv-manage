@@ -147,7 +147,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-sm text-[#1a1b1e] font-medium">
+                    <td className="py-3.5 px-4 text-sm text-[#44474e] font-medium">
                       {req.phone ? formatPhoneNumber(req.phone) : "---"}
                     </td>
                     <td className="py-3.5 px-4 text-sm text-[#44474e]">
