@@ -7,11 +7,12 @@ import {
   ApiScheduleData,
   ScheduleResponse,
   ApiSummaryCell,
-  summaryToSlots,
   historyToSlots,
   scheduleToPattern,
 } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
+import { formatDateLocale } from "../../../shared/i18n";
 
 interface ViewAccountDetailModalProps {
   account: UserAccount | null;
@@ -23,13 +24,7 @@ interface ViewAccountDetailModalProps {
   onResetPassword?: (id: string, newPassword: string, requireChangeOnLogin: boolean) => void;
 }
 
-const WEEKDAYS = [
-  { index: 0, dayName: "Thứ 2", shortName: "T2", dateStr: "06/07" },
-  { index: 1, dayName: "Thứ 3", shortName: "T3", dateStr: "07/07" },
-  { index: 2, dayName: "Thứ 4", shortName: "T4", dateStr: "08/07" },
-  { index: 3, dayName: "Thứ 5", shortName: "T5", dateStr: "09/07" },
-  { index: 4, dayName: "Thứ 6", shortName: "T6", dateStr: "10/07" },
-];
+const WEEKDAY_INDICES = [0, 1, 2, 3, 4] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const startOfDay = (date: Date) => {
@@ -61,8 +56,9 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   onClose,
   onSaveNotes,
   onEndSchedule,
-  onResetPassword,
 }) => {
+  const { t, language } = useSystemSettings();
+
   const [previewImg, setPreviewImg] = useState<{ title: string; url: string } | null>(null);
   const [showWorkHistory, setShowWorkHistory] = useState<boolean>(false);
   const [historyDate, setHistoryDate] = useState<Date>(() => new Date());
@@ -150,7 +146,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
     } catch (error) {
       if (!api.isRequestAborted(error)) {
         if (sequence === accountHistorySequence.current) {
-          setHistoryError("Không thể tải lịch sử làm việc. Vui lòng thử lại.");
+          setHistoryError(t("accounts.history_load_failed"));
         }
       }
     } finally {
@@ -158,7 +154,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
         setIsHistoryLoading(false);
       }
     }
-  }, [account, historyDate, showWorkHistory]);
+  }, [account, historyDate, showWorkHistory, t]);
 
   useEffect(() => {
     if (showWorkHistory && account && account.role !== "Admin") {
@@ -274,11 +270,11 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
   const handleConfirmEndSchedule = () => {
     if (!endScheduleEndDate) {
-      setEndScheduleError("Vui lòng chọn ngày kết thúc làm việc.");
+      setEndScheduleError(t("accounts.end_schedule_select_date_error"));
       return;
     }
     if (endScheduleEndDate < userRegisteredStartDateISO) {
-      setEndScheduleError("Ngày kết thúc không thể trước ngày bắt đầu đăng ký làm việc.");
+      setEndScheduleError(t("accounts.end_schedule_date_order_error"));
       return;
     }
     if (onEndSchedule && account) {
@@ -294,7 +290,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
   const todayISO = toISODate(new Date());
   const currentWeekStart = startOfWeek(new Date());
-  const currentWeekDates = WEEKDAYS.map((day) => addDays(currentWeekStart, day.index));
+  const currentWeekDates = WEEKDAY_INDICES.map((index) => addDays(currentWeekStart, index));
 
   const changeHistoryMonth = (amount: number) => {
     setHistoryDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -330,7 +326,6 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   const cccdBackUrl = account.cccdBack;
   const hasCv = Boolean(account.cvFile);
   const cvFileName = account.cvFileName || "CV";
-  const cvFileSize = account.cvFileSize || "";
   const isPdf = cvFileName.toLowerCase().endsWith(".pdf");
 
   const handleDownloadCV = () => {
@@ -366,7 +361,9 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   const assignedWorkRoom =
     formatRoomLabel(
       accountSchedule?.roomCode || account.workRoom || account.room,
-    ) || "Chưa cập nhật";
+    ) || t("accounts.no_room");
+
+  const weekdayLabels = [t("mon"), t("tue"), t("wed"), t("thu"), t("fri")];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -378,12 +375,12 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               <span className="material-symbols-outlined text-[20px]">badge</span>
             </div>
             <h3 className="text-base font-bold text-[#1b365d] dark:text-[#d6e3ff]">
-              Hồ sơ & Lịch trình tài khoản
+              {t("accounts.profile_and_schedule_title")}
             </h3>
           </div>
           <button
             onClick={onClose}
-            aria-label="Đóng hồ sơ"
+            aria-label={t("close")}
             className="text-[#74777f] hover:text-[#1b365d] dark:hover:text-white p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -413,8 +410,20 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
             </div>
 
             <div className="flex flex-col sm:items-end gap-2 text-xs text-[#74777f] dark:text-[#c4c6cf]">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {account.role === "Admin" ? t("role_admin") : t("role_ctv")}
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                  account.status === "Kích hoạt"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                    : "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800"
+                }`}>
+                  {account.status === "Kích hoạt" ? t("status_active") : t("status_inactive")}
+                </span>
+              </div>
               <p>
-                Ngày đăng ký:{" "}
+                {t("registration_date")}:{" "}
                 <span className="font-semibold text-[#1b365d] dark:text-white">
                   {account.registerDate || account.joinDate || "15/05/2023"}
                 </span>
@@ -426,41 +435,41 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
           <div>
             <h5 className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">person</span>
-              <span>Thông tin cá nhân & Tài khoản</span>
+              <span>{t("accounts.personal_and_account_info")}</span>
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F8FAFC] dark:bg-[#1e1f23] p-4 rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45]">
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Họ và tên:</span>
+                <span className="text-[#74777f]">{t("full_name")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">{account.name}</span>
               </div>
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Email:</span>
+                <span className="text-[#74777f]">{t("email")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">
                   {account.email}
                 </span>
               </div>
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Số điện thoại:</span>
+                <span className="text-[#74777f]">{t("phone_number")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">
                   {formatPhoneNumber(account.phone)}
                 </span>
               </div>
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Ngày sinh:</span>
+                <span className="text-[#74777f]">{t("dob")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">
                   {account.dob || "15/08/1998"}
                 </span>
               </div>
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Giới tính:</span>
+                <span className="text-[#74777f]">{t("gender")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">
-                  {account.gender || "Nam"}
+                  {account.gender === "Nam" ? t("gender_male") : account.gender === "Nữ" ? t("gender_female") : (account.gender ? t("gender_other") : t("gender_male"))}
                 </span>
               </div>
               <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">Địa chỉ:</span>
+                <span className="text-[#74777f]">{t("address")}:</span>
                 <span className="font-semibold text-[#1b365d] dark:text-white">
-                  {account.address || "Chưa cập nhật"}
+                  {account.address || t("not_updated")}
                 </span>
               </div>
             </div>
@@ -469,25 +478,25 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               <div className="flex items-center mb-2.5">
                 <span className="text-[11px] font-bold text-[#1b365d] dark:text-[#d6e3ff] uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px]">badge</span>
-                  <span>Ảnh chụp CCCD (Mặt trước & Mặt sau)</span>
+                  <span>{t("accounts.cccd_title")}</span>
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {cccdFrontUrl ? (
                   <div
                     onClick={() =>
-                      setPreviewImg({ title: `CCCD Mặt trước - ${account.name}`, url: cccdFrontUrl })
+                      setPreviewImg({ title: `${t("cccd_front")} - ${account.name}`, url: cccdFrontUrl })
                     }
                     className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
                   >
                     <img
                       src={cccdFrontUrl}
-                      alt="CCCD Mặt trước"
+                      alt={t("cccd_front")}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
                       <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                      <span>Xem mặt trước</span>
+                      <span>{t("accounts.view_front")}</span>
                     </div>
                   </div>
                 ) : (
@@ -495,26 +504,26 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                     <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
                       image_not_supported
                     </span>
-                    <span className="text-xs font-semibold">Chưa có</span>
-                    <span className="text-[10px]">Mặt trước</span>
+                    <span className="text-xs font-semibold">{t("accounts.not_provided")}</span>
+                    <span className="text-[10px]">{t("front_side")}</span>
                   </div>
                 )}
 
                 {cccdBackUrl ? (
                   <div
                     onClick={() =>
-                      setPreviewImg({ title: `CCCD Mặt sau - ${account.name}`, url: cccdBackUrl })
+                      setPreviewImg({ title: `${t("cccd_back")} - ${account.name}`, url: cccdBackUrl })
                     }
                     className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] overflow-hidden h-28 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
                   >
                     <img
                       src={cccdBackUrl}
-                      alt="CCCD Mặt sau"
+                      alt={t("cccd_back")}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
                       <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                      <span>Xem mặt sau</span>
+                      <span>{t("accounts.view_back")}</span>
                     </div>
                   </div>
                 ) : (
@@ -522,8 +531,8 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                     <span className="material-symbols-outlined text-[24px]" aria-hidden="true">
                       image_not_supported
                     </span>
-                    <span className="text-xs font-semibold">Chưa có</span>
-                    <span className="text-[10px]">Mặt sau</span>
+                    <span className="text-xs font-semibold">{t("accounts.not_provided")}</span>
+                    <span className="text-[10px]">{t("back_side")}</span>
                   </div>
                 )}
               </div>
@@ -536,7 +545,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   <span className="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">
                     description
                   </span>
-                  <span>Hồ sơ ứng tuyển (CV)</span>
+                  <span>{t("cv_title")}</span>
                 </span>
               </div>
               {hasCv ? (
@@ -566,7 +575,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                         href={account.cvFile}
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label="Xem file trong tab mới"
+                        aria-label={t("accounts.view_in_new_tab")}
                         className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
                       >
                         <span className="material-symbols-outlined text-[18px]">visibility</span>
@@ -575,7 +584,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                         role="tooltip"
                         className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
                       >
-                        Xem trong tab mới
+                        {t("accounts.view_in_new_tab")}
                       </span>
                     </div>
 
@@ -583,7 +592,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={handleDownloadCV}
-                        aria-label="Tải về"
+                        aria-label={t("download")}
                         className="w-9 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center shadow-2xs cursor-pointer border border-slate-200 dark:border-slate-700"
                       >
                         <span className="material-symbols-outlined text-[18px]">download</span>
@@ -592,7 +601,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                         role="tooltip"
                         className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
                       >
-                        Tải về
+                        {t("download")}
                       </span>
                     </div>
                   </div>
@@ -602,13 +611,13 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
                     description
                   </span>
-                  <span className="text-xs font-semibold">Chưa có</span>
+                  <span className="text-xs font-semibold">{t("accounts.not_provided")}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Section 2: Monday - Friday Schedule (Ca sáng & Ca chiều) */}
+          {/* Section 2: Monday - Friday Schedule */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <h5 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
@@ -618,13 +627,13 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 >
                   calendar_month
                 </span>
-                <span>Lịch trình làm việc</span>
+                <span>{t("accounts.work_schedule_title")}</span>
               </h5>
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 {/* Work room badge */}
                 {account.role !== "Admin" && (
                   <div
-                    title={`Buồng làm việc: ${assignedWorkRoom}`}
+                    title={`${t("schedule.room")}: ${assignedWorkRoom}`}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 border border-indigo-200/80 dark:border-indigo-800/80 rounded-lg text-xs font-semibold shadow-2xs"
                   >
                     <span className="material-symbols-outlined text-[15px] text-indigo-600 dark:text-indigo-400">
@@ -639,7 +648,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowWorkHistory(true)}
-                    aria-label="Lịch sử làm việc"
+                    aria-label={t("work_history")}
                     className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-slate-700 shadow-2xs transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                   >
                     <span className="material-symbols-outlined text-[18px]">history</span>
@@ -648,7 +657,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                     role="tooltip"
                     className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-100 dark:text-slate-900"
                   >
-                    Lịch sử làm việc
+                    {t("work_history")}
                   </span>
                 </div>
               </div>
@@ -657,20 +666,20 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
             {account.role === "Admin" ? (
               <div className="p-4 bg-slate-50 dark:bg-[#1e1f23] rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45] flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
                 <span className="material-symbols-outlined text-amber-500 text-[20px]">info</span>
-                <span>Tài khoản Quản trị viên (Admin) không tham gia đăng ký lịch làm việc.</span>
+                <span>{t("accounts.admin_no_schedule_note")}</span>
               </div>
             ) : (
               <div className="overflow-x-auto pb-1">
                 <div className="min-w-[650px] space-y-3">
                   <div className="grid grid-cols-5 gap-3">
-                    {WEEKDAYS.map((day) => {
-                      const date = currentWeekDates[day.index];
+                    {WEEKDAY_INDICES.map((idx) => {
+                      const date = currentWeekDates[idx];
                       const dateISO = toISODate(date);
                       const isToday = dateISO === todayISO;
 
                       return (
                         <div
-                          key={day.index}
+                          key={idx}
                           aria-current={isToday ? "date" : undefined}
                           className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
                             isToday
@@ -678,24 +687,24 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                               : "bg-slate-100/90 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                           }`}
                         >
-                          <span>{day.dayName}</span>
-                          {isToday && <span className="sr-only">Hôm nay</span>}
+                          <span>{weekdayLabels[idx]}</span>
+                          {isToday && <span className="sr-only">{t("today")}</span>}
                         </div>
                       );
                     })}
                   </div>
 
                   <div className="grid grid-cols-5 gap-3">
-                    {WEEKDAYS.map((day) => {
-                      const date = currentWeekDates[day.index];
+                    {WEEKDAY_INDICES.map((idx) => {
+                      const date = currentWeekDates[idx];
                       const dateISO = toISODate(date);
-                      const morning = getShiftStatus(day.index, "morning");
-                      const afternoon = getShiftStatus(day.index, "afternoon");
+                      const morning = getShiftStatus(idx, "morning");
+                      const afternoon = getShiftStatus(idx, "afternoon");
                       const isToday = dateISO === todayISO;
 
                       return (
                         <div
-                          key={day.index}
+                          key={idx}
                           className={`min-h-[104px] rounded-2xl border-2 bg-white p-3 shadow-2xs transition-colors dark:bg-slate-900 ${
                             isToday
                               ? "border-blue-600 dark:border-blue-400"
@@ -705,7 +714,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                           <div className="space-y-2">
                             {morning !== "off" ? (
                               <div
-                                title="Ca sáng: Đi làm"
+                                title={`${t("morning_shift")}: ${t("accounts.working")}`}
                                 className="flex w-full items-center gap-2 whitespace-nowrap rounded-xl border border-amber-200/90 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200"
                               >
                                 <span
@@ -714,7 +723,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                                 >
                                   wb_sunny
                                 </span>
-                                <span>Ca Sáng</span>
+                                <span>{t("morning_shift")}</span>
                               </div>
                             ) : afternoon !== "off" ? (
                               <div className="h-[38px]" aria-hidden="true" />
@@ -722,7 +731,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
                             {afternoon !== "off" && (
                               <div
-                                title="Ca chiều: Đi làm"
+                                title={`${t("afternoon_shift")}: ${t("accounts.working")}`}
                                 className="flex w-full items-center gap-2 whitespace-nowrap rounded-xl border border-purple-200/90 bg-purple-50 px-3 py-2 text-xs font-bold text-purple-900 shadow-xs dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-200"
                               >
                                 <span
@@ -731,7 +740,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                                 >
                                   wb_twilight
                                 </span>
-                                <span>Ca Chiều</span>
+                                <span>{t("afternoon_shift")}</span>
                               </div>
                             )}
                           </div>
@@ -744,14 +753,14 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
             )}
           </div>
 
-          {/* Section 3: Notes (Ghi chú) */}
+          {/* Section 3: Notes */}
           <div className="p-4 rounded-xl bg-[#F8FAFC] dark:bg-[#1e1f23] border border-[#E2E8F0] dark:border-[#3b3d45] space-y-2.5">
             <div className="flex items-center justify-between">
               <h5 className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">
                   edit_note
                 </span>
-                <span>Ghi chú</span>
+                <span>{t("accounts.notes")}</span>
               </h5>
               <button
                 type="button"
@@ -765,7 +774,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 <span className="material-symbols-outlined text-[15px]">
                   {isSavedNotes ? "check_circle" : "save"}
                 </span>
-                <span>{isSavedNotes ? "Đã lưu" : "Lưu"}</span>
+                <span>{isSavedNotes ? t("accounts.saved") : t("save_btn")}</span>
               </button>
             </div>
 
@@ -777,9 +786,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all resize-none shadow-2xs leading-relaxed"
               />
             </div>
-
           </div>
-
         </div>
       </div>
 
@@ -795,7 +802,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff]">
-                    Kết thúc lịch làm việc
+                    {t("accounts.end_schedule_title")}
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     {account.name} {account.cctvCode ? `• ${account.cctvCode}` : ""}
@@ -804,14 +811,12 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               </div>
               <button
                 onClick={() => setIsEndScheduleModalOpen(false)}
+                aria-label={t("close")}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-
-
-
 
             {/* Explanation card */}
             <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5">
@@ -819,19 +824,17 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 info
               </span>
               <p className="leading-relaxed text-[11px]">
-                Lịch làm việc từ <strong>ngày bắt đầu</strong> đến <strong>ngày kết thúc</strong>{" "}
-                vẫn được ghi nhận. Hệ thống sẽ <strong>tự động loại bỏ các ca đăng ký thừa</strong>{" "}
-                sau ngày kết thúc đã chọn để tránh lịch ảo.
+                {t("accounts.end_schedule_explanation")}
               </p>
             </div>
 
             {/* Date Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Ngày bắt đầu (CTV đã chọn để đăng ký) */}
+              {/* Start Date */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <span>Ngày bắt đầu</span>
-                  <span className="text-[10px] font-normal text-slate-400">(CTV đã đăng ký)</span>
+                  <span>{t("accounts.start_date")}</span>
+                  <span className="text-[10px] font-normal text-slate-400">({t("accounts.ctv_registered")})</span>
                 </label>
                 <div className="relative">
                   <input
@@ -846,10 +849,10 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Ngày kết thúc (Admin sẽ chọn) */}
+              {/* End Date */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <span>Ngày kết thúc</span>
+                  <span>{t("accounts.end_date")}</span>
                   <span className="text-rose-500 font-bold">*</span>
                 </label>
                 <div className="relative">
@@ -867,16 +870,16 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Lý do kết thúc (Textarea) */}
+            {/* Reason for ending */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Lý do</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">{t("accounts.reason")}</label>
               <textarea
                 value={endScheduleReason}
                 onChange={(e) => {
                   setEndScheduleReason(e.target.value);
                   if (endScheduleError) setEndScheduleError("");
                 }}
-                placeholder="Nhập lý do kết thúc lịch làm việc (ví dụ: Nghỉ việc đột xuất, bận việc học/cá nhân, hoàn thành kỳ thực tập...)..."
+                placeholder={t("accounts.end_schedule_reason_placeholder")}
                 rows={3}
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#25262b] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition-all resize-none shadow-2xs leading-relaxed"
               />
@@ -896,7 +899,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 onClick={() => setIsEndScheduleModalOpen(false)}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                Hủy
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -904,7 +907,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                <span>Xác nhận</span>
+                <span>{t("confirm")}</span>
               </button>
             </div>
           </div>
@@ -926,6 +929,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               </div>
               <button
                 onClick={() => setPreviewImg(null)}
+                aria-label={t("close")}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -953,7 +957,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   calendar_month
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Lịch sử làm việc
+                  {t("work_history")}
                 </h3>
               </div>
 
@@ -969,7 +973,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   >
                     progress_activity
                   </span>
-                  <span>Đang tải...</span>
+                  <span>{t("loading")}</span>
                 </div>
               )}
 
@@ -977,24 +981,24 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 <div
                   className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-slate-100/90 p-1 shadow-2xs dark:border-slate-700 dark:bg-slate-900"
                   role="group"
-                  aria-label="Chuyển tháng"
+                  aria-label={t("month_navigation")}
                 >
                   <button
                     type="button"
                     onClick={() => changeHistoryMonth(-1)}
                     className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                    aria-label="Xem tháng trước"
+                    aria-label={t("previous_month")}
                   >
                     <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                   </button>
-                  <span className="min-w-[120px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100">
-                    Tháng {historyDate.getMonth() + 1}, {historyDate.getFullYear()}
+                  <span className="min-w-[120px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">
+                    {formatDateLocale(historyDate, language, { month: "long", year: "numeric" })}
                   </span>
                   <button
                     type="button"
                     onClick={() => changeHistoryMonth(1)}
                     className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                    aria-label="Xem tháng sau"
+                    aria-label={t("next_month")}
                   >
                     <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>
@@ -1003,7 +1007,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowWorkHistory(false)}
-                  aria-label="Đóng lịch sử"
+                  aria-label={t("close")}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -1022,7 +1026,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                   onClick={() => setHistoryRetryKey((k) => k + 1)}
                   className="rounded-lg border border-rose-300 bg-white px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900 cursor-pointer"
                 >
-                  Thử lại
+                  {t("retry")}
                 </button>
               </div>
             )}
@@ -1032,7 +1036,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               <div className="min-w-[780px] space-y-3 mr-1">
                 {/* 5 Column Weekday Header */}
                 <div className="grid grid-cols-5 gap-3">
-                  {["THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6"].map((dayName, idx) => (
+                  {weekdayLabels.map((dayName, idx) => (
                     <div
                       key={idx}
                       className="rounded-xl border border-slate-200/80 bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:border-slate-800 dark:bg-[#1f2023] dark:text-slate-200"
@@ -1077,7 +1081,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                               </span>
                               {isToday && (
                                 <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                  Hôm nay
+                                  {t("today")}
                                 </span>
                               )}
                             </div>
@@ -1093,7 +1097,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                                   >
                                     wb_sunny
                                   </span>
-                                  <span className="text-amber-900 dark:text-amber-100">Ca Sáng</span>
+                                  <span className="text-amber-900 dark:text-amber-100">{t("morning_shift")}</span>
                                 </div>
                               ) : afternoonShift ? (
                                 <div className="h-[38px]" aria-hidden="true" />
@@ -1109,7 +1113,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                                   >
                                     wb_twilight
                                   </span>
-                                  <span className="text-purple-900 dark:text-purple-100">Ca Chiều</span>
+                                  <span className="text-purple-900 dark:text-purple-100">{t("afternoon_shift")}</span>
                                 </div>
                               )}
                             </div>

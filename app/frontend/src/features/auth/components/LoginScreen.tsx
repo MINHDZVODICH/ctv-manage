@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import amstLogo from "../../../assets/logo.png";
 import { validateBirthDateString } from "../../../shared/utils/formatters";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface LoginScreenProps {
   onLoginSuccess: (email: string, password: string) => Promise<void>;
@@ -10,6 +11,7 @@ interface LoginScreenProps {
 type AuthMode = "login" | "register" | "register_success";
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequestRegister }) => {
+  const { t } = useSystemSettings();
   const [mode, setMode] = useState<AuthMode>("login");
 
   // Login form state
@@ -76,7 +78,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
   const handleCccdFrontChange = (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setRegErrors((prev) => ({ ...prev, cccdFront: "Vui lòng chọn file hình ảnh (JPG, PNG, WebP)!" }));
+      setRegErrors((prev) => ({ ...prev, cccdFront: "auth.error_invalid_image" }));
       return;
     }
     setCccdFrontFile(file);
@@ -98,7 +100,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
   const handleCccdBackChange = (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setRegErrors((prev) => ({ ...prev, cccdBack: "Vui lòng chọn file hình ảnh (JPG, PNG, WebP)!" }));
+      setRegErrors((prev) => ({ ...prev, cccdBack: "auth.error_invalid_image" }));
       return;
     }
     setCccdBackFile(file);
@@ -122,7 +124,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     const name = file.name.toLowerCase();
     const isAllowed = name.endsWith(".pdf");
     if (!isAllowed) {
-      setRegErrors((prev) => ({ ...prev, cvFile: "Vui lòng chọn tệp định dạng PDF (.pdf)!" }));
+      setRegErrors((prev) => ({ ...prev, cvFile: "auth.error_invalid_cv" }));
       return;
     }
     setCvFileName(file.name);
@@ -166,8 +168,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     e.preventDefault();
     setLoginError("");
     const fieldErrors: { email?: string; password?: string } = {};
-    if (!loginEmail.trim()) fieldErrors.email = "Vui lòng nhập trường này!";
-    if (!loginPassword) fieldErrors.password = "Vui lòng nhập trường này!";
+    if (!loginEmail.trim()) fieldErrors.email = "auth.field_required";
+    if (!loginPassword) fieldErrors.password = "auth.field_required";
     setLoginFieldErrors(fieldErrors);
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -178,7 +180,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     try {
       await onLoginSuccess(loginEmail, loginPassword);
     } catch (err: any) {
-      setLoginError(err.message || "Đăng nhập thất bại");
+      const msg = err.message || "";
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes("email hoặc mật khẩu không đúng") ||
+        lower.includes("invalid credentials") ||
+        lower.includes("invalid email or password")
+      ) {
+        setLoginError("auth.invalid_credentials");
+      } else if (msg) {
+        setLoginError(msg);
+      } else {
+        setLoginError("auth.login_failed");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -200,28 +214,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     setRegGeneralError("");
     const errors: { [key: string]: string } = {};
 
-    if (!regName.trim()) errors.regName = "Vui lòng nhập họ và tên!";
-    if (!regEmail.trim()) errors.regEmail = "Vui lòng nhập email!";
+    if (!regName.trim()) errors.regName = "auth.error_name_required";
+    if (!regEmail.trim()) errors.regEmail = "auth.error_email_required";
     if (regPhone.trim() && !/^\d{10,11}$/.test(regPhone.trim())) {
-      errors.regPhone = "Số điện thoại phải từ 10 - 11 chữ số!";
+      errors.regPhone = "auth.error_phone_format";
     }
-    if (!cccdFrontFile) errors.cccdFront = "Vui lòng tải ảnh CCCD mặt trước!";
-    if (!cccdBackFile) errors.cccdBack = "Vui lòng tải ảnh CCCD mặt sau!";
+    if (!cccdFrontFile) errors.cccdFront = "auth.error_cccd_front_required";
+    if (!cccdBackFile) errors.cccdBack = "auth.error_cccd_back_required";
     if (!regPassword) {
-      errors.regPassword = "Vui lòng nhập mật khẩu!";
+      errors.regPassword = "auth.error_password_required";
     } else if (regPassword.length < 6) {
-      errors.regPassword = "Mật khẩu phải có ít nhất 6 ký tự!";
+      errors.regPassword = "auth.error_password_min_length";
     }
     if (!regConfirmPassword) {
-      errors.regConfirmPassword = "Vui lòng nhập lại mật khẩu!";
+      errors.regConfirmPassword = "auth.error_confirm_password_required";
     } else if (regPassword && regConfirmPassword && regPassword !== regConfirmPassword) {
-      errors.regConfirmPassword = "Mật khẩu phải trùng khớp!";
+      errors.regConfirmPassword = "auth.error_password_mismatch";
     }
 
     if (regDay && regMonth && regYear) {
       const dobValidation = validateBirthDateString(`${regDay}/${regMonth}/${regYear}`);
       if (!dobValidation.isValid) {
-        errors.regDob = dobValidation.error || "Ngày sinh không hợp lệ!";
+        const errText = dobValidation.error || "";
+        if (errText.includes("tương lai") || errText.includes("future")) {
+          errors.regDob = "auth.error_dob_future";
+        } else if (errText.includes("Định dạng") || errText.includes("format")) {
+          errors.regDob = "auth.error_dob_format";
+        } else {
+          errors.regDob = errText || "auth.error_dob_invalid";
+        }
       }
     }
 
@@ -253,9 +274,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
       }
       setMode("register_success");
     } catch (err: any) {
-      const msg: string = err.message || "Đăng ký thất bại";
+      const msg: string = err.message || "";
       const lower = msg.toLowerCase();
-      if (lower.includes("email")) {
+      if (lower.includes("email already") || lower.includes("email đã")) {
+        setRegErrors({ regEmail: "auth.error_email_exists" });
+      } else if (lower.includes("email")) {
         setRegErrors({ regEmail: msg });
       } else if (lower.includes("mật khẩu") || lower.includes("password")) {
         setRegErrors({ regPassword: msg });
@@ -263,14 +286,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
         setRegErrors({ cccdFront: msg });
       } else if (lower.includes("cv") || lower.includes("pdf")) {
         setRegErrors({ cvFile: msg });
+      } else if (lower.includes("phone already") || lower.includes("số điện thoại đã")) {
+        setRegErrors({ regPhone: "auth.error_phone_exists" });
       } else if (lower.includes("điện thoại") || lower.includes("phone")) {
         setRegErrors({ regPhone: msg });
       } else if (lower.includes("ngày sinh") || lower.includes("birth")) {
         setRegErrors({ regDob: msg });
       } else if (lower.includes("họ và tên") || lower.includes("displayname") || lower.includes("tên")) {
         setRegErrors({ regName: msg });
-      } else {
+      } else if (msg) {
         setRegGeneralError(msg);
+      } else {
+        setRegGeneralError("auth.registration_failed");
       }
     } finally {
       setIsProcessing(false);
@@ -289,15 +316,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
           <div className="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center mb-3">
             <img
               src={amstLogo}
-              alt="Logo Viện Khoa học và Công nghệ Quân sự"
+              alt={t("auth.logo_alt")}
               className="w-full h-full object-contain drop-shadow-xs"
             />
           </div>
           <span className="text-xs sm:text-sm font-bold text-[#1b365d] dark:text-[#93c5fd] uppercase tracking-wider text-center">
-            Viện Khoa học và Công nghệ Quân sự
+            {t("auth.org_name")}
           </span>
           <p className="text-[11px] sm:text-xs text-[#74777f] dark:text-slate-400 text-center mt-0.5 font-medium">
-            Hệ thống Quản lý và Điều phối Lịch trình Cộng tác viên
+            {t("auth.system_subtitle")}
           </p>
         </div>
 
@@ -309,20 +336,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 loginError ? "mb-2" : "mb-6"
               }`}
             >
-              Đăng nhập
+              {t("auth.login_heading")}
             </h1>
             {loginError && (
               <p className="mb-6 text-center text-[11px] font-medium text-[#DC2626]">
-                {loginError}
+                {t(loginError)}
               </p>
             )}
 
             <form onSubmit={handleLoginSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block">Email</label>
+                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block">
+                  {t("auth.email")}
+                </label>
                 <input
                   type="email"
                   value={loginEmail}
+                  placeholder={t("auth.email_placeholder")}
                   onChange={(e) => {
                     setLoginEmail(e.target.value);
                     setLoginFieldErrors((current) => ({ ...current, email: undefined }));
@@ -335,17 +365,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 />
                 {loginFieldErrors.email && (
                   <p className="text-right text-[11px] font-medium text-[#DC2626]">
-                    {loginFieldErrors.email}
+                    {t(loginFieldErrors.email)}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block">Mật khẩu</label>
+                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block">
+                  {t("auth.password")}
+                </label>
                 <div className="relative">
                   <input
                     type={showLoginPassword ? "text" : "password"}
                     value={loginPassword}
+                    placeholder={t("auth.password_placeholder")}
                     onChange={(e) => {
                       setLoginPassword(e.target.value);
                       setLoginFieldErrors((current) => ({ ...current, password: undefined }));
@@ -359,7 +392,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white"
+                    aria-label={showLoginPassword ? t("auth.hide_password") : t("auth.show_password")}
+                    title={showLoginPassword ? t("auth.hide_password") : t("auth.show_password")}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[20px]">
                       {showLoginPassword ? "visibility" : "visibility_off"}
@@ -368,7 +403,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 </div>
                 {loginFieldErrors.password && (
                   <p className="text-right text-[11px] font-medium text-[#DC2626]">
-                    {loginFieldErrors.password}
+                    {t(loginFieldErrors.password)}
                   </p>
                 )}
               </div>
@@ -378,12 +413,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 disabled={isProcessing}
                 className="w-full bg-accent hover:bg-accent-hover text-white font-semibold text-sm py-2 px-4 rounded-lg h-[42px] transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
               >
-                <span>{isProcessing ? "Đang xử lý..." : "Đăng nhập"}</span>
+                <span>{isProcessing ? t("auth.logging_in") : t("auth.login_btn")}</span>
               </button>
 
               <div className="text-center pt-4 border-t border-[#E2E8F0] dark:border-[#2d303a]">
                 <p className="text-xs text-[#44474e] dark:text-slate-400">
-                  Chưa có tài khoản?{" "}
+                  {t("auth.no_account")}{" "}
                   <button
                     type="button"
                     onClick={() => {
@@ -393,7 +428,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     }}
                     className="text-[#002046] dark:text-blue-400 font-bold hover:underline cursor-pointer ml-1"
                   >
-                    Tạo tài khoản mới
+                    {t("auth.create_new_account")}
                   </button>
                 </p>
               </div>
@@ -404,12 +439,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
         {/* MODE: REGISTER */}
         {mode === "register" && (
           <div>
-            <h1 className="text-xl font-bold text-[#002046] dark:text-white text-center mb-5">Đăng ký tài khoản</h1>
+            <h1 className="text-xl font-bold text-[#002046] dark:text-white text-center mb-5">
+              {t("auth.register_heading")}
+            </h1>
 
             {regGeneralError && (
               <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs rounded-xl flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-red-600 dark:text-red-400">error</span>
-                <span>{regGeneralError}</span>
+                <span>{t(regGeneralError)}</span>
               </div>
             )}
 
@@ -417,11 +454,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
               {/* Họ và tên */}
               <div>
                 <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                  Họ và tên <span className="text-[#DC2626]">*</span>
+                  {t("auth.full_name")} <span className="text-[#DC2626]">*</span>
                 </label>
                 <input
                   type="text"
                   value={regName}
+                  placeholder={t("auth.full_name_placeholder")}
                   onFocus={() => clearRegError("regName")}
                   onClick={() => clearRegError("regName")}
                   onChange={(e) => {
@@ -433,13 +471,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   }`}
                 />
                 {regErrors.regName && (
-                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{regErrors.regName}</p>
+                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{t(regErrors.regName)}</p>
                 )}
               </div>
 
               {/* Ngày sinh (3 dropdowns: Ngày, Tháng, Năm) */}
               <div>
-                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">Ngày sinh</label>
+                <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
+                  {t("auth.dob")}
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   <select
                     value={regDay}
@@ -463,7 +503,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         const d = String(i + 1).padStart(2, "0");
                         return (
                           <option key={d} value={d}>
-                            Ngày {d}
+                            {t("auth.day_option", { day: d })}
                           </option>
                         );
                       }
@@ -492,7 +532,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       const m = String(i + 1).padStart(2, "0");
                       return (
                         <option key={m} value={m}>
-                          Tháng {m}
+                          {t("auth.month_option", { month: m })}
                         </option>
                       );
                     })}
@@ -530,7 +570,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </select>
                 </div>
                 {regErrors.regDob && (
-                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{regErrors.regDob}</p>
+                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{t(regErrors.regDob)}</p>
                 )}
               </div>
 
@@ -539,11 +579,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {/* Email */}
                 <div>
                   <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                    Email <span className="text-[#DC2626]">*</span>
+                    {t("auth.email")} <span className="text-[#DC2626]">*</span>
                   </label>
                   <input
                     type="email"
                     value={regEmail}
+                    placeholder={t("auth.email_placeholder")}
                     onFocus={() => clearRegError("regEmail")}
                     onClick={() => clearRegError("regEmail")}
                     onChange={(e) => {
@@ -556,7 +597,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   />
                   {regErrors.regEmail && (
                     <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                      {regErrors.regEmail}
+                      {t(regErrors.regEmail)}
                     </p>
                   )}
                 </div>
@@ -564,11 +605,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {/* Số điện thoại */}
                 <div>
                   <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                    Số điện thoại
+                    {t("auth.phone")}
                   </label>
                   <input
                     type="tel"
                     value={regPhone}
+                    placeholder={t("auth.phone_placeholder")}
                     onFocus={() => clearRegError("regPhone")}
                     onClick={() => clearRegError("regPhone")}
                     onChange={(e) => {
@@ -582,7 +624,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   />
                   {regErrors.regPhone && (
                     <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                      {regErrors.regPhone}
+                      {t(regErrors.regPhone)}
                     </p>
                   )}
                 </div>
@@ -596,10 +638,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       badge
                     </span>
                     <span>
-                      Ảnh CCCD (Mặt trước & Mặt sau) <span className="text-[#DC2626]">*</span>
+                      {t("auth.cccd_section_title")} <span className="text-[#DC2626]">*</span>
                     </span>
                   </label>
-                  <span className="text-[11px] text-[#74777f] dark:text-slate-400">Định dạng JPG, PNG</span>
+                  <span className="text-[11px] text-[#74777f] dark:text-slate-400">{t("auth.cccd_format_hint")}</span>
                 </div>
 
                 {/* Hidden File Inputs for CCCD */}
@@ -632,7 +674,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   {/* CCCD Mặt trước */}
                   <div onClick={() => clearRegError("cccdFront")}>
                     <div className="text-[11px] font-medium text-[#44474e] dark:text-slate-400 mb-1 flex items-center justify-between">
-                      <span>Mặt trước</span>
+                      <span>{t("auth.front_side")}</span>
                       {cccdFront && (
                         <button
                           type="button"
@@ -642,7 +684,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           }}
                           className="text-[11px] text-[#DC2626] hover:underline cursor-pointer"
                         >
-                          Xóa
+                          {t("auth.remove")}
                         </button>
                       )}
                     </div>
@@ -651,17 +693,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden h-28 flex items-center justify-center shadow-2xs">
                         <img
                           src={cccdFront}
-                          alt="CCCD Mặt trước"
+                          alt={t("auth.cccd_front")}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() =>
-                              setPreviewImage({ title: "CCCD Mặt trước", url: cccdFront })
+                              setPreviewImage({ title: t("auth.cccd_front"), url: cccdFront })
                             }
                             className="p-1.5 bg-white/90 hover:bg-white text-[#1b365d] rounded-full shadow-xs cursor-pointer"
-                            title="Phóng to xem ảnh"
+                            title={t("auth.zoom_image")}
+                            aria-label={t("auth.zoom_image")}
                           >
                             <span className="material-symbols-outlined text-[18px]">zoom_in</span>
                           </button>
@@ -669,7 +712,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                             type="button"
                             onClick={() => cccdFrontInputRef.current?.click()}
                             className="p-1.5 bg-white/90 hover:bg-white text-[#1b365d] rounded-full shadow-xs cursor-pointer"
-                            title="Đổi ảnh khác"
+                            title={t("auth.change_image")}
+                            aria-label={t("auth.change_image")}
                           >
                             <span className="material-symbols-outlined text-[18px]">sync</span>
                           </button>
@@ -704,13 +748,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         <span className="material-symbols-outlined text-slate-400 dark:text-blue-400/80 text-[24px] mb-1">
                           add_a_photo
                         </span>
-                        <p className="text-[11px] font-semibold text-[#1b365d] dark:text-blue-300">Tải ảnh lên</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">Kéo thả hoặc nhấn để chọn</p>
+                        <p className="text-[11px] font-semibold text-[#1b365d] dark:text-blue-300">{t("auth.upload_photo")}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">{t("auth.drag_drop_photo_hint")}</p>
                       </div>
                     )}
                     {regErrors.cccdFront && (
                       <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                        {regErrors.cccdFront}
+                        {t(regErrors.cccdFront)}
                       </p>
                     )}
                   </div>
@@ -718,7 +762,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   {/* CCCD Mặt sau */}
                   <div onClick={() => clearRegError("cccdBack")}>
                     <div className="text-[11px] font-medium text-[#44474e] dark:text-slate-400 mb-1 flex items-center justify-between">
-                      <span>Mặt sau</span>
+                      <span>{t("auth.back_side")}</span>
                       {cccdBack && (
                         <button
                           type="button"
@@ -728,7 +772,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           }}
                           className="text-[11px] text-[#DC2626] hover:underline cursor-pointer"
                         >
-                          Xóa
+                          {t("auth.remove")}
                         </button>
                       )}
                     </div>
@@ -737,17 +781,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       <div className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden h-28 flex items-center justify-center shadow-2xs">
                         <img
                           src={cccdBack}
-                          alt="CCCD Mặt sau"
+                          alt={t("auth.cccd_back")}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() =>
-                              setPreviewImage({ title: "CCCD Mặt sau", url: cccdBack })
+                              setPreviewImage({ title: t("auth.cccd_back"), url: cccdBack })
                             }
                             className="p-1.5 bg-white/90 hover:bg-white text-[#1b365d] rounded-full shadow-xs cursor-pointer"
-                            title="Phóng to xem ảnh"
+                            title={t("auth.zoom_image")}
+                            aria-label={t("auth.zoom_image")}
                           >
                             <span className="material-symbols-outlined text-[18px]">zoom_in</span>
                           </button>
@@ -755,7 +800,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                             type="button"
                             onClick={() => cccdBackInputRef.current?.click()}
                             className="p-1.5 bg-white/90 hover:bg-white text-[#1b365d] rounded-full shadow-xs cursor-pointer"
-                            title="Đổi ảnh khác"
+                            title={t("auth.change_image")}
+                            aria-label={t("auth.change_image")}
                           >
                             <span className="material-symbols-outlined text-[18px]">sync</span>
                           </button>
@@ -790,13 +836,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         <span className="material-symbols-outlined text-slate-400 dark:text-blue-400/80 text-[24px] mb-1">
                           add_a_photo
                         </span>
-                        <p className="text-[11px] font-semibold text-[#1b365d] dark:text-blue-300">Tải ảnh lên</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">Kéo thả hoặc nhấn để chọn</p>
+                        <p className="text-[11px] font-semibold text-[#1b365d] dark:text-blue-300">{t("auth.upload_photo")}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">{t("auth.drag_drop_photo_hint")}</p>
                       </div>
                     )}
                     {regErrors.cccdBack && (
                       <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                        {regErrors.cccdBack}
+                        {t(regErrors.cccdBack)}
                       </p>
                     )}
                   </div>
@@ -810,7 +856,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <span className="material-symbols-outlined text-[#1b365d] dark:text-blue-400 text-[18px]">
                       description
                     </span>
-                    <span>Hồ sơ ứng tuyển (CV)</span>
+                    <span>{t("auth.cv")}</span>
                   </label>
                   <span className="text-[11px] text-[#74777f] dark:text-slate-400">.pdf</span>
                 </div>
@@ -852,7 +898,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                         type="button"
                         onClick={() => cvFileInputRef.current?.click()}
                         className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-[#1b365d] dark:hover:text-blue-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                        title="Thay file khác"
+                        title={t("auth.change_file_cv")}
+                        aria-label={t("auth.change_file_cv")}
                       >
                         <span className="material-symbols-outlined text-[18px]">sync</span>
                       </button>
@@ -865,7 +912,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                           setCvFileObj(null);
                         }}
                         className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors cursor-pointer"
-                        title="Xóa file CV"
+                        title={t("auth.remove_file_cv")}
+                        aria-label={t("auth.remove_file_cv")}
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>
@@ -900,15 +948,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       <span className="material-symbols-outlined text-[22px]">upload_file</span>
                     </div>
                     <p className="text-[12px] font-semibold text-[#1b365d] dark:text-blue-300">
-                      Tải file CV lên
+                      {t("auth.upload_cv")}
                     </p>
                     <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">
-                      Kéo thả file vào đây hoặc nhấn để chọn từ thiết bị (.pdf)
+                      {t("auth.drag_drop_cv_hint")}
                     </p>
                   </div>
                 )}
                 {regErrors.cvFile && (
-                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{regErrors.cvFile}</p>
+                  <p className="text-[11px] text-[#DC2626] mt-1 font-medium">{t(regErrors.cvFile)}</p>
                 )}
               </div>
 
@@ -917,12 +965,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {/* Mật khẩu */}
                 <div>
                   <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                    Mật khẩu <span className="text-[#DC2626]">*</span>
+                    {t("auth.password")} <span className="text-[#DC2626]">*</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showRegPassword ? "text" : "password"}
                       value={regPassword}
+                      placeholder={t("auth.password_placeholder")}
                       onFocus={() => clearRegError("regPassword")}
                       onClick={() => clearRegError("regPassword")}
                       onChange={(e) => {
@@ -936,7 +985,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <button
                       type="button"
                       onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white"
+                      aria-label={showRegPassword ? t("auth.hide_password") : t("auth.show_password")}
+                      title={showRegPassword ? t("auth.hide_password") : t("auth.show_password")}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px]">
                         {showRegPassword ? "visibility" : "visibility_off"}
@@ -945,7 +996,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </div>
                   {regErrors.regPassword && (
                     <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                      {regErrors.regPassword}
+                      {t(regErrors.regPassword)}
                     </p>
                   )}
                 </div>
@@ -953,12 +1004,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 {/* Nhập lại mật khẩu */}
                 <div>
                   <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
-                    Nhập lại mật khẩu <span className="text-[#DC2626]">*</span>
+                    {t("auth.confirm_password")} <span className="text-[#DC2626]">*</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showRegConfirmPassword ? "text" : "password"}
                       value={regConfirmPassword}
+                      placeholder={t("auth.confirm_password_placeholder")}
                       onFocus={() => clearRegError("regConfirmPassword")}
                       onClick={() => clearRegError("regConfirmPassword")}
                       onChange={(e) => {
@@ -972,7 +1024,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     <button
                       type="button"
                       onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white"
+                      aria-label={showRegConfirmPassword ? t("auth.hide_password") : t("auth.show_password")}
+                      title={showRegConfirmPassword ? t("auth.hide_password") : t("auth.show_password")}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[#74777f] dark:text-slate-400 hover:text-[#002046] dark:hover:text-white cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px]">
                         {showRegConfirmPassword ? "visibility" : "visibility_off"}
@@ -981,7 +1035,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </div>
                   {regErrors.regConfirmPassword && (
                     <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
-                      {regErrors.regConfirmPassword}
+                      {t(regErrors.regConfirmPassword)}
                     </p>
                   )}
                 </div>
@@ -992,7 +1046,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 disabled={isProcessing}
                 className="w-full bg-accent hover:bg-accent-hover text-white font-semibold text-sm py-2.5 px-4 rounded-lg h-[42px] transition-colors mt-3 cursor-pointer shadow-xs disabled:opacity-50"
               >
-                {isProcessing ? "Đang xử lý..." : "Đăng ký"}
+                {isProcessing ? t("auth.submitting") : t("auth.submit_registration")}
               </button>
 
               <div className="text-center pt-3 border-t border-[#E2E8F0] dark:border-[#2d303a]">
@@ -1001,7 +1055,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   onClick={() => setMode("login")}
                   className="text-[#002046] dark:text-blue-400 text-xs font-bold hover:underline cursor-pointer"
                 >
-                  Đăng nhập
+                  {t("auth.back_to_login")}
                 </button>
               </div>
             </form>
@@ -1011,18 +1065,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
         {/* MODE: REGISTER SUCCESS */}
         {mode === "register_success" && (
           <div className="text-center space-y-4 py-4">
-            <h3 className="text-lg font-bold text-[#1a1b1e] dark:text-white">Gửi yêu cầu đăng ký thành công!</h3>
+            <h3 className="text-lg font-bold text-[#1a1b1e] dark:text-white">
+              {t("auth.reg_success_title")}
+            </h3>
             <p className="text-xs text-[#44474e] dark:text-slate-300 leading-relaxed max-w-sm mx-auto">
-              Hồ sơ ứng tuyển và thông tin của bạn đang được Ban Quản trị xem xét phê duyệt.
+              {t("auth.reg_success_desc")}
             </p>
             <div className="p-3 bg-[#F8FAFC] dark:bg-[#181920] border border-[#E2E8F0] dark:border-[#2d303a] rounded-xl text-xs text-[#74777f] dark:text-slate-400">
-              Tự động chuyển đến trang đăng nhập sau <span className="font-bold text-[#1b365d] dark:text-blue-400">{countdown}</span> giây
+              {t("auth.redirect_countdown_prefix")}
+              <span className="font-bold text-[#1b365d] dark:text-blue-400">{countdown}</span>
+              {t("auth.redirect_countdown_suffix")}
             </div>
             <button
               onClick={() => setMode("login")}
               className="text-xs text-[#1b365d] dark:text-blue-400 font-bold hover:underline cursor-pointer block mx-auto"
             >
-              Chuyển sang trang đăng nhập ngay
+              {t("auth.go_to_login_now")}
             </button>
           </div>
         )}
@@ -1041,6 +1099,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
               <button
                 onClick={() => setPreviewImage(null)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                title={t("auth.close")}
+                aria-label={t("auth.close")}
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -1058,7 +1118,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 onClick={() => setPreviewImage(null)}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                Đóng
+                {t("auth.close")}
               </button>
             </div>
           </div>

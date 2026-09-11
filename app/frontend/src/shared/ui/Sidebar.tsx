@@ -23,7 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   pendingRequestsCount,
   onLogout,
-  userName = "Admin Quản trị",
+  userName = "Admin",
   userRole = "Admin",
   userAvatar,
   userInitials,
@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isCollapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 flex items-center justify-center shrink-0">
-              <img src={amstLogo} alt="Logo AMST" className="w-8 h-8 object-contain drop-shadow-xs" />
+              <img src={amstLogo} alt={t("sidebar.logo_alt")} className="w-8 h-8 object-contain drop-shadow-xs" />
             </div>
             <h1 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff] leading-tight tracking-tight whitespace-nowrap truncate">
               {t("system_name")}
@@ -64,7 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={onToggleCollapse}
-            title={isCollapsed ? "Mở rộng Sidebar" : "Thu gọn Sidebar"}
+            title={isCollapsed ? t("sidebar.expand") : t("sidebar.collapse")}
+            aria-label={isCollapsed ? t("sidebar.expand") : t("sidebar.collapse")}
             className={`p-1.5 text-[#44474e] dark:text-[#c4c6cf] hover:text-[#002046] dark:hover:text-white hover:bg-[#e9e8ec] dark:hover:bg-[#2c2d33] rounded-lg transition-colors cursor-pointer shrink-0 ${
               isCollapsed ? "mx-auto" : ""
             }`}
@@ -78,11 +79,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation Links */}
       <nav className="flex-1 py-3 flex flex-col gap-1.5 px-3 overflow-y-auto overflow-x-hidden">
-        {/* Admin only: Tài khoản */}
+        {/* Admin only: Accounts */}
         {isAdmin && (
           <button
+            type="button"
             onClick={() => onSelectTab("accounts")}
             title={isCollapsed ? t("nav_accounts") : undefined}
+            aria-label={t("nav_accounts")}
             className={`flex items-center ${
               isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-3"
             } rounded-lg text-sm font-semibold transition-all duration-150 text-left w-full cursor-pointer relative ${
@@ -101,11 +104,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* Admin only: Yêu cầu đăng ký */}
+        {/* Admin only: Requests */}
         {isAdmin && (
           <button
+            type="button"
             onClick={() => onSelectTab("requests")}
             title={isCollapsed ? `${t("nav_requests")} (${pendingRequestsCount})` : undefined}
+            aria-label={t("nav_requests")}
             className={`flex items-center ${
               isCollapsed ? "justify-center px-0 py-3" : "justify-between px-3.5 py-3"
             } rounded-lg text-sm font-semibold transition-all duration-150 text-left w-full cursor-pointer relative ${
@@ -141,11 +146,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* CTV only: Lịch làm việc */}
+        {/* CTV only: Schedule */}
         {!isAdmin && (
           <button
+            type="button"
             onClick={() => onSelectTab("schedule")}
-            title={isCollapsed ? t("nav_schedule") : undefined}
+            title={isCollapsed ? t("nav_my_schedule") : undefined}
+            aria-label={t("nav_my_schedule")}
             className={`flex items-center ${
               isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-3"
             } rounded-lg text-sm font-semibold transition-all duration-150 text-left w-full cursor-pointer relative ${
@@ -164,11 +171,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* Admin only: Lịch làm việc tổng hợp */}
+        {/* Admin only: Summary Schedule */}
         {isAdmin && (
           <button
+            type="button"
             onClick={() => onSelectTab("meetings")}
             title={isCollapsed ? t("nav_summary") : undefined}
+            aria-label={t("nav_summary")}
             className={`flex items-center ${
               isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-3"
             } rounded-lg text-sm font-semibold transition-all duration-150 text-left w-full cursor-pointer relative ${
@@ -195,17 +204,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isUserMenuOpen && (
           <>
             {/* Transparent backdrop for outside click */}
-            <div className="fixed inset-0 z-30" onClick={() => setIsUserMenuOpen(false)} />
+            <div className="fixed inset-0 z-30" onClick={() => setIsUserMenuOpen(false)} aria-hidden="true" />
 
             <div
+              role="menu"
+              aria-label={t("sidebar.user_menu")}
               className={`absolute bottom-full mb-2 bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl shadow-xl p-2 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150 ${
                 isCollapsed ? "left-2 w-48" : "left-3 right-3"
               }`}
             >
               {/* Menu Actions */}
               <div className="space-y-1">
-                {/* Hồ sơ */}
+                {/* Profile */}
                 <button
+                  type="button"
+                  role="menuitem"
+                  aria-label={t("topbar.profile")}
                   onClick={() => {
                     onSelectTab("profile");
                     setIsUserMenuOpen(false);
@@ -220,9 +234,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span>{t("nav_profile")}</span>
                 </button>
 
-                {/* Cài đặt */}
+                {/* Settings */}
                 {onOpenSettings && (
                   <button
+                    type="button"
+                    role="menuitem"
+                    aria-label={t("topbar.settings")}
                     onClick={() => {
                       onOpenSettings();
                       setIsUserMenuOpen(false);
@@ -234,8 +251,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 )}
 
-                {/* Đăng xuất */}
+                {/* Logout */}
                 <button
+                  type="button"
+                  role="menuitem"
+                  aria-label={t("topbar.logout")}
                   onClick={() => {
                     onLogout();
                     setIsUserMenuOpen(false);
@@ -252,6 +272,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Card Bar */}
         <button
+          type="button"
+          aria-expanded={isUserMenuOpen}
+          aria-haspopup="menu"
+          aria-label={t("sidebar.user_menu")}
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
           className={`w-full flex items-center ${
             isCollapsed ? "justify-center p-1.5" : "justify-between p-2"
@@ -261,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {userAvatar ? (
               <img
                 src={userAvatar}
-                alt={userName}
+                alt={userName || t("topbar.user_avatar")}
                 className="w-9 h-9 rounded-full object-cover border border-white dark:border-[#3b3d45] shadow-2xs shrink-0"
               />
             ) : (
@@ -282,7 +306,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {userName}
                 </h4>
                 <p className="text-[10px] text-[#74777f] dark:text-[#c4c6cf] truncate">
-                  {userRole}
+                  {userRole === "Admin" ? t("role_admin") : t("role_ctv")}
                 </p>
               </div>
             )}

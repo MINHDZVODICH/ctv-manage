@@ -35,7 +35,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   onRejectRequest,
   onViewRequestDetail,
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startIndex = (page - 1) * pageSize;
 
@@ -44,10 +44,10 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("nav_requests")}</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("requests.title")}</h2>
           <p className="text-sm text-[#44474e] mt-1">
             {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{total}</span>{" "}
-            {language === "Tiếng Anh" ? "requests" : "yêu cầu đăng ký"}
+            {t("requests.items_count")}
           </p>
         </div>
       </div>
@@ -91,7 +91,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  {language === "Tiếng Anh" ? "No." : "STT"}
+                  {t("accounts.no")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
                   {t("full_name")}
@@ -111,7 +111,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
               {loading && requests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {language === "Tiếng Anh" ? "Loading requests..." : "Đang tải danh sách yêu cầu..."}
+                    {t("requests.loading")}
                   </td>
                 </tr>
               ) : error && requests.length === 0 ? (
@@ -121,7 +121,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
               ) : requests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {language === "Tiếng Anh" ? "No registration requests found matching search criteria." : "Không tìm thấy yêu cầu đăng ký phù hợp với điều kiện tìm kiếm."}
+                    {t("requests.empty")}
                   </td>
                 </tr>
               ) : (
@@ -135,7 +135,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                       <div
                         onClick={() => onViewRequestDetail(req)}
                         className="inline-flex items-center gap-3 cursor-pointer group/name transition-colors"
-                        title="Bấm để xem chi tiết hồ sơ đăng ký CTV"
+                        title={t("requests.view_detail_tooltip")}
                       >
                         <div className="w-9 h-9 rounded-full bg-[#aec7f7] text-[#2e476f] flex items-center justify-center font-bold text-xs shrink-0 group-hover/name:ring-2 group-hover/name:ring-[#1b365d]/20">
                           {req.initials || req.name.substring(0, 2).toUpperCase()}
@@ -160,7 +160,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                             <button
                               onClick={() => onApproveRequest(req.id)}
                               className="p-1.5 text-[#16A34A] hover:bg-[#c7ecc7] rounded transition-colors cursor-pointer"
-                              title="Duyệt hồ sơ"
+                              title={t("requests.approve_tooltip")}
+                              aria-label={t("requests.approve")}
                             >
                               <span className="material-symbols-outlined text-[20px]">
                                 check_circle
@@ -169,7 +170,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                             <button
                               onClick={() => onRejectRequest(req.id)}
                               className="p-1.5 text-[#DC2626] hover:bg-[#ffdad6] rounded transition-colors cursor-pointer"
-                              title="Từ chối và loại bỏ hồ sơ"
+                              title={t("requests.reject_tooltip")}
+                              aria-label={t("requests.reject")}
                             >
                               <span className="material-symbols-outlined text-[20px]">cancel</span>
                             </button>

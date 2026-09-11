@@ -13,7 +13,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,15 +28,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!oldPassword) {
-      setErrorMsg(language === "Tiếng Anh" ? "Please enter current password" : "Vui lòng nhập mật khẩu hiện tại");
+      setErrorMsg(t("profile.enter_current_password"));
       return;
     }
     if (newPassword.length < 8) {
-      setErrorMsg(language === "Tiếng Anh" ? "New password must be at least 8 characters" : "Mật khẩu mới phải có ít nhất 8 ký tự");
+      setErrorMsg(t("profile.password_hint"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg(language === "Tiếng Anh" ? "Password confirmation does not match" : "Mật khẩu xác nhận không khớp");
+      setErrorMsg(t("profile.password_mismatch"));
       return;
     }
     setErrorMsg('');
@@ -54,13 +54,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.includes('Current password is incorrect') || msg.includes('INVALID_PASSWORD') || msg.includes('không chính xác')) {
-        setErrorMsg(language === "Tiếng Anh" ? "Current password is incorrect" : "Mật khẩu hiện tại không chính xác");
+        setErrorMsg(t("profile.current_password_incorrect"));
       } else if (msg.includes('Account not found') || msg.includes('NOT_FOUND')) {
-        setErrorMsg(language === "Tiếng Anh" ? "Account not found" : "Không tìm thấy tài khoản");
+        setErrorMsg(t("profile.account_not_found"));
       } else if (msg.includes('Validation failed') || msg.includes('VALIDATION_ERROR')) {
-        setErrorMsg(language === "Tiếng Anh" ? "Invalid input data" : "Dữ liệu nhập không hợp lệ");
+        setErrorMsg(t("profile.invalid_input"));
       } else {
-        setErrorMsg(msg || (language === "Tiếng Anh" ? "Failed to change password, please try again" : "Đổi mật khẩu thất bại, vui lòng thử lại"));
+        setErrorMsg(msg || t("profile.password_change_failed"));
       }
     } finally {
       setIsSubmitting(false);

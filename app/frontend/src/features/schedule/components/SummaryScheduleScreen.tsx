@@ -8,6 +8,7 @@ import { formatRoomLabel } from "../../../shared/utils/rooms";
 import { summaryToSlots, historyToSlots, ApiSummaryCell } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
 import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
+import { formatDateLocale } from "../../../shared/i18n";
 
 interface SummaryScheduleScreenProps {
   shifts: ShiftSlot[];
@@ -21,13 +22,29 @@ type SummaryView = "week" | "history";
 
 const APP_TIME_ZONE = "Asia/Bangkok";
 
-const WEEKDAYS = [
-  { index: 0, label: "Thứ 2" },
-  { index: 1, label: "Thứ 3" },
-  { index: 2, label: "Thứ 4" },
-  { index: 3, label: "Thứ 5" },
-  { index: 4, label: "Thứ 6" },
+const WEEKDAY_KEYS = [
+  "schedule.monday",
+  "schedule.tuesday",
+  "schedule.wednesday",
+  "schedule.thursday",
+  "schedule.friday",
+  "schedule.saturday",
+  "schedule.sunday",
 ] as const;
+
+const WEEKDAYS = [
+  { index: 0, i18nKey: "schedule.monday" },
+  { index: 1, i18nKey: "schedule.tuesday" },
+  { index: 2, i18nKey: "schedule.wednesday" },
+  { index: 3, i18nKey: "schedule.thursday" },
+  { index: 4, i18nKey: "schedule.friday" },
+] as const;
+
+const formatRoomDisplay = (roomStr: string, t: (key: string) => string): string => {
+  if (!roomStr || roomStr === "Chưa cập nhật") return t("not_updated");
+  if (roomStr === "Chưa gán buồng") return t("schedule.room_unassigned");
+  return roomStr.replace(/Buồng/g, t("schedule.room_prefix"));
+};
 
 const startOfDay = (date: Date) => {
   const result = new Date(date);
@@ -202,13 +219,11 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const [selectedShiftDetail, setSelectedShiftDetail] = useState<{
     dayName: string;
     dateFormatted: string;
-    shiftName: "Ca Sáng" | "Ca Chiều";
+    shiftType: "morning" | "afternoon";
     shiftTimeLabel: string;
     ctvList: Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }>;
   } | null>(null);
 
-  const currentWeekStart = startOfWeek(calendarDate);
-  const currentWeekDates = WEEKDAYS.map((day) => addDays(currentWeekStart, day.index));
   const getAssignedCTVs = (workDate: string, type: "morning" | "afternoon") =>
     getAssignedCTVsForDate(historyShifts, workDate, type);
 
@@ -234,7 +249,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     );
     if (!cell || !cell.shiftAssignments) return [];
     return cell.shiftAssignments.map((a) => {
-      const roomFormatted = formatRoomLabel(a.roomCode) || "Chưa cập nhật";
+      const roomFormatted = formatRoomLabel(a.roomCode) || "";
       return {
         id: a.accountId,
         name: a.displayName,
@@ -243,7 +258,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
         phone: a.phone ?? undefined,
         room: roomFormatted,
         roomDisplay: roomFormatted,
-        taskDisplay: "Chưa cập nhật",
+        taskDisplay: "",
         status: "Đã duyệt" as const,
       };
     });
@@ -273,19 +288,22 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   // ---- today CTV list (shared card) ----
   const getTodayCTVList = () => {
     const dow = (today.getDay() + 6) % 7;
-    const dayNamesList = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
-    const dayNameStr = dayNamesList[dow] || "Thứ 2";
-    const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`;
-    const dayLabel = `${dayNameStr} - ${dateStr}`;
+    const dayNameStr = t(WEEKDAY_KEYS[dow] || "schedule.monday");
+    const dateFormatted = formatDateLocale(today, language, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    const dayLabel = `${dayNameStr} - ${dateFormatted}`;
     const isWeekday = dow >= 0 && dow <= 4;
     const morningList = isWeekday ? getWeeklySummaryCTVs(dow, "morning") : [];
     const afternoonList = isWeekday ? getWeeklySummaryCTVs(dow, "afternoon") : [];
-    type Item = { ctv: AssignedCTV; shifts: ("Ca Sáng" | "Ca Chiều")[] };
+    type Item = { ctv: AssignedCTV; shifts: ("morning" | "afternoon")[] };
     const map = new Map<string, Item>();
-    morningList.forEach((ctv) => map.set(ctv.id, { ctv, shifts: ["Ca Sáng"] }));
+    morningList.forEach((ctv) => map.set(ctv.id, { ctv, shifts: ["morning"] }));
     afternoonList.forEach((ctv) => {
-      if (map.has(ctv.id)) map.get(ctv.id)!.shifts.push("Ca Chiều");
-      else map.set(ctv.id, { ctv, shifts: ["Ca Chiều"] });
+      if (map.has(ctv.id)) map.get(ctv.id)!.shifts.push("afternoon");
+      else map.set(ctv.id, { ctv, shifts: ["afternoon"] });
     });
     return {
       dayLabel,
@@ -301,47 +319,52 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   };
 
   const handleOpenWeekdayShiftDetail = (
-    dayName: string,
-    shiftName: "Ca Sáng" | "Ca Chiều",
+    dayIndex: number,
+    shiftType: "morning" | "afternoon",
     ctvList: Array<AssignedCTV & { roomDisplay: string; taskDisplay: string }>,
   ) => {
     setSelectedShiftDetail({
-      dayName,
-      dateFormatted: "Lịch tuần",
-      shiftName,
-      shiftTimeLabel: shiftName === "Ca Sáng" ? "08:00 - 12:00" : "13:30 - 17:30",
+      dayName: t(WEEKDAYS[dayIndex]?.i18nKey || "schedule.monday"),
+      dateFormatted: t("schedule.weekly_schedule_label"),
+      shiftType,
+      shiftTimeLabel: shiftType === "morning" ? "08:00 - 12:00" : "13:30 - 17:30",
       ctvList,
     });
   };
 
   const handleOpenShiftDetail = (
-    dayName: string,
+    dayIndex: number,
     dateFormatted: string,
-    shiftName: "Ca Sáng" | "Ca Chiều",
+    shiftType: "morning" | "afternoon",
     workDate: string,
   ) => {
-    const raw = getAssignedCTVs(workDate, shiftName === "Ca Sáng" ? "morning" : "afternoon");
+    const raw = getAssignedCTVs(workDate, shiftType);
     const enriched = raw.map((ctv) => ({
       ...ctv,
-      roomDisplay: formatRoomLabel(ctv.room) || "Chưa cập nhật",
-      taskDisplay: ctv.taskContent || "Chưa cập nhật",
+      roomDisplay: formatRoomLabel(ctv.room) || "",
+      taskDisplay: ctv.taskContent || "",
     }));
     setSelectedShiftDetail({
-      dayName,
+      dayName: t(WEEKDAYS[dayIndex]?.i18nKey || "schedule.monday"),
       dateFormatted,
-      shiftName,
-      shiftTimeLabel: shiftName === "Ca Sáng" ? "08:00 - 12:00" : "13:30 - 17:30",
+      shiftType,
+      shiftTimeLabel: shiftType === "morning" ? "08:00 - 12:00" : "13:30 - 17:30",
       ctvList: enriched,
     });
+  };
+
+  const formatMonthLabel = (date: Date) => {
+    const formatted = formatDateLocale(date, language, { month: "long", year: "numeric" });
+    return formatted ? formatted.charAt(0).toUpperCase() + formatted.slice(1) : "";
   };
 
   return (
     <div className="space-y-5 pb-8 animate-in fade-in duration-200">
       <h2 className="text-2xl font-bold text-[#1a1b1e] dark:text-slate-100 tracking-tight">
-        {t("summary_schedule_title")}
+        {t("schedule.summary_title")}
       </h2>
 
-      {/* Card: Danh sách CTV đăng ký hôm nay */}
+      {/* Card: Today contributor list */}
       <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
@@ -350,7 +373,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                <span>{t("today_ctv_list")}</span>
+                <span>{t("schedule.today_list")}</span>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-accent/10 text-accent dark:bg-accent/20 dark:text-blue-200 font-bold">
                   {todayData.dayLabel}
                 </span>
@@ -358,14 +381,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             </div>
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            {t("total_label")} <strong className="text-slate-800 dark:text-slate-200">{todayData.list.length}</strong> {t("ctv_unit")}
+            {t("schedule.total")} <strong className="text-slate-800 dark:text-slate-200">{todayData.list.length}</strong> {t("schedule.ctv_unit")}
           </span>
         </div>
 
         {todayData.list.length === 0 ? (
           <div className="text-center py-8 text-slate-400 dark:text-slate-500">
             <span className="material-symbols-outlined text-[36px] block mb-1 opacity-50">person_off</span>
-            <p className="text-sm font-medium">{t("no_ctv_today")}</p>
+            <p className="text-sm font-medium">{t("schedule.no_today")}</p>
           </div>
         ) : (
           <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
@@ -374,21 +397,21 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <th className="py-3.5 px-4 w-[160px] text-center border-r border-slate-200 dark:border-slate-800">
-                      {language === "Tiếng Anh" ? "Shift" : "Ca làm việc"}
+                      {t("schedule.shift_work")}
                     </th>
                     <th className="py-3.5 px-4 min-w-[200px]">
-                      {language === "Tiếng Anh" ? "Collaborator" : "Cộng tác viên"}
+                      {t("schedule.collaborator")}
                     </th>
                     <th className="py-3.5 px-4 min-w-[150px]">
-                      {language === "Tiếng Anh" ? "Phone Number" : "Số điện thoại"}
+                      {t("schedule.phone_number")}
                     </th>
                     <th className="py-3.5 px-4 min-w-[150px]">
-                      {language === "Tiếng Anh" ? "Assigned Room" : "Buồng làm việc"}
+                      {t("schedule.assigned_room")}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="text-xs">
-                  {/* --- Ca Sáng --- */}
+                  {/* --- Morning Shift --- */}
                   {todayData.morningList.length === 0 ? (
                     <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
                       <td
@@ -397,14 +420,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                       >
                         <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
                           <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
-                          <span>{language === "Tiếng Anh" ? "Morning" : "Sáng"}</span>
+                          <span>{t("schedule.morning")}</span>
                         </div>
                       </td>
                       <td
                         colSpan={3}
                         className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 italic text-xs"
                       >
-                        {language === "Tiếng Anh" ? "No collaborators registered for morning shift" : "Chưa có CTV đăng ký ca sáng"}
+                        {t("schedule.no_morning")}
                       </td>
                     </tr>
                   ) : (
@@ -422,7 +445,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             >
                               <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
                                 <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
-                                <span>{language === "Tiếng Anh" ? "Morning" : "Sáng"}</span>
+                                <span>{t("schedule.morning")}</span>
                               </div>
                             </td>
                           )}
@@ -430,7 +453,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             <div
                               onClick={() => handleCTVClick(ctv)}
                               className="inline-flex items-center gap-3 cursor-pointer group"
-                              title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                              title={t("schedule.click_to_view_detail")}
                             >
                               {ctv.avatar ? (
                                 <img
@@ -457,7 +480,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                           <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
                             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
                               <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
-                              <span>{ctv.roomDisplay || "Chưa cập nhật"}</span>
+                              <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
                             </div>
                           </td>
                         </tr>
@@ -465,7 +488,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                     })
                   )}
 
-                  {/* --- Ca Chiều --- */}
+                  {/* --- Afternoon Shift --- */}
                   {todayData.afternoonList.length === 0 ? (
                     <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
                       <td
@@ -474,14 +497,14 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                       >
                         <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
                           <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
-                          <span>{language === "Tiếng Anh" ? "Afternoon" : "Chiều"}</span>
+                          <span>{t("schedule.afternoon")}</span>
                         </div>
                       </td>
                       <td
                         colSpan={3}
                         className="py-4 px-4 text-slate-400 dark:text-slate-500 italic text-xs"
                       >
-                        {language === "Tiếng Anh" ? "No collaborators registered for afternoon shift" : "Chưa có CTV đăng ký ca chiều"}
+                        {t("schedule.no_afternoon")}
                       </td>
                     </tr>
                   ) : (
@@ -499,7 +522,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             >
                               <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
                                 <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
-                                <span>{language === "Tiếng Anh" ? "Afternoon" : "Chiều"}</span>
+                                <span>{t("schedule.afternoon")}</span>
                               </div>
                             </td>
                           )}
@@ -507,7 +530,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             <div
                               onClick={() => handleCTVClick(ctv)}
                               className="inline-flex items-center gap-3 cursor-pointer group"
-                              title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                              title={t("schedule.click_to_view_detail")}
                             >
                               {ctv.avatar ? (
                                 <img
@@ -534,7 +557,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                           <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
                             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
                               <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
-                              <span>{ctv.roomDisplay || "Chưa cập nhật"}</span>
+                              <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
                             </div>
                           </td>
                         </tr>
@@ -548,20 +571,20 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
         )}
       </div>
 
-      {/* Main card: tabs + week/history - mirrors CTVScheduleWorkspace outer section */}
+      {/* Main card: tabs + week/history */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#25262b]">
-        {/* Tabs bar - same layout as CTV */}
+        {/* Tabs bar */}
         <div className="flex flex-row items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/35">
-          <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" role="group" aria-label={t("nav_summary")}>
+          <div className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" role="group" aria-label={t("schedule.summary_title")}>
             {(["week", "history"] as SummaryView[]).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
                 aria-pressed={view === v}
-                className={`min-h-11 rounded-lg px-4 text-xs font-bold transition-colors duration-200 ${view === v ? "bg-accent text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}
+                className={`min-h-11 rounded-lg px-4 text-xs font-bold transition-colors duration-200 cursor-pointer ${view === v ? "bg-accent text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}
               >
-                {v === "week" ? t("tab_weekly_summary") : t("tab_history_summary")}
+                {v === "week" ? t("schedule.tab_weekly") : t("schedule.tab_history")}
               </button>
             ))}
           </div>
@@ -572,7 +595,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_weekly_summary")}</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("schedule.tab_weekly")}</h3>
               </div>
               {isLoadingWeekly && (
                 <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
@@ -588,7 +611,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 <div className="grid grid-cols-5 gap-3">
                   {WEEKDAYS.map((wd) => {
                     const isToday = ((today.getDay() + 6) % 7) === wd.index;
-                    const dayLabel = language === "Tiếng Anh" ? ["Mon", "Tue", "Wed", "Thu", "Fri"][wd.index] : wd.label;
+                    const dayLabel = t(wd.i18nKey);
                     return (
                       <div
                         key={wd.index}
@@ -625,15 +648,15 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                           {morningCTVs.length > 0 ? (
                             <button
                               type="button"
-                              onClick={() => handleOpenWeekdayShiftDetail(wd.label, "Ca Sáng", morningCTVs)}
+                              onClick={() => handleOpenWeekdayShiftDetail(wd.index, "morning", morningCTVs)}
                               className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group"
-                              title="Bấm xem danh sách CTV ca sáng"
+                              title={t("schedule.view_morning_ctvs")}
                             >
                               <span className="flex items-center text-amber-800 dark:text-amber-300">
                                 <span className="material-symbols-outlined text-[18px]">wb_sunny</span>
                               </span>
                               <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">
-                                {morningCTVs.length} CTV
+                                {morningCTVs.length} {t("schedule.ctv_short")}
                               </span>
                             </button>
                           ) : afternoonCTVs.length > 0 ? (
@@ -643,15 +666,15 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                           {afternoonCTVs.length > 0 ? (
                             <button
                               type="button"
-                              onClick={() => handleOpenWeekdayShiftDetail(wd.label, "Ca Chiều", afternoonCTVs)}
+                              onClick={() => handleOpenWeekdayShiftDetail(wd.index, "afternoon", afternoonCTVs)}
                               className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group"
-                              title="Bấm xem danh sách CTV ca chiều"
+                              title={t("schedule.view_afternoon_ctvs")}
                             >
                               <span className="flex items-center text-purple-800 dark:text-purple-300">
                                 <span className="material-symbols-outlined text-[18px]">wb_twilight</span>
                               </span>
                               <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">
-                                {afternoonCTVs.length} CTV
+                                {afternoonCTVs.length} {t("schedule.ctv_short")}
                               </span>
                             </button>
                           ) : morningCTVs.length > 0 ? (
@@ -676,7 +699,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             <div className="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[22px] text-accent" aria-hidden="true">calendar_month</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("tab_history_summary")}</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("schedule.tab_history")}</h3>
               </div>
               {isLoadingMonth && (
                 <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-accent animate-pulse" role="status" aria-live="polite">
@@ -684,12 +707,12 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                   <span>{t("updating")}</span>
                 </div>
               )}
-              <div className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" aria-label="Chuyển tháng">
-                <button type="button" onClick={() => changeMonth(-1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng trước">
+              <div className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900" role="group" aria-label={t("month_navigation")}>
+                <button type="button" onClick={() => changeMonth(-1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer" aria-label={t("previous_month")}>
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
                 </button>
-                <span className="min-w-[112px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100" aria-live="polite">{t("month")} {monthStart.getMonth() + 1}, {monthStart.getFullYear()}</span>
-                <button type="button" onClick={() => changeMonth(1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Xem tháng sau">
+                <span className="min-w-[112px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100" aria-live="polite">{formatMonthLabel(monthStart)}</span>
+                <button type="button" onClick={() => changeMonth(1)} className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer" aria-label={t("next_month")}>
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span>
                 </button>
               </div>
@@ -713,7 +736,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 <div className="grid grid-cols-5 gap-3">
                   {WEEKDAYS.map((d) => (
                     <div key={d.index} className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      {language === "Tiếng Anh" ? ["Mon", "Tue", "Wed", "Thu", "Fri"][d.index] : d.label}
+                      {t(d.i18nKey)}
                     </div>
                   ))}
                 </div>
@@ -724,8 +747,11 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         if (!date) return <div key={di} className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 opacity-40 dark:border-slate-800/60 dark:bg-[#1f2023]/30" aria-hidden="true" />;
                         const dateISO = toISODate(date);
                         const isToday = dateISO === todayISO;
-                        const dateFormatted = `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-                        const dayName = WEEKDAYS[di]?.label ?? `Thứ ${di + 2}`;
+                        const dateFormatted = formatDateLocale(date, language, {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        });
                         const morningCTVs = getAssignedCTVs(dateISO, "morning");
                         const afternoonCTVs = getAssignedCTVs(dateISO, "afternoon");
 
@@ -739,15 +765,15 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                             </div>
                             <div className="space-y-1.5 min-h-[58px] flex flex-col justify-start">
                               {morningCTVs.length > 0 ? (
-                                <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Sáng", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca sáng">
+                                <button type="button" onClick={() => handleOpenShiftDetail(di, dateFormatted, "morning", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/80 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title={t("schedule.view_morning_ctvs")}>
                                   <span className="flex items-center text-amber-800 dark:text-amber-300"><span className="material-symbols-outlined text-[16px]">wb_sunny</span></span>
-                                  <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{morningCTVs.length} CTV</span>
+                                  <span className="text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{morningCTVs.length} {t("schedule.ctv_short")}</span>
                                 </button>
                               ) : afternoonCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
                               {afternoonCTVs.length > 0 ? (
-                                <button type="button" onClick={() => handleOpenShiftDetail(dayName, dateFormatted, "Ca Chiều", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title="Bấm xem danh sách CTV ca chiều">
+                                <button type="button" onClick={() => handleOpenShiftDetail(di, dateFormatted, "afternoon", dateISO)} className="w-full px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950/80 border border-purple-200/80 dark:border-purple-900/40 flex items-center justify-between text-left transition-all cursor-pointer group" title={t("schedule.view_afternoon_ctvs")}>
                                   <span className="flex items-center text-purple-800 dark:text-purple-300"><span className="material-symbols-outlined text-[16px]">wb_twilight</span></span>
-                                  <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{afternoonCTVs.length} CTV</span>
+                                  <span className="text-[10px] font-bold bg-purple-200/80 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded group-hover:scale-105 transition-transform">{afternoonCTVs.length} {t("schedule.ctv_short")}</span>
                                 </button>
                               ) : morningCTVs.length > 0 ? <div className="h-[32px]" aria-hidden="true" /> : null}
                               {morningCTVs.length === 0 && afternoonCTVs.length === 0 && <div className="flex-1 flex items-center justify-center py-2"><span className="text-[11px] text-slate-400">—</span></div>}
@@ -764,7 +790,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
         )}
       </section>
 
-      {/* Modal Chi tiết ca */}
+      {/* Modal Shift Details */}
       {selectedShiftDetail && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-[#25262b] rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
@@ -772,25 +798,25 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
                   <span className="material-symbols-outlined text-[18px]">event_note</span>
-                  <span>CHI TIẾT CA LÀM VIỆC</span>
+                  <span>{t("schedule.shift_detail_title")}</span>
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {selectedShiftDetail.shiftName} - {selectedShiftDetail.dayName} ({selectedShiftDetail.dateFormatted})
+                  {selectedShiftDetail.shiftType === "morning" ? t("schedule.morning_shift") : t("schedule.afternoon_shift")} - {selectedShiftDetail.dayName} ({selectedShiftDetail.dateFormatted})
                 </h3>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {t("total_label")}{" "}
+                  {t("schedule.total")}{" "}
                   <strong className="text-slate-800 dark:text-slate-200">
                     {selectedShiftDetail.ctvList.length}
                   </strong>{" "}
-                  {t("ctv_unit")}
+                  {t("schedule.ctv_unit")}
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedShiftDetail(null)}
                   className="w-9 h-9 rounded-full bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
-                  title={language === "Tiếng Anh" ? "Close" : "Đóng"}
+                  title={t("close")}
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -800,7 +826,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
               {selectedShiftDetail.ctvList.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 space-y-2">
                   <span className="material-symbols-outlined text-[44px] block opacity-40">group_off</span>
-                  <p className="text-sm font-semibold">Chưa có CTV nào đăng ký ca làm việc này</p>
+                  <p className="text-sm font-semibold">{t("schedule.no_ctv_registered_shift")}</p>
                 </div>
               ) : (
                 <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
@@ -808,9 +834,9 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          <th className="py-3.5 px-4">Họ tên CTV</th>
-                          <th className="py-3.5 px-4">Số điện thoại</th>
-                          <th className="py-3.5 px-4">Buồng làm việc</th>
+                          <th className="py-3.5 px-4">{t("schedule.ctv_name")}</th>
+                          <th className="py-3.5 px-4">{t("schedule.phone_number")}</th>
+                          <th className="py-3.5 px-4">{t("schedule.assigned_room")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -823,7 +849,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                                   setSelectedShiftDetail(null);
                                 }}
                                 className="inline-flex items-center gap-3 cursor-pointer group"
-                                title={language === "Tiếng Anh" ? "Click to view account details" : "Bấm xem chi tiết thông tin CTV"}
+                                title={t("schedule.click_to_view_detail")}
                               >
                                 {ctv.avatar ? (
                                   <img
@@ -847,7 +873,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                                 <span>{ctv.phone || "—"}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4"><span className="px-3 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-block text-[11px]">{ctv.roomDisplay}</span></td>
+                            <td className="py-3.5 px-4"><span className="px-3 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-block text-[11px]">{formatRoomDisplay(ctv.roomDisplay, t)}</span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -857,7 +883,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
               )}
             </div>
             <div className="p-4 bg-slate-50 dark:bg-[#1f2023] border-t border-slate-200 dark:border-slate-800 flex justify-end shrink-0">
-              <button type="button" onClick={() => setSelectedShiftDetail(null)} className="px-5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer">Đóng</button>
+              <button type="button" onClick={() => setSelectedShiftDetail(null)} className="px-5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer">{t("close")}</button>
             </div>
           </div>
         </div>

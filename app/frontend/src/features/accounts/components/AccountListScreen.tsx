@@ -40,7 +40,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
   onViewAccountDetail,
   onResetPassword,
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
 
   // Confirm Modals state
   const [accountToToggle, setAccountToToggle] = useState<UserAccount | null>(null);
@@ -55,7 +55,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("nav_accounts")}</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("accounts.title")}</h2>
           <p className="text-sm text-[#44474e] mt-1">
             {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{total}</span> {t("ctv_unit")}
           </p>
@@ -101,7 +101,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  {language === "Tiếng Anh" ? "No." : "STT"}
+                  {t("accounts.no")}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
                   {t("full_name")}
@@ -121,7 +121,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               {loading && accounts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {language === "Tiếng Anh" ? "Loading accounts..." : "Đang tải danh sách tài khoản..."}
+                    {t("accounts.loading")}
                   </td>
                 </tr>
               ) : error && accounts.length === 0 ? (
@@ -131,7 +131,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               ) : accounts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {language === "Tiếng Anh" ? "No accounts found matching search criteria." : "Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm."}
+                    {t("accounts.empty")}
                   </td>
                 </tr>
               ) : (
@@ -145,7 +145,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                       <div
                         onClick={() => onViewAccountDetail(acc)}
                         className="flex items-center gap-3 cursor-pointer group/user inline-flex"
-                        title={`Xem hồ sơ chi tiết của ${acc.name}`}
+                        title={t("accounts.view_profile_title", { name: acc.name })}
                       >
                         {acc.avatar ? (
                           <img
@@ -175,7 +175,8 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                           <button
                             onClick={() => setAccountToResetPassword(acc)}
                             className="p-1.5 text-[#44474e] hover:text-[#1b365d] hover:bg-[#d8e2f9] rounded transition-colors cursor-pointer"
-                            title="Đặt lại mật khẩu mặc định (Quên MK)"
+                            title={t("accounts.reset_password_tooltip")}
+                            aria-label={t("accounts.reset_password")}
                           >
                             <span className="material-symbols-outlined text-[20px]">lock_reset</span>
                           </button>
@@ -188,8 +189,13 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                             }`}
                             title={
                               acc.status === "Kích hoạt"
-                                ? "Vô hiệu hóa tài khoản"
-                                : "Kích hoạt tài khoản"
+                                ? t("accounts.disable_tooltip")
+                                : t("accounts.enable_tooltip")
+                            }
+                            aria-label={
+                              acc.status === "Kích hoạt"
+                                ? t("accounts.disable")
+                                : t("accounts.enable")
                             }
                           >
                             <span className="material-symbols-outlined text-[20px]">
@@ -199,7 +205,8 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                           <button
                             onClick={() => setAccountToDelete(acc)}
                             className="p-1.5 text-[#44474e] hover:text-[#DC2626] hover:bg-[#ffdad6] rounded transition-colors cursor-pointer"
-                            title="Xóa tài khoản"
+                            title={t("accounts.delete_tooltip")}
+                            aria-label={t("accounts.delete")}
                           >
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
@@ -234,14 +241,14 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             <div className="text-center">
               <h3 className="text-base font-bold text-[#1a1b1e]">
                 {accountToToggle.status === "Kích hoạt"
-                  ? "Vô hiệu hóa tài khoản?"
-                  : "Kích hoạt tài khoản?"}
+                  ? t("accounts.disable_confirm_question")
+                  : t("accounts.enable_confirm_question")}
               </h3>
               <p className="text-xs text-[#44474e] mt-2">
-                Họ và tên:{" "}
+                {t("accounts.name")}:{" "}
                 <span className="font-semibold text-[#1a1b1e]">{accountToToggle.name}</span>
                 <br />
-                Email: <span className="font-semibold text-[#1a1b1e]">{accountToToggle.email}</span>
+                {t("accounts.email")}: <span className="font-semibold text-[#1a1b1e]">{accountToToggle.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -249,7 +256,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 onClick={() => setAccountToToggle(null)}
                 className="px-4 py-2 text-xs font-semibold text-[#44474e] hover:bg-gray-100 rounded transition-colors cursor-pointer"
               >
-                Hủy
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
@@ -262,7 +269,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                     : "bg-[#16A34A] hover:bg-[#15803d]"
                 }`}
               >
-                {accountToToggle.status === "Kích hoạt" ? "Vô hiệu hóa" : "Kích hoạt"}
+                {accountToToggle.status === "Kích hoạt" ? t("accounts.disable") : t("accounts.enable")}
               </button>
             </div>
           </div>
@@ -277,15 +284,15 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               <span className="material-symbols-outlined text-2xl">error</span>
             </div>
             <div className="text-center">
-              <h3 className="text-base font-bold text-[#1a1b1e]">Xóa tài khoản?</h3>
+              <h3 className="text-base font-bold text-[#1a1b1e]">{t("accounts.delete_confirm_question")}</h3>
               <p className="text-xs text-[#DC2626] font-semibold mt-1">
-                Thao tác này không thể hoàn tác
+                {t("accounts.cannot_undo")}
               </p>
               <p className="text-xs text-[#44474e] mt-2">
-                Họ và tên:{" "}
+                {t("accounts.name")}:{" "}
                 <span className="font-semibold text-[#1a1b1e]">{accountToDelete.name}</span>
                 <br />
-                Email: <span className="font-semibold text-[#1a1b1e]">{accountToDelete.email}</span>
+                {t("accounts.email")}: <span className="font-semibold text-[#1a1b1e]">{accountToDelete.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -293,7 +300,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 onClick={() => setAccountToDelete(null)}
                 className="px-4 py-2 text-xs font-semibold text-[#44474e] hover:bg-gray-100 rounded transition-colors cursor-pointer"
               >
-                Hủy
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
@@ -302,7 +309,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 }}
                 className="px-4 py-2 text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#b91c1c] rounded transition-colors cursor-pointer"
               >
-                Xóa tài khoản
+                {t("accounts.delete")}
               </button>
             </div>
           </div>

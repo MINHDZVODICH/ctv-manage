@@ -30,7 +30,7 @@ export function useWorkHistory(initialMonth?: string, accountId?: string) {
       setCells(rawCells);
       return { entries: rawEntries, cells: rawCells };
     } catch (err: any) {
-      setError(err?.message || 'Không thể tải lịch sử làm việc');
+      setError(err?.message || 'Failed to load work history');
       setEntries([]);
       setCells([]);
       return { entries: [], cells: [] };

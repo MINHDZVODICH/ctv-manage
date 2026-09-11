@@ -56,7 +56,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone);
   
@@ -113,7 +113,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c] shrink-0">
           <h3 className="text-base font-bold text-[#1a1b1e] dark:text-slate-100">
-            {language === "Tiếng Anh" ? "Edit Personal Information" : "Chỉnh sửa thông tin cá nhân"}
+            {t("profile.edit_title")}
           </h3>
           <button
             type="button"
@@ -153,7 +153,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 autoComplete="tel"
                 minLength={6}
                 pattern="[0-9]{6,15}"
-                title={language === "Tiếng Anh" ? "Phone number must be between 6 and 15 digits" : "Số điện thoại chỉ gồm từ 6 đến 15 chữ số"}
+                title={t("profile.phone_hint")}
                 value={phone}
                 onChange={(e) => setPhone(onlyDigits(e.target.value, 15))}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
@@ -170,7 +170,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <select
                     value={dobDay}
                     onChange={(e) => setDobDay(e.target.value)}
-                    title={language === "Tiếng Anh" ? "Day" : "Ngày"}
+                    title={t("profile.day")}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -204,7 +204,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         setDobDay(String(maxDays).padStart(2, "0"));
                       }
                     }}
-                    title={language === "Tiếng Anh" ? "Month" : "Tháng"}
+                    title={t("profile.month")}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -238,7 +238,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         setDobDay(String(maxDays).padStart(2, "0"));
                       }
                     }}
-                    title={language === "Tiếng Anh" ? "Year" : "Năm"}
+                    title={t("profile.year")}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -287,7 +287,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder={language === "Tiếng Anh" ? "e.g. Ho Chi Minh City" : "TP. Hồ Chí Minh"}
+                placeholder={t("profile.address_placeholder")}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               />
             </div>

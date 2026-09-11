@@ -43,7 +43,7 @@ interface PaginatedQueryState {
 }
 
 export const App: React.FC = () => {
-  const { isDarkMode } = useSystemSettings();
+  const { isDarkMode, t } = useSystemSettings();
   const { user: authUser, loading: authLoading, login, register, logout } = useAuth();
 
   const [currentTab, setCurrentTab] = useState<ViewTab>('accounts');
@@ -146,9 +146,9 @@ export const App: React.FC = () => {
       setAccountQuery((current) => ({ ...current, total, loading: false, error: null }));
     } catch (error) {
       if (api.isRequestAborted(error) || sequence !== accountRequestSequence.current) return;
-      setAccountQuery((current) => ({ ...current, loading: false, error: 'Không thể tải danh sách tài khoản.' }));
+      setAccountQuery((current) => ({ ...current, loading: false, error: t('app.account_list_failed') }));
     }
-  }, [accountQuery.page, accountQuery.pageSize, accountQuery.q, isAdmin]);
+  }, [accountQuery.page, accountQuery.pageSize, accountQuery.q, isAdmin, t]);
 
   const loadRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -174,9 +174,9 @@ export const App: React.FC = () => {
       setRequestQuery((current) => ({ ...current, total, loading: false, error: null }));
     } catch (error) {
       if (api.isRequestAborted(error) || sequence !== requestRequestSequence.current) return;
-      setRequestQuery((current) => ({ ...current, loading: false, error: 'Không thể tải danh sách yêu cầu đăng ký.' }));
+      setRequestQuery((current) => ({ ...current, loading: false, error: t('app.requests_failed') }));
     }
-  }, [isAdmin, requestQuery.page, requestQuery.pageSize, requestQuery.q]);
+  }, [isAdmin, requestQuery.page, requestQuery.pageSize, requestQuery.q, t]);
 
   const loadShifts = useCallback(async () => {
     if (!authUser) return;
@@ -243,9 +243,9 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (authUser && !isAdmin && currentTab === 'schedule') {
-      void loadShifts().catch(() => showToast('Không thể tải lịch làm việc. Vui lòng thử lại.'));
+      void loadShifts().catch(() => showToast(t('app.schedule_failed_retry')));
     }
-  }, [authUser, currentTab, isAdmin, loadShifts, showToast]);
+  }, [authUser, currentTab, isAdmin, loadShifts, showToast, t]);
 
   // A focus and a visibility event often fire together; defer once and refresh only the visible resource.
   useEffect(() => {
@@ -258,7 +258,7 @@ export const App: React.FC = () => {
         else if (isAdmin && currentTab === 'accounts') void loadAccounts();
         else if (isAdmin && currentTab === 'requests') void loadRequests();
         else if (!isAdmin && currentTab === 'schedule') {
-          void loadShifts().catch(() => showToast('Không thể tải lại lịch làm việc.'));
+          void loadShifts().catch(() => showToast(t('app.schedule_reload_failed')));
         }
       }, 0);
     };
@@ -269,7 +269,7 @@ export const App: React.FC = () => {
       window.removeEventListener('focus', refreshVisibleResource);
       document.removeEventListener('visibilitychange', refreshVisibleResource);
     };
-  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser, showToast]);
+  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser, showToast, t]);
 
   // ---- tab default per role ----
   useEffect(() => {
@@ -299,7 +299,7 @@ export const App: React.FC = () => {
       const raw = detailRes.data ?? detailRes;
       if (raw?.id) setSelectedAccountDetail(accountToUserAccount(raw, 0));
     } catch (error) {
-      if (!api.isRequestAborted(error)) showToast('Không thể tải thông tin tài khoản.');
+      if (!api.isRequestAborted(error)) showToast(t('app.account_info_failed'));
     }
   };
 
@@ -310,7 +310,7 @@ export const App: React.FC = () => {
   const handleLoginSuccess = async (email: string, password: string) => {
     try {
       await login(email, password);
-      showToast(`Đăng nhập thành công với ${email}`);
+      showToast(t('app.login_success_with_email', { email }));
     } catch (e: any) {
       throw e;
     }
@@ -321,7 +321,7 @@ export const App: React.FC = () => {
     setAccounts([]);
     setRequests([]);
     setShifts([]);
-    showToast('Đã đăng xuất khỏi hệ thống');
+    showToast(t('app.logout_success'));
   };
 
   const handleToggleAccountStatus = async (id: string) => {
@@ -333,38 +333,42 @@ export const App: React.FC = () => {
       const detailRes: any = await api.apiGet(`/api/v1/accounts/${id}`);
       const version = detailRes.data?.version ?? (detailRes as any).version ?? undefined;
       await api.apiPatch(`/api/v1/accounts/${id}/status`, { status: targetStatus, expectedVersion: version });
-      showToast(targetStatus === 'DISABLED' ? `Đã khóa tài khoản ${acc.name}` : `Đã kích hoạt lại ${acc.name}`);
+      showToast(
+        targetStatus === 'DISABLED'
+          ? t('app.account_disabled', { name: acc.name })
+          : t('app.account_enabled', { name: acc.name })
+      );
       await loadAccounts();
       if (selectedAccountDetail?.id === id) {
         handleOpenAccountDetail({ ...acc, status: targetStatus === 'DISABLED' ? 'Vô hiệu hóa' : 'Kích hoạt' });
       }
     } catch (e: any) {
-      showToast(e.message ?? 'Cập nhật trạng thái thất bại');
+      showToast(e.message ?? t('app.status_update_failed'));
     }
   };
 
   const handleDeleteAccount = async (id: string) => {
     const target = accounts.find((a) => a.id === id);
     if (!target) return;
-    if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản ${target.name}?`)) return;
+    if (!confirm(t('app.delete_account_confirm', { name: target.name }))) return;
     try {
       await api.apiDelete(`/api/v1/accounts/${id}`);
-      showToast(`Đã xóa tài khoản ${target.name}`);
+      showToast(t('app.account_deleted', { name: target.name }));
       if (selectedAccountDetail?.id === id) setSelectedAccountDetail(null);
       await loadAccounts();
     } catch (e: any) {
-      showToast(e.message ?? 'Xóa thất bại');
+      showToast(e.message ?? t('app.delete_failed'));
     }
   };
 
   const handleResetPassword = async (id: string, newPassword: string, requireChangeOnLogin: boolean) => {
     const target = accounts.find((a) => a.id === id) ?? (selectedAccountDetail?.id === id ? selectedAccountDetail : null);
-    const accountName = target?.name ?? 'tài khoản';
+    const accountName = target?.name ?? t('app.default_account_name');
     try {
       await api.apiPost(`/api/v1/accounts/${id}/password-resets`, { newPassword, mustChangePassword: requireChangeOnLogin });
-      showToast(`Đã đặt lại mật khẩu cho ${accountName} thành công`);
+      showToast(t('app.password_reset_for_account_success', { name: accountName }));
     } catch (e: any) {
-      showToast(e.message ?? 'Đặt lại mật khẩu thất bại');
+      showToast(e.message ?? t('app.password_reset_failed'));
     }
   };
 
@@ -375,21 +379,21 @@ export const App: React.FC = () => {
       const version = detailRes.data?.version ?? (detailRes as any).version;
       await api.apiPatch(`/api/v1/accounts/${id}/notes`, { adminNotes: notes, expectedVersion: version });
       setSelectedAccountDetail((prev) => (prev && prev.id === id ? { ...prev, notes } : prev));
-      showToast('Đã lưu ghi chú quản trị viên thành công');
+      showToast(t('app.save_admin_notes_success'));
       await loadAccounts();
     } catch (e: any) {
-      showToast(e.message ?? 'Lưu ghi chú thất bại');
+      showToast(e.message ?? t('app.save_notes_failed'));
     }
   };
 
   const handleApproveRequest = async (id: string) => {
     try {
       await api.apiPatch(`/api/v1/registration-requests/${id}`, { decision: 'APPROVED', expectedStatus: 'PENDING' });
-      showToast('Đã phê duyệt hồ sơ');
+      showToast(t('app.req_approved_general'));
       if (selectedRequest?.id === id) setSelectedRequest(null);
       await loadRequests();
     } catch (e: any) {
-      showToast(e.message ?? 'Phê duyệt thất bại');
+      showToast(e.message ?? t('app.approve_failed'));
     }
   };
 
@@ -397,10 +401,10 @@ export const App: React.FC = () => {
     try {
       await api.apiPatch(`/api/v1/registration-requests/${id}`, { decision: 'REJECTED', expectedStatus: 'PENDING' });
       if (selectedRequest?.id === id) setSelectedRequest(null);
-      showToast('Đã từ chối hồ sơ');
+      showToast(t('app.req_rejected_general'));
       await loadRequests();
     } catch (e: any) {
-      showToast(e.message ?? 'Từ chối thất bại');
+      showToast(e.message ?? t('app.reject_failed'));
     }
   };
 
@@ -419,7 +423,7 @@ export const App: React.FC = () => {
     // Use schedule summary cancel: not directly supported; cancel future assignments via schedule service
     // For now, use status change side-effect or manual shift cancellation per assignment is not exposed.
     // We'll call changeStatus DISABLED as fallback is not correct. Instead, show not implemented.
-    showToast('Kết thúc lịch: vui lòng hủy từng ca trong Lịch làm việc.');
+    showToast(t('app.end_schedule_hint'));
   };
 
   const pendingRequestsCount = requestQuery.total;
@@ -427,7 +431,7 @@ export const App: React.FC = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#faf9fd]">
-        <span className="text-sm text-[#74777f]">Đang tải...</span>
+        <span className="text-sm text-[#74777f]">{t('common.loading')}</span>
       </div>
     );
   }
@@ -467,7 +471,11 @@ export const App: React.FC = () => {
   return (
     <div className={`h-screen flex overflow-hidden bg-[#faf9fd] text-[#1a1b1e] ${isDarkMode ? 'dark' : ''}`}>
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#002046] text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-3 duration-200">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 bg-[#002046] text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-3 duration-200"
+        >
           <span className="material-symbols-outlined text-[18px] text-[#16A34A]">check_circle</span>
           <span>{toastMessage}</span>
         </div>
@@ -486,7 +494,7 @@ export const App: React.FC = () => {
           userRole={userRoleLabel}
           userAvatar={userAvatar}
           userInitials={userInitials}
-          onSwitchRole={() => showToast('Đổi vai trò không khả dụng ở bản production')}
+          onSwitchRole={() => showToast(t('app.switch_role_not_available'))}
           onOpenSettings={() => setIsSettingsOpen(true)}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -494,7 +502,7 @@ export const App: React.FC = () => {
       </div>
 
       {isMobileMenuOpen && (
-        <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" />
+        <div onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" className="fixed inset-0 bg-black/50 z-30 md:hidden" />
       )}
       {isMobileMenuOpen && (
         <div className="fixed inset-y-0 left-0 w-[280px] bg-[#f4f3f7] z-40 md:hidden flex flex-col">
@@ -510,7 +518,7 @@ export const App: React.FC = () => {
             userRole={userRoleLabel}
             userAvatar={userAvatar}
             userInitials={userInitials}
-            onSwitchRole={() => {}}
+            onSwitchRole={() => showToast(t('app.switch_role_not_available'))}
             onOpenSettings={() => {
               setIsSettingsOpen(true);
               setIsMobileMenuOpen(false);
@@ -524,10 +532,11 @@ export const App: React.FC = () => {
         <div className="md:hidden p-3 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#f4f3f7] dark:bg-[#1a1b1e] flex items-center justify-between z-10 shrink-0">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
+            aria-label={t('sidebar.menu')}
             className="p-2 text-[#002046] dark:text-[#d6e3ff] hover:bg-[#e3e2e6] rounded-lg flex items-center gap-2 font-semibold text-sm cursor-pointer"
           >
             <span className="material-symbols-outlined">menu</span>
-            <span>Danh mục</span>
+            <span>{t('sidebar.menu')}</span>
           </button>
         </div>
 
@@ -623,7 +632,7 @@ export const App: React.FC = () => {
       {currentUser && (
         <EditProfileModal isOpen={isEditProfileOpen} user={currentUser} onClose={() => setIsEditProfileOpen(false)} onSave={handleSaveProfile} />
       )}
-      <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => showToast('Đổi mật khẩu thành công!')} />
+      <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => showToast(t('app.change_password_success'))} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );

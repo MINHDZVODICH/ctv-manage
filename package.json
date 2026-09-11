@@ -28,7 +28,9 @@
     "db:down": "docker compose down",
     "db:migrate-sqlite": "npm run db:migrate-sqlite --workspace=app/backend",
     "db:summary": "npm run db:summary --workspace=app/backend",
-    "check:image-sizes": "node scripts/check-image-sizes.mjs"
+    "check:image-sizes": "node scripts/check-image-sizes.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "test:i18n": "vitest run app/frontend/src/shared/i18n/i18n.test.ts"
   },
   "devDependencies": {
     "@types/multer": "2.2.0",

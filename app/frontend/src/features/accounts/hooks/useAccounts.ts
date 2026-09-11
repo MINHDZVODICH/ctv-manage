@@ -50,7 +50,7 @@ export function useAccounts(options: UseAccountsOptions = {}) {
         setPage(targetPage);
       } catch (err: any) {
         if (isRequestAborted(err) || seq !== requestSeqRef.current) return;
-        setError(err?.message || 'Không thể tải danh sách tài khoản');
+        setError(err?.message || 'Failed to load accounts');
       } finally {
         if (seq === requestSeqRef.current) {
           setLoading(false);

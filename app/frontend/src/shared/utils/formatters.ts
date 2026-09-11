@@ -35,12 +35,19 @@ export function formatDateOnly(dateTime?: string): string {
   return value;
 }
 
-export function validateBirthDateString(val?: string | null): { isValid: boolean; error?: string } {
-  if (!val || !val.trim()) {
-    return { isValid: true };
+export function validateDateOfBirth(
+  dob: string,
+  t?: (key: string, params?: Record<string, string | number>) => string
+): { isValid: boolean; error?: string; errorCode?: string } {
+  const trimmed = dob?.trim();
+  if (!trimmed) {
+    return {
+      isValid: false,
+      errorCode: "validation.required",
+      error: t ? t("validation.required") : "validation.required",
+    };
   }
 
-  const trimmed = val.trim();
   let day: number, month: number, year: number;
 
   const vnMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -55,29 +62,56 @@ export function validateBirthDateString(val?: string | null): { isValid: boolean
     month = parseInt(isoMatch[2], 10);
     day = parseInt(isoMatch[3], 10);
   } else {
-    return { isValid: false, error: "Định dạng ngày sinh phải là ngày/tháng/năm (VD: 15/08/1990)" };
+    return {
+      isValid: false,
+      errorCode: "validation.dob_format",
+      error: t ? t("validation.dob_format") : "validation.dob_format",
+    };
   }
 
   const currentYear = new Date().getFullYear();
   if (year < 1900 || year > currentYear) {
-    return { isValid: false, error: `Năm sinh phải từ năm 1900 đến ${currentYear}` };
+    return {
+      isValid: false,
+      errorCode: "validation.dob_year_range",
+      error: t ? t("validation.dob_year_range", { currentYear }) : "validation.dob_year_range",
+    };
   }
 
   if (month < 1 || month > 12) {
-    return { isValid: false, error: "Tháng sinh không hợp lệ (1 - 12)" };
+    return {
+      isValid: false,
+      errorCode: "validation.dob_month_invalid",
+      error: t ? t("validation.dob_month_invalid") : "validation.dob_month_invalid",
+    };
   }
 
   const daysInMonth = new Date(year, month, 0).getDate();
   if (day < 1 || day > daysInMonth) {
-    return { isValid: false, error: `Tháng ${month}/${year} chỉ có tối đa ${daysInMonth} ngày` };
+    return {
+      isValid: false,
+      errorCode: "validation.dob_day_invalid",
+      error: t ? t("validation.dob_day_invalid", { month, year, daysInMonth }) : "validation.dob_day_invalid",
+    };
   }
 
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   if (dateObj.getTime() > Date.now()) {
-    return { isValid: false, error: "Ngày sinh không được ở tương lai" };
+    return {
+      isValid: false,
+      errorCode: "validation.dob_future",
+      error: t ? t("validation.dob_future") : "validation.dob_future",
+    };
   }
 
   return { isValid: true };
+}
+
+export function validateBirthDateString(val?: string | null): { isValid: boolean; error?: string } {
+  if (!val || !val.trim()) {
+    return { isValid: true };
+  }
+  return validateDateOfBirth(val);
 }
 
 export const onlyDigits = (value: string, maxLength: number) =>

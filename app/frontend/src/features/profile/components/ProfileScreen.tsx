@@ -28,7 +28,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isAdminViewing = false,
   onBack,
 }) => {
-  const { t, language } = useSystemSettings();
+  const { t } = useSystemSettings();
   const [previewModal, setPreviewModal] = useState<{
     title: string;
     url: string;
@@ -55,12 +55,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const formatGender = (gender?: string | null) => {
     if (!gender) return t("not_updated");
-    if (language === "Tiếng Anh") {
-      if (gender === "Nam" || gender === "MALE") return t("gender_male");
-      if (gender === "Nữ" || gender === "FEMALE") return t("gender_female");
-      if (gender === "Khác" || gender === "OTHER") return t("gender_other");
-    }
+    if (gender === "Nam" || gender === "MALE") return t("gender_male");
+    if (gender === "Nữ" || gender === "FEMALE") return t("gender_female");
+    if (gender === "Khác" || gender === "OTHER") return t("gender_other");
     return gender;
+  };
+
+  const formatRole = (role?: string) => {
+    if (!role) return t("not_updated");
+    if (role === "Admin" || role === "ADMIN") return t("role_admin");
+    if (role === "Cộng tác viên" || role === "CTV") return t("role_ctv");
+    return role;
+  };
+
+  const formatStatus = (status?: string) => {
+    if (!status) return t("not_updated");
+    if (status === "Kích hoạt" || status === "ACTIVE") return t("status_active");
+    if (status === "Vô hiệu hóa" || status === "DISABLED" || status === "INACTIVE") return t("status_inactive");
+    return status;
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,7 +207,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               className="relative mb-4 group cursor-pointer"
               onClick={() => {
                 if (user.avatar) {
-                  setPreviewModal({ title: "Ảnh đại diện", url: user.avatar, side: "avatar" });
+                  setPreviewModal({ title: t("profile.avatar"), url: user.avatar, side: "avatar" });
                 } else {
                   fileInputRef.current?.click();
                 }
@@ -214,7 +226,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               )}
 
               {/* Edit Camera Badge */}
-              <div className="absolute bottom-0 right-0 bg-accent hover:opacity-90 text-white p-2 rounded-full border-2 border-white dark:border-[#1a1b1e] shadow-sm flex items-center justify-center transition-transform group-hover:scale-110">
+              <div
+                title={t("profile.change_photo")}
+                aria-label={t("profile.change_photo")}
+                className="absolute bottom-0 right-0 bg-accent hover:opacity-90 text-white p-2 rounded-full border-2 border-white dark:border-[#1a1b1e] shadow-sm flex items-center justify-center transition-transform group-hover:scale-110"
+              >
                 <span className="material-symbols-outlined text-[16px]">photo_camera</span>
               </div>
             </div>
@@ -261,7 +277,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-[#1b365d] dark:text-[#87a0cd] uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[18px]">badge</span>
-                  <span>Ảnh chụp CCCD</span>
+                  <span>{t("profile.cccd_photos")}</span>
                 </span>
               </div>
 
@@ -269,14 +285,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 {/* CCCD Mặt trước */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                    Mặt trước
+                    {t("profile.front_side")}
                   </span>
 
                   {user.cccdFront ? (
                     <div
                       onClick={() =>
                         setPreviewModal({
-                          title: "CCCD - Mặt trước",
+                          title: t("profile.cccd_front_preview"),
                           url: user.cccdFront!,
                           side: "front",
                         })
@@ -285,7 +301,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     >
                       <img
                         src={user.cccdFront}
-                        alt="CCCD Mặt trước"
+                        alt={t("profile.cccd_front")}
                         className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     </div>
@@ -298,7 +314,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         add_a_photo
                       </span>
                       <span className="text-xs font-medium text-slate-400 dark:text-slate-500 group-hover/empty:text-blue-500 transition-colors">
-                        Tải ảnh lên
+                        {t("profile.upload")}
                       </span>
                     </div>
                   )}
@@ -307,14 +323,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 {/* CCCD Mặt sau */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                    Mặt sau
+                    {t("profile.back_side")}
                   </span>
 
                   {user.cccdBack ? (
                     <div
                       onClick={() =>
                         setPreviewModal({
-                          title: "CCCD - Mặt sau",
+                          title: t("profile.cccd_back_preview"),
                           url: user.cccdBack!,
                           side: "back",
                         })
@@ -323,7 +339,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     >
                       <img
                         src={user.cccdBack}
-                        alt="CCCD Mặt sau"
+                        alt={t("profile.cccd_back")}
                         className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     </div>
@@ -336,7 +352,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         add_a_photo
                       </span>
                       <span className="text-xs font-medium text-slate-400 dark:text-slate-500 group-hover/empty:text-blue-500 transition-colors">
-                        Tải ảnh lên
+                        {t("profile.upload")}
                       </span>
                     </div>
                   )}
@@ -440,14 +456,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("role")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.role}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{formatRole(user.role)}</p>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("status")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.status}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{formatStatus(user.status)}</p>
                   </div>
 
                   <div>
@@ -503,9 +519,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           href={user.cvFile}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label="Xem CV trong tab mới"
+                          aria-label={t("profile.view_cv_new_tab")}
                           className="p-2 bg-white hover:bg-slate-100 dark:bg-[#25262b] dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
-                          title="Xem"
+                          title={t("profile.view")}
                         >
                           <span className="material-symbols-outlined text-[18px]">
                             visibility
@@ -514,7 +530,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       ) : (
                         <button
                           type="button"
-                          aria-label="Xem CV trong tab mới"
+                          aria-label={t("profile.view_cv_new_tab")}
                           onClick={() =>
                             setPreviewDocModal({
                               fileName: cvDisplayName,
@@ -524,7 +540,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             })
                           }
                           className="p-2 bg-white hover:bg-slate-100 dark:bg-[#25262b] dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
-                          title="Xem"
+                          title={t("profile.view")}
                         >
                           <span className="material-symbols-outlined text-[18px]">
                             visibility
@@ -536,8 +552,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         type="button"
                         onClick={() => cvFileInputRef.current?.click()}
                         className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
-                        title="Thay đổi"
-                        aria-label="Thay đổi"
+                        title={t("profile.replace")}
+                        aria-label={t("profile.replace")}
                       >
                         <span className="material-symbols-outlined text-[18px]">upload_file</span>
                       </button>
@@ -552,10 +568,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <span className="material-symbols-outlined text-[22px]">upload_file</span>
                     </div>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover/cv:text-blue-600 transition-colors">
-                      Tải file CV lên
+                      {t("profile.upload_cv")}
                     </p>
                     <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      Định dạng PDF, Word (.pdf, .doc, .docx)
+                      {t("profile.cv_format_hint")}
                     </p>
                   </div>
                 )}
@@ -584,6 +600,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </h3>
               <button
                 onClick={() => setPreviewModal(null)}
+                title={t("close")}
+                aria-label={t("close")}
                 className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -613,10 +631,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   }
                 }}
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                title="Thay đổi ảnh"
+                title={t("profile.replace")}
               >
                 <span className="material-symbols-outlined text-[16px]">file_upload</span>
-                <span>Thay đổi</span>
+                <span>{t("profile.replace_btn")}</span>
               </button>
 
               <button
@@ -633,10 +651,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   }
                 }}
                 className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                title="Xóa ảnh"
+                title={t("profile.delete_photo")}
               >
                 <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>Xóa</span>
+                <span>{t("profile.delete")}</span>
               </button>
             </div>
           </div>
@@ -679,6 +697,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
               <button
                 onClick={() => setPreviewDocModal(null)}
+                title={t("close")}
+                aria-label={t("close")}
                 className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -702,37 +722,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         {user.name}
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Ứng viên Cộng tác viên
+                        {t("profile.candidate_ctv")}
                       </p>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                      Hồ sơ đã xác thực
+                      {t("profile.verified_profile")}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans text-xs pt-1">
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-medium">
-                        Email liên hệ:
+                        {t("profile.contact_email")}
                       </p>
                       <p className="font-semibold text-slate-900 dark:text-white">{user.email}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-medium">
-                        Số điện thoại:
+                        {t("profile.contact_phone")}
                       </p>
                       <p className="font-semibold text-slate-900 dark:text-white">
                         {formatPhoneNumber(user.phone)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-slate-500 dark:text-slate-400 font-medium">Ngày sinh:</p>
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">{t("profile.contact_dob")}</p>
                       <p className="font-semibold text-slate-900 dark:text-white">
                         {user.dob || t("not_updated")}
                       </p>
                     </div>
                     <div>
-                      <p className="text-slate-500 dark:text-slate-400 font-medium">Địa chỉ:</p>
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">{t("profile.contact_address")}</p>
                       <p className="font-semibold text-slate-900 dark:text-white">
                         {user.address || t("not_updated")}
                       </p>
@@ -741,7 +761,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
                   <div className="pt-2 border-t border-slate-200 dark:border-slate-700 font-sans">
                     <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-                      Kỹ năng & Chuyên môn
+                      {t("profile.skills_expertise")}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {user.skills && user.skills.length > 0 ? (
@@ -765,7 +785,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {/* Modal Bottom Actions */}
             <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-700 mt-3">
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                File đính kèm hồ sơ CTV
+                {t("profile.cv_attachment_note")}
               </div>
 
               <div className="flex items-center gap-2">
@@ -778,7 +798,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                  <span>Thay đổi file</span>
+                  <span>{t("profile.change_file")}</span>
                 </button>
 
                 <button
@@ -787,7 +807,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">download</span>
-                  <span>Tải về</span>
+                  <span>{t("profile.download")}</span>
                 </button>
               </div>
             </div>

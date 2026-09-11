@@ -22,7 +22,7 @@ export function useSchedule() {
       }
       return raw;
     } catch (err: any) {
-      setError(err?.message || 'Không thể tải lịch làm việc');
+      setError(err?.message || 'Failed to load schedule');
       return null;
     } finally {
       setLoading(false);
@@ -42,7 +42,7 @@ export function useSchedule() {
       }
       return raw;
     } catch (err: any) {
-      setError(err?.message || 'Không thể cập nhật lịch làm việc');
+      setError(err?.message || 'Failed to update schedule');
       throw err;
     } finally {
       setLoading(false);

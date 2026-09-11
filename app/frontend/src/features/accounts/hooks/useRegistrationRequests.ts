@@ -54,7 +54,7 @@ export function useRegistrationRequests(options: UseRegistrationRequestsOptions 
         setPage(targetPage);
       } catch (err: any) {
         if (isRequestAborted(err) || seq !== requestSeqRef.current) return;
-        setError(err?.message || 'Không thể tải danh sách yêu cầu');
+        setError(err?.message || 'Failed to load registration requests');
       } finally {
         if (seq === requestSeqRef.current) {
           setLoading(false);

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import * as profileApi from '../api/profileApi';
 import { UserAccount } from '../../../shared/types';
 import { ProfileFileKind } from '../types';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
 
 interface UseProfileOptions {
   onSuccess?: (msg: string) => void;
@@ -10,6 +11,7 @@ interface UseProfileOptions {
 }
 
 export const useProfile = (options?: UseProfileOptions) => {
+  const { t } = useSystemSettings();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,10 +37,10 @@ export const useProfile = (options?: UseProfileOptions) => {
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
-        options?.onSuccess?.('Đã cập nhật thông tin hồ sơ cá nhân.');
+        options?.onSuccess?.(t('profile.update_success'));
         return true;
       } catch (err: any) {
-        const msg = err.message ?? 'Cập nhật hồ sơ thất bại';
+        const msg = err.message ?? t('profile.update_failed');
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -46,7 +48,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options]
+    [options, t]
   );
 
   const updateAvatar = useCallback(
@@ -56,18 +58,18 @@ export const useProfile = (options?: UseProfileOptions) => {
       try {
         if (!dataUrl) {
           await profileApi.deleteMyFile('AVATAR');
-          options?.onSuccess?.('Đã xóa ảnh đại diện');
+          options?.onSuccess?.(t('profile.delete_photo'));
         } else {
           const blob = await (await fetch(dataUrl)).blob();
           await profileApi.uploadMyFile('AVATAR', blob, 'avatar.png');
-          options?.onSuccess?.('Đã thay đổi ảnh đại diện thành công');
+          options?.onSuccess?.(t('profile.update_success'));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
       } catch (err: any) {
-        const msg = err.message ?? (dataUrl ? 'Tải ảnh thất bại' : 'Xóa ảnh thất bại');
+        const msg = err.message ?? (dataUrl ? t('errors.save_failed') : t('errors.delete_failed'));
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -75,29 +77,28 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options]
+    [options, t]
   );
 
   const updateCccd = useCallback(
     async (kind: 'CCCD_FRONT' | 'CCCD_BACK', dataUrl: string) => {
       setLoading(true);
       setError(null);
-      const kindLabel = kind === 'CCCD_FRONT' ? 'mặt trước' : 'mặt sau';
       try {
         if (!dataUrl) {
           await profileApi.deleteMyFile(kind);
-          options?.onSuccess?.(`Đã xóa ảnh CCCD ${kindLabel}`);
+          options?.onSuccess?.(t('profile.delete_photo'));
         } else {
           const blob = await (await fetch(dataUrl)).blob();
           await profileApi.uploadMyFile(kind, blob, `${kind}.png`);
-          options?.onSuccess?.('Đã thay đổi ảnh CCCD thành công');
+          options?.onSuccess?.(t('profile.update_success'));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
       } catch (err: any) {
-        const msg = err.message ?? (dataUrl ? 'Tải ảnh CCCD thất bại' : 'Xóa ảnh thất bại');
+        const msg = err.message ?? (dataUrl ? t('errors.save_failed') : t('errors.delete_failed'));
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -105,7 +106,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options]
+    [options, t]
   );
 
   const updateCv = useCallback(
@@ -115,18 +116,18 @@ export const useProfile = (options?: UseProfileOptions) => {
       try {
         if (!cvData) {
           await profileApi.deleteMyFile('CV');
-          options?.onSuccess?.('Đã xóa file CV');
+          options?.onSuccess?.(t('app.file_deleted'));
         } else {
           const blob = await (await fetch(cvData.cvFile)).blob();
           await profileApi.uploadMyFile('CV', blob, cvData.cvFileName);
-          options?.onSuccess?.(`Đã cập nhật file CV: ${cvData.cvFileName}`);
+          options?.onSuccess?.(t('app.file_uploaded'));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
       } catch (err: any) {
-        const msg = err.message ?? (cvData ? 'Tải CV thất bại' : 'Xóa CV thất bại');
+        const msg = err.message ?? (cvData ? t('errors.save_failed') : t('errors.delete_failed'));
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -134,7 +135,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options]
+    [options, t]
   );
 
   return {

@@ -40,12 +40,14 @@ function CustomSelect<T extends string>({
   onChange,
   isDarkMode = false,
   direction = 'down',
+  ariaLabel,
 }: {
   value: T;
   options: DropdownItem<T>[];
   onChange: (val: T) => void;
   isDarkMode?: boolean;
   direction?: 'up' | 'down';
+  ariaLabel?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((o) => o.value === value) || options[0];
@@ -55,6 +57,9 @@ function CustomSelect<T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={ariaLabel || selectedOption?.label || value}
         className={`flex items-center gap-2 pl-3 pr-2.5 py-1.5 text-sm font-medium rounded-xl border transition-colors cursor-pointer ${
           isDarkMode
             ? 'bg-[#28292d] hover:bg-[#323338] text-slate-100 border-slate-700/60'
@@ -76,8 +81,9 @@ function CustomSelect<T extends string>({
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} aria-hidden="true" />
           <div
+            role="listbox"
             className={`absolute right-0 ${
               direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
             } z-50 border rounded-xl shadow-2xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto text-left animate-in fade-in zoom-in-95 duration-100 ${
@@ -92,6 +98,8 @@ function CustomSelect<T extends string>({
                 <button
                   type="button"
                   key={opt.value}
+                  role="option"
+                  aria-selected={isSelected}
                   onClick={() => {
                     onChange(opt.value);
                     setIsOpen(false);
@@ -151,6 +159,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('topbar.settings')}
         onClick={(e) => e.stopPropagation()}
         className={`relative rounded-2xl border shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-150 ${
           isDarkMode
@@ -178,11 +189,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               settings
             </span>
-            {t('nav_settings')}
+            {t('topbar.settings')}
           </h3>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('shared.close')}
+            title={t('shared.close')}
             className={`p-1 rounded-full transition-colors cursor-pointer ${
               isDarkMode
                 ? 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -199,7 +212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'
           }`}
         >
-          {/* Row 1: Giao diện */}
+          {/* Row 1: Appearance / Theme */}
           <div
             className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-colors ${
               isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'
@@ -215,6 +228,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <CustomSelect<'Sáng' | 'Tối'>
               isDarkMode={isDarkMode}
               value={isDarkMode ? 'Tối' : 'Sáng'}
+              ariaLabel={t('theme_setting')}
               options={[
                 { label: t('light_mode'), value: 'Sáng' },
                 { label: t('dark_mode'), value: 'Tối' },
@@ -227,7 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
 
-          {/* Row 2: Độ tương phản */}
+          {/* Row 2: Contrast */}
           <div
             className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-colors ${
               isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'
@@ -243,6 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <CustomSelect<ContrastOption>
               isDarkMode={isDarkMode}
               value={contrast}
+              ariaLabel={t('contrast_setting')}
               options={[
                 { label: t('low_contrast'), value: 'Thấp' },
                 { label: t('medium_contrast'), value: 'Trung bình' },
@@ -252,7 +267,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
 
-          {/* Row 3: Màu điểm nhấn */}
+          {/* Row 3: Accent Color */}
           <div
             className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-colors ${
               isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'
@@ -268,6 +283,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <CustomSelect<AccentColorOption>
               isDarkMode={isDarkMode}
               value={accentColor}
+              ariaLabel={t('accent_setting')}
               options={(Object.keys(accentColorMap) as AccentColorOption[]).map((key) => ({
                 label: t(colorI18nKeys[key]),
                 value: key,
@@ -277,7 +293,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </div>
 
-          {/* Row 4: Ngôn ngữ */}
+          {/* Row 4: Language */}
           <div
             className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-colors ${
               isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'
@@ -293,10 +309,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <CustomSelect<LanguageOption>
               isDarkMode={isDarkMode}
               value={language}
+              ariaLabel={t('language_setting')}
               direction="up"
               options={[
                 { label: 'Tiếng Việt', value: 'Tiếng Việt' },
-                { label: 'Tiếng Anh', value: 'Tiếng Anh' },
+                { label: 'English', value: 'Tiếng Anh' },
               ]}
               onChange={setLanguage}
             />

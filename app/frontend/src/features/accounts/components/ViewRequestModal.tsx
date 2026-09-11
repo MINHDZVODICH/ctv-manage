@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { RegistrationRequest } from "../../../shared/types";
 import { formatPhoneNumber, formatDateOnly } from "../../../shared/utils/formatters";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface ViewRequestModalProps {
   request: RegistrationRequest | null;
@@ -15,6 +16,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
   onApprove,
   onReject,
 }) => {
+  const { t } = useSystemSettings();
   const [previewImg, setPreviewImg] = useState<{ title: string; url: string } | null>(null);
 
   if (!request) return null;
@@ -40,12 +42,13 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
               <span className="material-symbols-outlined text-[20px]">badge</span>
             </div>
             <h3 className="text-base font-bold text-[#1a1b1e] dark:text-slate-100">
-              Chi tiết Hồ sơ Đăng ký CTV
+              {t("requests.detail_title")}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t("close")}
             className="text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -59,30 +62,45 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
               {request.initials || request.name.substring(0, 2).toUpperCase()}
             </div>
             <div>
-              <h4 className="text-xl font-bold text-[#1a1b1e] dark:text-slate-100">{request.name}</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xl font-bold text-[#1a1b1e] dark:text-slate-100">{request.name}</h4>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  request.status === "Đã duyệt"
+                    ? "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
+                    : request.status === "Từ chối"
+                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                }`}>
+                  {request.status === "Đã duyệt"
+                    ? t("status_approved")
+                    : request.status === "Từ chối"
+                    ? t("status_rejected")
+                    : t("status_pending")}
+                </span>
+              </div>
               <p className="text-xs text-[#44474e] dark:text-slate-400">
-                Thời gian đăng ký: {formatDateOnly(request.submittedAt)}
+                {t("requests.submitted_at")}: {formatDateOnly(request.submittedAt)}
               </p>
             </div>
           </div>
 
           <div className="bg-[#F8FAFC] dark:bg-[#25262c] p-4 rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45] space-y-2.5 text-xs">
             <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-              <span className="text-[#74777f] dark:text-slate-400 font-medium">Họ và tên:</span>
+              <span className="text-[#74777f] dark:text-slate-400 font-medium">{t("full_name")}:</span>
               <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">{request.name}</span>
             </div>
             <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-              <span className="text-[#74777f] dark:text-slate-400 font-medium">Số điện thoại:</span>
+              <span className="text-[#74777f] dark:text-slate-400 font-medium">{t("phone_number")}:</span>
               <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">
                 {formatPhoneNumber(request.phone)}
               </span>
             </div>
             <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-              <span className="text-[#74777f] dark:text-slate-400 font-medium">Email:</span>
+              <span className="text-[#74777f] dark:text-slate-400 font-medium">{t("email")}:</span>
               <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">{request.email}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#74777f] dark:text-slate-400 font-medium">Ngày sinh:</span>
+              <span className="text-[#74777f] dark:text-slate-400 font-medium">{t("dob")}:</span>
               <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">{request.dob || "14/05/1995"}</span>
             </div>
           </div>
@@ -92,25 +110,25 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-[#1b365d] dark:text-[#87a0cd] uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">badge</span>
-                <span>Ảnh chụp CCCD (Mặt trước & Mặt sau)</span>
+                <span>{t("accounts.cccd_title")}</span>
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {cccdFrontUrl ? (
                 <div
                   onClick={() =>
-                    setPreviewImg({ title: `CCCD Mặt trước - ${request.name}`, url: cccdFrontUrl })
+                    setPreviewImg({ title: `${t("cccd_front")} - ${request.name}`, url: cccdFrontUrl })
                   }
                   className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e1f23] overflow-hidden h-24 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
                 >
                   <img
                     src={cccdFrontUrl}
-                    alt="CCCD Mặt trước"
+                    alt={t("cccd_front")}
                     className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
                     <span className="material-symbols-outlined text-[16px]">zoom_in</span>
-                    <span>Mặt trước</span>
+                    <span>{t("front_side")}</span>
                   </div>
                 </div>
               ) : (
@@ -118,26 +136,26 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                   <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
                     image_not_supported
                   </span>
-                  <span className="text-xs font-semibold">Chưa có</span>
-                  <span className="text-[10px]">Mặt trước</span>
+                  <span className="text-xs font-semibold">{t("requests.not_provided")}</span>
+                  <span className="text-[10px]">{t("front_side")}</span>
                 </div>
               )}
 
               {cccdBackUrl ? (
                 <div
                   onClick={() =>
-                    setPreviewImg({ title: `CCCD Mặt sau - ${request.name}`, url: cccdBackUrl })
+                    setPreviewImg({ title: `${t("cccd_back")} - ${request.name}`, url: cccdBackUrl })
                   }
                   className="relative group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e1f23] overflow-hidden h-24 cursor-pointer shadow-2xs hover:border-blue-400 transition-all"
                 >
                   <img
                     src={cccdBackUrl}
-                    alt="CCCD Mặt sau"
+                    alt={t("cccd_back")}
                     className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 text-white text-xs font-semibold">
                     <span className="material-symbols-outlined text-[16px]">zoom_in</span>
-                    <span>Mặt sau</span>
+                    <span>{t("back_side")}</span>
                   </div>
                 </div>
               ) : (
@@ -145,8 +163,8 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                   <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
                     image_not_supported
                   </span>
-                  <span className="text-xs font-semibold">Chưa có</span>
-                  <span className="text-[10px]">Mặt sau</span>
+                  <span className="text-xs font-semibold">{t("requests.not_provided")}</span>
+                  <span className="text-[10px]">{t("back_side")}</span>
                 </div>
               )}
             </div>
@@ -157,7 +175,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-[#1b365d] dark:text-[#87a0cd] uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">description</span>
-                <span>Hồ sơ ứng tuyển (CV)</span>
+                <span>{t("cv_title")}</span>
               </span>
             </div>
 
@@ -190,7 +208,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                       href={request.cvFile}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label="Xem file trong tab mới"
+                      aria-label={t("requests.view_in_new_tab")}
                       className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-2xs transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
                     >
                       <span className="material-symbols-outlined text-[18px]">visibility</span>
@@ -199,7 +217,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                       role="tooltip"
                       className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                     >
-                      Xem trong tab mới
+                      {t("requests.view_in_new_tab")}
                     </span>
                   </div>
 
@@ -207,7 +225,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                     <a
                       href={request.cvFile}
                       download={cvFileName}
-                      aria-label="Tải về"
+                      aria-label={t("download")}
                       className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-2xs transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
                     >
                       <span className="material-symbols-outlined text-[18px]">download</span>
@@ -216,7 +234,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                       role="tooltip"
                       className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                     >
-                      Tải về
+                      {t("download")}
                     </span>
                   </div>
                 </div>
@@ -226,7 +244,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                 <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                   description
                 </span>
-                <span className="text-xs font-semibold">Chưa có</span>
+                <span className="text-xs font-semibold">{t("requests.not_provided")}</span>
               </div>
             )}
           </div>
@@ -243,7 +261,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
             className="px-4 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">cancel</span>
-            <span>Từ chối hồ sơ</span>
+            <span>{t("requests.reject_request")}</span>
           </button>
           <button
             type="button"
@@ -254,7 +272,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
             className="px-4 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
             <span className="material-symbols-outlined text-[16px]">check_circle</span>
-            <span>Phê duyệt</span>
+            <span>{t("requests.approve")}</span>
           </button>
         </div>
       </div>
@@ -271,6 +289,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPreviewImg(null)}
+                aria-label={t("close")}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -289,7 +308,7 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
                 onClick={() => setPreviewImg(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                Đóng
+                {t("close")}
               </button>
             </div>
           </div>

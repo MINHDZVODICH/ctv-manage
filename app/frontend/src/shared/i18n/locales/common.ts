@@ -103,6 +103,11 @@ export const commonTranslations: DomainTranslations = {
     "validation.invalid_file_type": "Loại tệp không hợp lệ",
     "validation.file_too_large": "Kích thước tệp quá lớn",
     "validation.file_required": "Vui lòng chọn tệp",
+    "validation.dob_format": "Định dạng ngày sinh phải là ngày/tháng/năm (VD: 15/08/1990)",
+    "validation.dob_year_range": "Năm sinh phải từ năm 1900 đến {{currentYear}}",
+    "validation.dob_month_invalid": "Tháng sinh không hợp lệ (1 - 12)",
+    "validation.dob_day_invalid": "Tháng {{month}}/{{year}} chỉ có tối đa {{daysInMonth}} ngày",
+    "validation.dob_future": "Ngày sinh không được ở tương lai",
 
     // Errors
     "errors.generic": "Đã xảy ra lỗi không xác định",
@@ -217,6 +222,11 @@ export const commonTranslations: DomainTranslations = {
     "validation.invalid_file_type": "Invalid file type",
     "validation.file_too_large": "File size is too large",
     "validation.file_required": "Please select a file",
+    "validation.dob_format": "Date of birth format must be DD/MM/YYYY (e.g. 15/08/1990)",
+    "validation.dob_year_range": "Birth year must be between 1900 and {{currentYear}}",
+    "validation.dob_month_invalid": "Invalid birth month (1 - 12)",
+    "validation.dob_day_invalid": "Month {{month}}/{{year}} only has up to {{daysInMonth}} days",
+    "validation.dob_future": "Date of birth cannot be in the future",
 
     // Errors
     "errors.generic": "An unexpected error occurred",

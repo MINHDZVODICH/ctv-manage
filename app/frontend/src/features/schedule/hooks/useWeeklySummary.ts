@@ -16,7 +16,7 @@ export function useWeeklySummary() {
       setCells(summaryCells);
       return summaryCells;
     } catch (err: any) {
-      setError(err?.message || 'Không thể tải lịch tuần tổng hợp');
+      setError(err?.message || 'Failed to load weekly summary');
       return [];
     } finally {
       setLoading(false);
