@@ -17,10 +17,10 @@ async function login(page: Page, role: keyof typeof credentials) {
   await page.locator('input[type="password"]').fill(account.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   if (role === 'admin') {
-    await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Quản lý tài khoản|Account List/ })).toBeVisible();
   } else {
     await expect(
-      page.getByRole('button', { name: /Đăng ký lịch làm việc|Cập nhật/ }),
+      page.getByRole('button', { name: /Đăng ký lịch làm việc|Cập nhật|Register Shift Schedule|Update/ }),
     ).toBeVisible();
   }
 }

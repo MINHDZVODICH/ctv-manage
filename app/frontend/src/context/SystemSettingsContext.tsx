@@ -164,6 +164,14 @@ const translations: Record<LanguageOption, Record<string, string>> = {
     shift: "Ca",
     morning: "Sáng",
     afternoon: "Chiều",
+    weekly_schedule: "Lịch tuần",
+    work_history: "Lịch sử làm việc",
+    loading: "Đang tải...",
+    retry: "Thử lại",
+    month_navigation: "Chuyển tháng",
+    previous_month: "Xem tháng trước",
+    next_month: "Xem tháng sau",
+    work_history_load_error: "Không thể tải lịch sử làm việc.",
 
     // Request Screen
     requests_title: "Yêu cầu đăng ký tài khoản",
@@ -307,6 +315,14 @@ const translations: Record<LanguageOption, Record<string, string>> = {
     shift: "Shift",
     morning: "Morning",
     afternoon: "Afternoon",
+    weekly_schedule: "Weekly Schedule",
+    work_history: "Work History",
+    loading: "Loading...",
+    retry: "Retry",
+    month_navigation: "Change month",
+    previous_month: "View previous month",
+    next_month: "View next month",
+    work_history_load_error: "Unable to load work history.",
 
     // Request Screen
     requests_title: "Registration Requests",

@@ -25,11 +25,11 @@ type WeeklyPattern = Record<number, ShiftType[]>;
 const APP_TIME_ZONE = "Asia/Bangkok";
 
 const WEEKDAYS = [
-  { index: 0, short: "T2", label: "Thứ 2" },
-  { index: 1, short: "T3", label: "Thứ 3" },
-  { index: 2, short: "T4", label: "Thứ 4" },
-  { index: 3, short: "T5", label: "Thứ 5" },
-  { index: 4, short: "T6", label: "Thứ 6" },
+  { index: 0, short: "T2", label: "Thứ 2", i18nKey: "mon" },
+  { index: 1, short: "T3", label: "Thứ 3", i18nKey: "tue" },
+  { index: 2, short: "T4", label: "Thứ 4", i18nKey: "wed" },
+  { index: 3, short: "T5", label: "Thứ 5", i18nKey: "thu" },
+  { index: 4, short: "T6", label: "Thứ 6", i18nKey: "fri" },
 ] as const;
 
 const SHIFT_OPTIONS: Array<{
@@ -178,7 +178,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const [modalRoom, setModalRoom] = useState<string>(ROOM_OPTIONS[0]);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState("");
+  const [historyError, setHistoryError] = useState(false);
   const [historyRetryKey, setHistoryRetryKey] = useState(0);
 
   const hasWeeklyShifts = useMemo(() => {
@@ -230,7 +230,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     historyRequestController.current = controller;
 
     setIsHistoryLoading(true);
-    setHistoryError("");
+    setHistoryError(false);
 
     try {
       const response: any = await api.apiGet(
@@ -248,7 +248,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     } catch (error) {
       if (!api.isRequestAborted(error)) {
         if (sequence === historyRequestSequence.current) {
-          setHistoryError("Không thể tải lịch sử làm việc.");
+          setHistoryError(true);
         }
       }
     } finally {
@@ -342,6 +342,15 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   };
 
   const monthStart = startOfMonth(calendarDate);
+  const formatMonthLabel = (date: Date) => {
+    if (language === "Tiếng Anh") {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+      }).format(date);
+    }
+    return `${t("month")} ${date.getMonth() + 1}, ${date.getFullYear()}`;
+  };
   const monthWeeks: Array<Array<Date | null>> = [];
   let currentMonthWeek: Array<Date | null> = [null, null, null, null, null];
   const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
@@ -488,7 +497,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
-                {view === "week" ? (language === "Tiếng Anh" ? "Weekly Schedule" : "Lịch tuần") : (language === "Tiếng Anh" ? "Work History" : "Lịch sử làm việc")}
+                {view === "week" ? t("weekly_schedule") : t("work_history")}
               </button>
             ))}
           </div>
@@ -516,7 +525,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 calendar_month
               </span>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{language === "Tiếng Anh" ? "Weekly Schedule" : "Lịch tuần"}</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("weekly_schedule")}</h3>
               </div>
             </div>
 
@@ -529,7 +538,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                       key={weekday.index}
                       className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                     >
-                      <span>{language === "Tiếng Anh" ? ["Mon", "Tue", "Wed", "Thu", "Fri"][weekday.index] : weekday.label}</span>
+                      <span>{t(weekday.i18nKey)}</span>
                     </div>
                   ))}
                 </div>
@@ -584,7 +593,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   calendar_month
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  {language === "Tiếng Anh" ? "Work History" : "Lịch sử làm việc"}
+                  {t("work_history")}
                 </h3>
               </div>
               {isHistoryLoading && (
@@ -599,19 +608,19 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   >
                     progress_activity
                   </span>
-                  <span>Đang tải...</span>
+                  <span>{t("loading")}</span>
                 </div>
               )}
               <div
                 className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
                 role="group"
-                aria-label="Chuyển tháng"
+                aria-label={t("month_navigation")}
               >
                 <button
                   type="button"
                   onClick={() => changeMonth(-1)}
                   className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                  aria-label="Xem tháng trước"
+                  aria-label={t("previous_month")}
                 >
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                     chevron_left
@@ -621,13 +630,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   className="min-w-[112px] px-2 text-center text-xs font-bold text-slate-900 dark:text-slate-100"
                   aria-live="polite"
                 >
-                  Tháng {monthStart.getMonth() + 1}, {monthStart.getFullYear()}
+                  {formatMonthLabel(monthStart)}
                 </span>
                 <button
                   type="button"
                   onClick={() => changeMonth(1)}
                   className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                  aria-label="Xem tháng sau"
+                  aria-label={t("next_month")}
                 >
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                     chevron_right
@@ -638,13 +647,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
             {historyError && (
               <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
-                <span>{historyError}</span>
+                <span>{t("work_history_load_error")}</span>
                 <button
                   type="button"
                   onClick={() => setHistoryRetryKey((current) => current + 1)}
                   className="min-h-11 rounded-xl border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900 cursor-pointer"
                 >
-                  Thử lại
+                  {t("retry")}
                 </button>
               </div>
             )}
@@ -657,7 +666,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                       key={day.index}
                       className="rounded-xl bg-slate-100/90 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                     >
-                      {day.label}
+                      {t(day.i18nKey)}
                     </div>
                   ))}
                 </div>
@@ -695,7 +704,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                 <span>{formatShortDate(date)}</span>
                                 {isToday && (
                                   <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                    Hôm nay
+                                    {t("today")}
                                   </span>
                                 )}
                               </span>

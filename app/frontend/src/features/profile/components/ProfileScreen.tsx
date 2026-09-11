@@ -165,13 +165,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           {isAdminViewing && onBack && (
             <button
               onClick={onBack}
-              className="p-1.5 text-[#44474e] hover:text-[#002046] hover:bg-[#efedf1] rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-[#44474e] dark:text-slate-300 hover:text-[#002046] dark:hover:text-blue-300 hover:bg-[#efedf1] dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               title={t("back")}
             >
               <span className="material-symbols-outlined text-[24px]">arrow_back</span>
             </button>
           )}
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("account_info")}</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] dark:text-white tracking-tight">{t("account_info")}</h2>
         </div>
       </div>
 
@@ -340,11 +340,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* Right Column (8 cols): Detail Info Frame */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl shadow-xs overflow-hidden">
             {/* Header & Actions */}
-            <div className="bg-[#F8FAFC] px-6 py-4 border-b border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-bold text-base text-[#1a1b1e] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#002046]">badge</span>
+            <div className="bg-[#F8FAFC] dark:bg-slate-900/60 px-6 py-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-bold text-base text-[#1a1b1e] dark:text-slate-100 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#002046] dark:text-blue-300">badge</span>
                 <span>{t("account_details")}</span>
               </h3>
               <div className="flex items-center gap-2">
@@ -368,83 +368,83 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <div className="p-6 space-y-6">
               {/* Nhóm 1: Thông tin cá nhân */}
               <div>
-                <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
+                <h4 className="text-xs font-bold text-[#002046] dark:text-blue-300 uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0] dark:border-[#3b3d45]">
                   {t("personal_info")}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("full_name")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.name}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.name}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("date_of_birth")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
                       {user.dob || t("not_updated")}
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("email")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.email}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.email}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("phone_number")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
                       {formatPhoneNumber(user.phone)}
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("gender")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.gender || t("not_updated")}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.gender || t("not_updated")}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("address")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.address || t("not_updated")}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.address || t("not_updated")}</p>
                   </div>
                 </div>
               </div>
 
               {/* Nhóm 2: Thông tin tài khoản */}
               <div>
-                <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
+                <h4 className="text-xs font-bold text-[#002046] dark:text-blue-300 uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0] dark:border-[#3b3d45]">
                   {t("account_info")}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5">
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("role")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.role}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.role}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("status")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">{user.status}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.status}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#74777f] mb-1">
+                    <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("registration_date")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e]">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
                       {user.joinDate || user.registerDate || t("not_updated")}
                     </p>
                   </div>
@@ -453,7 +453,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
               {/* Nhóm 3: Hồ sơ ứng tuyển (CV) */}
               <div>
-                <h4 className="text-xs font-bold text-[#002046] uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0]">
+                <h4 className="text-xs font-bold text-[#002046] dark:text-blue-300 uppercase tracking-wider mb-4 pb-2 border-b border-[#E2E8F0] dark:border-[#3b3d45]">
                   {t("cv_title")}
                 </h4>
 

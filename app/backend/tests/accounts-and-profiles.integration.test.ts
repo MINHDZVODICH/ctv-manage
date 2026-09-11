@@ -71,6 +71,92 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     expect(res2.body.data.some((a: any) => a.displayName === 'Trần Thị Bình')).toBe(true);
   });
 
+  test('ACC-002 & RGR-SEARCH: Case-insensitive account search for name, email, and diacritics', async () => {
+    const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
+
+    // Create mixed-case contributor Vũ Thị Hoa
+    await prisma.account.create({
+      data: {
+        email: 'Example.User@domain.com',
+        passwordHash: 'hash',
+        role: 'CTV',
+        status: 'ACTIVE',
+        displayName: 'Vũ Thị Hoa',
+        phone: '0912345678',
+        ctvCode: 'CTV-VN-003',
+      },
+    });
+
+    // Create a soft-deleted contributor with similar name
+    await prisma.account.create({
+      data: {
+        email: 'vu.deleted@domain.com',
+        passwordHash: 'hash',
+        role: 'CTV',
+        status: 'DISABLED',
+        displayName: 'Vũ Thị Hoa Deleted',
+        phone: '0912345679',
+        ctvCode: 'CTV-VN-004',
+        deletedAt: new Date(),
+      },
+    });
+
+    // Create an ADMIN with matching name to ensure role filter holds
+    await prisma.account.create({
+      data: {
+        email: 'admin.vu@domain.com',
+        passwordHash: 'hash',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        displayName: 'Vũ Thị Hoa Admin',
+        phone: '0912345680',
+        ctvCode: 'CTV-VN-005',
+      },
+    });
+
+    // Search queries for displayName: exact, lowercase, uppercase, mixed-case
+    const nameQueries = ['Vũ Thị Hoa', 'vũ thị hoa', 'VŨ THỊ HOA', 'vŨ tHị hOa'];
+    for (const q of nameQueries) {
+      const res = await request(app)
+        .get(`/api/v1/accounts?q=${encodeURIComponent(q)}`)
+        .set('Cookie', adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].displayName).toBe('Vũ Thị Hoa');
+      expect(res.body.data[0].email).toBe('Example.User@domain.com');
+    }
+
+    // Search queries for email: exact, lowercase, uppercase
+    const emailQueries = ['Example.User@domain.com', 'example.user@domain.com', 'EXAMPLE.USER@DOMAIN.COM'];
+    for (const q of emailQueries) {
+      const res = await request(app)
+        .get(`/api/v1/accounts?q=${encodeURIComponent(q)}`)
+        .set('Cookie', adminCookie);
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].displayName).toBe('Vũ Thị Hoa');
+    }
+
+    // Unrelated query returns zero matches
+    const noMatchRes = await request(app)
+      .get('/api/v1/accounts?q=nonexistentqueryxyz')
+      .set('Cookie', adminCookie);
+    expect(noMatchRes.status).toBe(200);
+    expect(noMatchRes.body.total).toBe(0);
+    expect(noMatchRes.body.data).toHaveLength(0);
+
+    // Pagination operates on filtered result set
+    const pagedRes = await request(app)
+      .get(`/api/v1/accounts?q=${encodeURIComponent('vũ thị hoa')}&page=2&pageSize=5`)
+      .set('Cookie', adminCookie);
+    expect(pagedRes.status).toBe(200);
+    expect(pagedRes.body.total).toBe(1);
+    expect(pagedRes.body.page).toBe(2);
+    expect(pagedRes.body.data).toHaveLength(0);
+  });
+
   test('ACC-004 & ACC-005: Account status transitions (DISABLED <-> ACTIVE)', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });

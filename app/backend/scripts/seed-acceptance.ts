@@ -110,6 +110,15 @@ export async function runAcceptanceSeed(options: SeedAcceptanceOptions = {}): Pr
           phone: '0900000003',
           ctvCode: 'CTV-ACCEPTANCE-003',
         },
+        {
+          email: 'vu.thi.hoa@ctv.local',
+          passwordHash,
+          role: 'CTV',
+          status: 'ACTIVE',
+          displayName: 'Vũ Thị Hoa',
+          phone: '0900000005',
+          ctvCode: 'CTV-ACCEPTANCE-005',
+        },
       ],
     });
 

@@ -109,8 +109,8 @@ export async function listAccounts(params: ListAccountsParams): Promise<{ data: 
   if (params.q && params.q.trim().length > 0) {
     const q = params.q.trim();
     where.OR = [
-      { displayName: { contains: q } },
-      { email: { contains: q } },
+      { displayName: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
       { phone: { contains: q } },
     ];
   }

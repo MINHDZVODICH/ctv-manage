@@ -67,12 +67,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between p-5 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-          <h3 className="text-lg font-bold text-[#1a1b1e]">Đổi mật khẩu</h3>
+      <div className="bg-white dark:bg-[#1e1f23] rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between p-5 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c]">
+          <h3 className="text-lg font-bold text-[#1a1b1e] dark:text-slate-100">Đổi mật khẩu</h3>
           <button
             onClick={onClose}
-            className="text-[#74777f] hover:text-[#1a1b1e] p-1 rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
+            className="text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
@@ -80,14 +80,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && (
-            <div className="p-2.5 bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold rounded flex items-center gap-2">
+            <div className="p-2.5 bg-[#ffdad6] text-[#ba1a1a] dark:bg-rose-950/60 dark:text-rose-200 text-xs font-semibold rounded flex items-center gap-2">
               <span className="material-symbols-outlined text-[16px]">error</span>
               <span>{errorMsg}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
+            <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
               Mật khẩu hiện tại
             </label>
             <div className="relative">
@@ -96,12 +96,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] dark:border-slate-700 rounded text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-accent outline-none"
               />
               <button
                 type="button"
                 onClick={() => setShowOldPassword(!showOldPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-0.5 rounded cursor-pointer transition-colors"
                 title={showOldPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -112,7 +112,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
+            <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
               Mật khẩu mới
             </label>
             <div className="relative">
@@ -121,12 +121,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] dark:border-slate-700 rounded text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-accent outline-none"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-0.5 rounded cursor-pointer transition-colors"
                 title={showNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -137,7 +137,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#1a1b1e] mb-1">
+            <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
               Xác nhận mật khẩu mới
             </label>
             <div className="relative">
@@ -146,12 +146,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] rounded text-sm text-[#1a1b1e] focus:border-accent outline-none"
+                className="w-full px-3 py-2 pr-10 border border-[#c4c6cf] dark:border-slate-700 rounded text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-accent outline-none"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] p-0.5 rounded cursor-pointer transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-0.5 rounded cursor-pointer transition-colors"
                 title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -161,7 +161,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-end">
+          <div className="pt-4 border-t border-[#E2E8F0] dark:border-[#3b3d45] flex items-center justify-end">
             <button
               type="submit"
               disabled={isSubmitting}

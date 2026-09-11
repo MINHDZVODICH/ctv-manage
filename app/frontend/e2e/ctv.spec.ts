@@ -261,11 +261,13 @@ test('CTV tải file hồ sơ lên và vẫn thấy sau khi tải lại trang', 
   await expect(page.getByText('ho-so.pdf', { exact: true })).toBeVisible();
   await expect(page.locator('img[alt="CTV Active"]').first()).toBeVisible();
 
-  const cvTabPromise = page.context().waitForEvent('page');
-  await page.getByRole('link', { name: 'Xem CV trong tab mới' }).click();
-  const cvTab = await cvTabPromise;
-  await expect.poll(() => cvTab.url()).toContain('/api/v1/files/');
-  await cvTab.close();
+  const cvLink = page.getByRole('link', { name: 'Xem CV trong tab mới' });
+  await expect(cvLink).toHaveAttribute('href', /\/api\/v1\/files\/[a-zA-Z0-9_-]+\/content/);
+  const href = await cvLink.getAttribute('href');
+  expect(href).toBeTruthy();
+  const fileRes = await page.request.get(href!);
+  expect(fileRes.status()).toBe(200);
+  expect(fileRes.headers()['content-type']).toContain('application/pdf');
 });
 
 test('form hồ sơ chỉ nhận chữ số cho điện thoại và ngày sinh', async ({ page, loginAs }) => {
@@ -296,3 +298,192 @@ test('form hồ sơ chỉ nhận chữ số cho điện thoại và ngày sinh',
   await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
   await expect(page.getByText('Đã cập nhật thông tin hồ sơ cá nhân.', { exact: true })).toBeVisible();
 });
+
+async function checkContrastRatio(locator: import('@playwright/test').Locator): Promise<number> {
+  return await locator.evaluate((el) => {
+    function parseColor(colorStr: string): [number, number, number] {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return [0, 0, 0];
+      ctx.fillStyle = '#000';
+      ctx.fillStyle = colorStr;
+      ctx.fillRect(0, 0, 1, 1);
+      const data = ctx.getImageData(0, 0, 1, 1).data;
+      return [data[0], data[1], data[2]];
+    }
+    function getLuminance(r: number, g: number, b: number) {
+      const a = [r, g, b].map((v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+    }
+    const style = window.getComputedStyle(el);
+    const fg = parseColor(style.color);
+
+    let bgEl: HTMLElement | null = el.parentElement;
+    let bg: [number, number, number] = [37, 38, 43];
+    while (bgEl) {
+      const bgStyle = window.getComputedStyle(bgEl);
+      const color = bgStyle.backgroundColor;
+      if (color && color !== 'transparent' && !color.includes('rgba(0, 0, 0, 0)')) {
+        bg = parseColor(color);
+        break;
+      }
+      bgEl = bgEl.parentElement;
+    }
+    const l1 = getLuminance(fg[0], fg[1], fg[2]);
+    const l2 = getLuminance(bg[0], bg[1], bg[2]);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  });
+}
+
+test('Monthly Work History renders English localization correctly and handles error retry', async ({ page, loginAs }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ctv_sys_language', 'Tiếng Anh');
+  });
+
+  let shouldFailHistory = true;
+  await page.route('**/api/v1/users/me/work-history?*', async (route) => {
+    if (shouldFailHistory) {
+      shouldFailHistory = false;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: 'Network error' } }),
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { entries: [] } }),
+      });
+    }
+  });
+
+  await loginAs('ctv');
+
+  // Verify tabs
+  await expect(page.getByRole('button', { name: 'Weekly Schedule', exact: true })).toBeVisible();
+  const workHistoryTab = page.getByRole('button', { name: 'Work History', exact: true });
+  await expect(workHistoryTab).toBeVisible();
+
+  // Click Work History tab
+  await workHistoryTab.click();
+
+  // Verify loading and error states with localized messages
+  await expect(page.getByText('Unable to load work history.')).toBeVisible();
+  const retryBtn = page.getByRole('button', { name: 'Retry', exact: true });
+  await expect(retryBtn).toBeVisible();
+
+  // Click retry
+  await retryBtn.click();
+  await expect(page.getByText('Unable to load work history.')).toHaveCount(0);
+
+  // Assert English weekdays
+  for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
+    await expect(page.locator('div').filter({ hasText: new RegExp(`^${day}$`) }).first()).toBeVisible();
+  }
+
+  // Assert English month & year format
+  const expectedMonthYear = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+  await expect(page.getByText(expectedMonthYear)).toBeVisible();
+
+  // Assert Today badge
+  await expect(page.getByText('Today', { exact: true })).toBeVisible();
+
+  // Assert accessibility labels
+  await expect(page.getByLabel('Change month')).toBeVisible();
+  await expect(page.getByLabel('View previous month')).toBeVisible();
+  await expect(page.getByLabel('View next month')).toBeVisible();
+
+  // Assert absence of Vietnamese-only strings in the calendar section
+  const forbiddenVnTerms = ['Thứ', 'Tháng', 'Hôm nay', 'Đang tải', 'Thử lại', 'Xem tháng', 'Không thể tải lịch sử làm việc'];
+  const calendarSection = page.locator('section').filter({ hasText: 'Work History' });
+  for (const term of forbiddenVnTerms) {
+    await expect(calendarSection.getByText(term, { exact: true })).toHaveCount(0);
+  }
+});
+
+test('Dark mode profile contrast meets WCAG AA standards and light mode is preserved', async ({ page, loginAs }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ctv_sys_dark_mode', 'true');
+  });
+
+  await loginAs('ctv');
+  await page.locator('aside').getByRole('button').last().click();
+  await page.getByRole('button', { name: /Hồ sơ cá nhân|Personal Profile/ }).click();
+
+  const openProfileHeading = page.getByRole('heading', { level: 2 });
+  await expect(openProfileHeading).toBeVisible();
+
+  // Assert key elements are visible
+  await expect(page.getByText('Thông tin chi tiết')).toBeVisible();
+  const personalInfoTitle = page.getByRole('heading', { name: 'Thông tin cá nhân' });
+  await expect(personalInfoTitle).toBeVisible();
+  const accountInfoTitle = page.getByRole('heading', { name: 'Thông tin tài khoản', level: 4 });
+  await expect(accountInfoTitle).toBeVisible();
+  const cvTitle = page.getByRole('heading', { name: 'Hồ sơ ứng tuyển (CV)' });
+  await expect(cvTitle).toBeVisible();
+
+  // Labels
+  await expect(page.getByText('Họ và tên', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ngày sinh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Email', { exact: true })).toBeVisible();
+  await expect(page.getByText('Số điện thoại', { exact: true })).toBeVisible();
+  await expect(page.getByText('Giới tính', { exact: true })).toBeVisible();
+  await expect(page.getByText('Địa chỉ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Vai trò', { exact: true })).toBeVisible();
+  await expect(page.getByText('Trạng thái', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ngày đăng ký', { exact: true })).toBeVisible();
+
+  // Header icon
+  const badgeIcon = page.locator('span.material-symbols-outlined:has-text("badge")').first();
+  await expect(badgeIcon).toBeVisible();
+
+  // Compute contrast ratios in dark mode
+  const personalRatio = await checkContrastRatio(personalInfoTitle);
+  expect(personalRatio).toBeGreaterThanOrEqual(4.5);
+
+  const accountRatio = await checkContrastRatio(accountInfoTitle);
+  expect(accountRatio).toBeGreaterThanOrEqual(4.5);
+
+  const cvRatio = await checkContrastRatio(cvTitle);
+  expect(cvRatio).toBeGreaterThanOrEqual(4.5);
+
+  const badgeRatio = await checkContrastRatio(badgeIcon);
+  expect(badgeRatio).toBeGreaterThanOrEqual(3.0);
+
+  const fullNameLabel = page.getByText('Họ và tên', { exact: true });
+  const labelRatio = await checkContrastRatio(fullNameLabel);
+  expect(labelRatio).toBeGreaterThanOrEqual(4.5);
+});
+
+test('Light mode profile preserves visual hierarchy, readable text, and buttons', async ({ page, loginAs }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ctv_sys_dark_mode', 'false');
+  });
+
+  await loginAs('ctv');
+  await page.locator('aside').getByRole('button').last().click();
+  await page.getByRole('button', { name: /Hồ sơ cá nhân|Personal Profile/ }).click();
+
+  await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
+  const personalInfoTitle = page.getByRole('heading', { name: 'Thông tin cá nhân' });
+  await expect(personalInfoTitle).toBeVisible();
+
+  // Buttons are visible and readable
+  await expect(page.getByRole('button', { name: 'Đổi mật khẩu' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chỉnh sửa thông tin' })).toBeVisible();
+
+  // Check contrast in light mode
+  const personalRatio = await checkContrastRatio(personalInfoTitle);
+  expect(personalRatio).toBeGreaterThanOrEqual(4.5);
+});
+

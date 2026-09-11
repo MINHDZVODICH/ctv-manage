@@ -6,16 +6,18 @@ import { normalizeEmail } from '../../shared/crypto.js';
 
 const router = Router();
 
+const isE2E = process.env.E2E_TEST === 'true';
+
 export const loginIpRateLimiter = createRateLimiter({
   scope: 'LOGIN_IP',
-  maxRequests: 60,
+  maxRequests: isE2E ? 1000 : 60,
   windowSeconds: 15 * 60,
   keyGenerator: (req) => req.ip || '127.0.0.1',
 });
 
 export const loginAccountRateLimiter = createRateLimiter({
   scope: 'LOGIN_ACCOUNT',
-  maxRequests: 10,
+  maxRequests: isE2E ? 1000 : 10,
   windowSeconds: 15 * 60,
   keyGenerator: (req) => {
     const ip = req.ip || '127.0.0.1';

@@ -70,6 +70,7 @@ export default async function globalSetup() {
         PORT: '4101',
         CORS_ORIGIN: frontendUrl,
         SESSION_SECRET: 'acceptance-only-session-secret',
+        E2E_TEST: 'true',
       },
       stdio: 'pipe',
       windowsHide: true,

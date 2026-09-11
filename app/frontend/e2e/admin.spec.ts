@@ -249,3 +249,35 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   await expect(shiftModal.getByText('Buồng 2', { exact: true })).toBeVisible();
   await expect(page.getByText('ROOM_2', { exact: true })).toHaveCount(0);
 });
+
+test('Tìm kiếm tài khoản không phân biệt chữ hoa, chữ thường cho tên và email', async ({ page, loginAs }) => {
+  await loginAs('admin');
+  await page.getByRole('button').filter({ hasText: 'Quản lý tài khoản' }).click();
+  await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
+
+  const searchInput = page.getByPlaceholder('Tìm kiếm thông tin...');
+
+  // 1. Search exact casing: Vũ Thị Hoa
+  await searchInput.fill('Vũ Thị Hoa');
+  const rowExact = page.getByRole('row').filter({ hasText: 'Vũ Thị Hoa' });
+  await expect(rowExact).toBeVisible();
+
+  // 2. Clear and search lowercase: vũ thị hoa
+  await searchInput.clear();
+  await searchInput.fill('vũ thị hoa');
+  const rowLower = page.getByRole('row').filter({ hasText: 'Vũ Thị Hoa' });
+  await expect(rowLower).toBeVisible();
+
+  // 3. Clear and search uppercase: VŨ THỊ HOA
+  await searchInput.clear();
+  await searchInput.fill('VŨ THỊ HOA');
+  const rowUpper = page.getByRole('row').filter({ hasText: 'Vũ Thị Hoa' });
+  await expect(rowUpper).toBeVisible();
+
+  // 4. Clear and search unrelated string -> empty state
+  await searchInput.clear();
+  await searchInput.fill('KhongTonTaiNguoiDungNay123');
+  await expect(page.getByText('Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Vũ Thị Hoa' })).toHaveCount(0);
+});
+
