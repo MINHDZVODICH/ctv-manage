@@ -455,7 +455,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
               </div>
             )}
 
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <form onSubmit={handleRegisterSubmit} className="space-y-4" autoComplete="off">
               {/* Họ và tên */}
               <div>
                 <label className="text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 block mb-1">
@@ -463,6 +463,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={regName}
                   onFocus={() => clearRegError("regName")}
                   onClick={() => clearRegError("regName")}
@@ -594,6 +595,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </label>
                   <input
                     type="email"
+                    autoComplete="off"
                     value={regEmail}
                     onFocus={() => clearRegError("regEmail")}
                     onClick={() => clearRegError("regEmail")}
@@ -619,6 +621,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   </label>
                   <input
                     type="tel"
+                    autoComplete="off"
                     value={regPhone}
                     onFocus={() => clearRegError("regPhone")}
                     onClick={() => clearRegError("regPhone")}
@@ -979,6 +982,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <div className="relative">
                     <input
                       type={showRegPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       value={regPassword}
                       placeholder={t("auth.password_placeholder")}
                       onFocus={() => clearRegError("regPassword")}
@@ -1018,6 +1022,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <div className="relative">
                     <input
                       type={showRegConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       value={regConfirmPassword}
                       placeholder={t("auth.confirm_password_placeholder")}
                       onFocus={() => clearRegError("regConfirmPassword")}
