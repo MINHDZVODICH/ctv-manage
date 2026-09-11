@@ -24,7 +24,7 @@ services:
       dockerfile: docker/backend.Dockerfile
     restart: unless-stopped
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 4001
       DATABASE_URL: postgresql://ctv_manage:${POSTGRES_PASSWORD:-ctv_manage}@postgres:5432/ctv_manage?schema=public
@@ -38,9 +38,8 @@ services:
       postgres:
         condition: service_healthy
     command:
-      - sh
-      - -c
-      - npm run prisma:deploy && npm run start --workspace=app/backend
+      - node
+      - dist/src/main.js
 
   frontend:
     image: ctv-frontend:1.0.0

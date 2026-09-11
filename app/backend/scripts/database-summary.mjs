@@ -12,6 +12,10 @@ const models = [
   ['Schedule', 'schedule'],
   ['Shift', 'shift'],
   ['History', 'history'],
+  ['SnapshotRun', 'snapshotRun'],
+  ['WorkHistoryProgress', 'workHistoryProgress'],
+  ['WorkHistorySource', 'workHistorySource'],
+  ['RateLimitWindow', 'rateLimitWindow'],
 ];
 
 try {

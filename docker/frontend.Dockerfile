@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY app/frontend ./app/frontend
 
 RUN npm run build --workspace=app/frontend
 
-FROM nginx:stable-alpine
+FROM nginx:alpine-slim
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/app/frontend/dist /usr/share/nginx/html

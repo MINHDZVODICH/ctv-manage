@@ -91,6 +91,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Build and verify release Docker image sizes
+        run: |
+          docker build -f docker/backend.Dockerfile -t ctv-backend:1.0.1 .
+          docker build -f docker/frontend.Dockerfile -t ctv-frontend:1.0.0 .
+          npm run check:image-sizes
+
       - name: Upload Playwright test artifacts
         if: always()
         uses: actions/upload-artifact@v4

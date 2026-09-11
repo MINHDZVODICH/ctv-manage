@@ -27,14 +27,12 @@
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:migrate-sqlite": "npm run db:migrate-sqlite --workspace=app/backend",
-    "db:summary": "npm run db:summary --workspace=app/backend"
+    "db:summary": "npm run db:summary --workspace=app/backend",
+    "check:image-sizes": "node scripts/check-image-sizes.mjs"
   },
   "devDependencies": {
     "@types/multer": "2.2.0",
     "concurrently": "9.1.2",
     "typescript": "^5.8.2"
-  },
-  "dependencies": {
-    "multer": "2.2.0"
   }
 }

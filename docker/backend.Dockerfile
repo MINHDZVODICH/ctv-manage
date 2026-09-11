@@ -14,25 +14,34 @@ COPY app/backend ./app/backend
 RUN npm run prisma:generate \
     && npm run build --workspace=app/backend -- --sourceMap false --declaration false --declarationMap false
 
-FROM manifests AS production-deps
-RUN npm ci --omit=dev --workspace=app/backend --include-workspace-root=false
-COPY app/backend/prisma ./app/backend/prisma
-RUN npm run prisma:generate \
-    && mkdir -p app/backend/node_modules
+FROM base AS production-deps
+WORKDIR /app/deploy
+COPY app/backend/package.json ./package.json
+RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));delete p.devDependencies;if(p.dependencies)delete p.dependencies.prisma;fs.writeFileSync('package.json',JSON.stringify(p,null,2));" \
+    && npm install --omit=dev --no-audit --no-fund
+# Copy generated Prisma Client and runtime engine from build stage
+COPY --from=build /app/app/backend/node_modules/.prisma ./node_modules/.prisma
 
+# Optional migration stage: contains full prisma CLI and migrations
+FROM build AS migration
+WORKDIR /app/app/backend
+CMD ["npx", "prisma", "migrate", "deploy"]
+
+# Production Application Runtime stage
 FROM base AS runtime
-COPY package.json ./
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=production-deps /app/app/backend/node_modules ./app/backend/node_modules
-COPY app/backend/package.json ./app/backend/package.json
-COPY --from=build /app/app/backend/dist/src ./app/backend/dist/src
-COPY --from=build /app/app/backend/dist/scripts ./app/backend/dist/scripts
-COPY app/backend/prisma ./app/backend/prisma
-COPY app/backend/scripts/database-summary.mjs ./app/backend/scripts/database-summary.mjs
-COPY docker/bootstrap-admin.cjs ./app/backend/scripts/bootstrap-admin.cjs
-# Only expose commands supported by the production image; no tsx/compiler needed.
-RUN node -e "const fs=require('fs');const f='app/backend/package.json';const p=JSON.parse(fs.readFileSync(f));p.scripts={start:p.scripts.start,'prisma:deploy':p.scripts['prisma:deploy'],'db:summary':p.scripts['db:summary'],'admin:bootstrap':'node scripts/bootstrap-admin.cjs'};delete p.devDependencies;delete p.prisma;fs.writeFileSync(f,JSON.stringify(p));"
+WORKDIR /app
+COPY --from=production-deps /app/deploy/node_modules ./node_modules
+COPY --from=build /app/app/backend/dist/src ./dist/src
+COPY --from=build /app/app/backend/dist/scripts ./dist/scripts
+COPY app/backend/prisma ./prisma
+COPY app/backend/scripts/database-summary.mjs ./scripts/database-summary.mjs
+COPY docker/bootstrap-admin.cjs ./scripts/bootstrap-admin.cjs
+COPY app/backend/package.json ./package.json
+
+RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.scripts={start:'node dist/src/main.js','db:summary':'node scripts/database-summary.mjs','admin:bootstrap':'node scripts/bootstrap-admin.cjs'};delete p.devDependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
 
 EXPOSE 4001
 
-CMD ["npm", "run", "start", "--workspace=app/backend"]
+CMD ["node", "dist/src/main.js"]
+
+

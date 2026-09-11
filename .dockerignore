@@ -8,7 +8,17 @@
 **/uploads
 **/playwright-report
 **/test-results
+**/coverage
+**/*.log
+**/.vscode
+**/.idea
+**/.DS_Store
+Thumbs.db
 backup
 release
 *.tar
+*.tar.gz
 docs
+tmp
+temp
+plan.md
