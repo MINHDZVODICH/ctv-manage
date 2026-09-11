@@ -1,6 +1,6 @@
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
-import { todayInBangkok } from '../../shared/timezone.js';
+import type { WeeklyScheduleDto, WeeklyShiftDto } from './schedule.types.js';
 
 // ---------------------------------------------------------------------------
 // getMySchedule / getAccountSchedule
@@ -153,7 +153,7 @@ export async function getWeeklySummary() {
   return { cells };
 }
 
-export async function getScheduleSummary(_params?: { month?: string }) {
+export async function getScheduleSummary() {
   return await getWeeklySummary();
 }
 
@@ -161,10 +161,7 @@ export async function getScheduleSummary(_params?: { month?: string }) {
 // Backward-compatible shift lookups
 // ---------------------------------------------------------------------------
 
-export async function listMyShifts(
-  accountId: string,
-  _params?: { month?: string; from?: string; to?: string },
-) {
+export async function listMyShifts(accountId: string) {
   const schedule = await getMySchedule(accountId);
   if (!schedule) return [];
   return schedule.shifts.map((s, idx) => ({
@@ -173,7 +170,6 @@ export async function listMyShifts(
     registrationId: schedule.id,
     roomCode: schedule.roomCode,
     status: 'ACTIVE',
-    workDate: todayInBangkok(),
     weekday: s.weekday,
     period: s.period,
   }));

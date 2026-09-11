@@ -95,9 +95,10 @@ export interface ApiMyShift {
   registrationId?: string | null;
   roomCode?: string | null;
   status: string;
-  workDate: string; // YYYY-MM-DD
+  weekday?: number;
+  workDate?: string; // YYYY-MM-DD
   period: string; // MORNING | AFTERNOON
-  shift?: { id: string; workDate: string; period: string };
+  shift?: { id: string; workDate?: string; period: string };
 }
 
 export interface ApiShiftDetail {
@@ -262,6 +263,41 @@ export function shiftTimeLabel(period: string): string {
   return period === 'AFTERNOON' ? '13:30 - 17:30' : '08:00 - 12:00';
 }
 
+export function weeklyScheduleToSlots(
+  schedule: ApiScheduleData | null | undefined,
+  currentUser: UserAccount,
+): ShiftSlot[] {
+  if (!schedule || !Array.isArray(schedule.shifts)) return [];
+  return schedule.shifts.map((s) => {
+    const dayIndex = (s.weekday >= 1 && s.weekday <= 5) ? s.weekday - 1 : 0;
+    const shiftType = mapPeriodToShiftType(s.period);
+    const me: AssignedCTV = {
+      id: currentUser.id,
+      name: currentUser.name,
+      avatar: currentUser.avatar,
+      initials: currentUser.initials || initialsOf(currentUser.name),
+      phone: currentUser.phone,
+      cctvCode: currentUser.cctvCode,
+      status: 'Đã duyệt',
+      room: formatRoomLabel(schedule.roomCode),
+    };
+
+    return {
+      id: `weekly-${s.weekday}-${s.period}`,
+      dayIndex,
+      dayName: DAY_NAMES[dayIndex] ?? '',
+      dateStr: '',
+      shiftType,
+      shiftTimeLabel: shiftTimeLabel(s.period),
+      status: 'Đã đăng ký',
+      allowRegister: true,
+      assignedCTVs: [me],
+      room: formatRoomLabel(schedule.roomCode),
+      registrationId: schedule.id,
+    };
+  });
+}
+
 export function myShiftsToSlots(
   shifts: ApiMyShift[],
   currentUser: UserAccount,
@@ -270,10 +306,10 @@ export function myShiftsToSlots(
   const slots: ShiftSlot[] = [];
   const seen = new Set<string>();
   for (const s of shifts) {
-    const workDate = s.workDate ?? s.shift?.workDate ?? '';
+    const weekday = s.weekday ?? (s.workDate ? dayIndexFromYmd(s.workDate) + 1 : 1);
+    const dayIndex = (weekday >= 1 && weekday <= 5) ? weekday - 1 : 0;
     const period = s.period ?? s.shift?.period ?? 'MORNING';
-    if (!workDate) continue;
-    const key = `${workDate}:${period}`;
+    const key = `${dayIndex}:${period}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -290,23 +326,23 @@ export function myShiftsToSlots(
     };
 
     slots.push({
-      id: s.shiftId,
-      dayIndex: dayIndexFromYmd(workDate),
-      dayName: DAY_NAMES[dayIndexFromYmd(workDate)] ?? '',
-      dateStr: dateStrFromYmd(workDate),
+      id: s.shiftId || `weekly-${weekday}-${period}`,
+      dayIndex,
+      dayName: DAY_NAMES[dayIndex] ?? '',
+      dateStr: s.workDate ? dateStrFromYmd(s.workDate) : '',
       shiftType,
       shiftTimeLabel: shiftTimeLabel(period),
       status: 'Đã đăng ký',
       allowRegister: true,
       assignedCTVs: [me],
-      workDate,
+      workDate: s.workDate,
       room: formatRoomLabel(s.roomCode),
       registrationId: s.registrationId ?? registration?.id,
       registrationStartDate: registration?.startDate,
       registrationEndDate: registration?.endDate,
     });
   }
-  return slots.sort((a, b) => (a.workDate ?? '').localeCompare(b.workDate ?? ''));
+  return slots.sort((a, b) => a.dayIndex - b.dayIndex);
 }
 
 // ---------------------------------------------------------------------------
@@ -361,17 +397,46 @@ export const scheduleToWeeklyPattern = scheduleToPattern;
 // Schedule summary & Work history -> ShiftSlot[]
 // ---------------------------------------------------------------------------
 
-export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
+export function summaryToSlots(cells: ApiWeeklySummaryCell[]): ShiftSlot[] {
   return (cells ?? []).map((cell) => {
     const shiftType = mapPeriodToShiftType(cell.period);
-    const dayIndex = cell.workDate
-      ? dayIndexFromYmd(cell.workDate)
-      : (typeof cell.weekday === 'number' ? cell.weekday - 1 : 0);
+    const dayIndex = typeof cell.weekday === 'number' && cell.weekday >= 1 && cell.weekday <= 5
+      ? cell.weekday - 1
+      : 0;
     const dayName = DAY_NAMES[dayIndex] ?? '';
-    const dateStr = cell.workDate ? dateStrFromYmd(cell.workDate) : '';
 
     return {
-      id: cell.shiftId || (cell.workDate ? `${cell.workDate}-${cell.period}` : `weekly-${cell.weekday}-${cell.period}`),
+      id: cell.shiftId || `weekly-${cell.weekday}-${cell.period}`,
+      dayIndex,
+      dayName,
+      dateStr: '',
+      shiftType,
+      shiftTimeLabel: shiftTimeLabel(cell.period),
+      status: cell.count > 0 ? ('Đã đăng ký' as const) : ('Chưa đăng ký' as const),
+      allowRegister: false,
+      assignedCTVs: (cell.shiftAssignments || []).map((a) => ({
+        id: a.accountId,
+        name: a.displayName,
+        initials: initialsOf(a.displayName),
+        phone: a.phone ?? undefined,
+        status: 'Đã duyệt' as const,
+        room: formatRoomLabel(a.roomCode),
+      })),
+    };
+  });
+}
+
+export const weeklySummaryToSlots = summaryToSlots;
+
+export function historyToSlots(cells: ApiHistoryCell[]): ShiftSlot[] {
+  return (cells ?? []).map((cell) => {
+    const shiftType = mapPeriodToShiftType(cell.period);
+    const dayIndex = dayIndexFromYmd(cell.workDate);
+    const dayName = DAY_NAMES[dayIndex] ?? '';
+    const dateStr = dateStrFromYmd(cell.workDate);
+
+    return {
+      id: cell.shiftId || `history-${cell.workDate}-${cell.period}`,
       dayIndex,
       dayName,
       dateStr,
@@ -392,9 +457,7 @@ export function summaryToSlots(cells: ApiSummaryCell[]): ShiftSlot[] {
   });
 }
 
-export const weeklySummaryToSlots = summaryToSlots;
-export const historyCellsToSlots = summaryToSlots;
-export const historyToSlots = summaryToSlots;
+export const historyCellsToSlots = historyToSlots;
 
 export interface ApiHistoryEntry {
   id: string;

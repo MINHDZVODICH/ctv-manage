@@ -86,7 +86,7 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
     });
   });
 
-  await page.route('**/api/v1/schedule-summary?*', async (route) => {
+  await page.route('**/api/v1/schedule-summary*', async (route) => {
     const url = new URL(route.request().url());
     if (url.searchParams.get('accountId') !== ctv.id) {
       await route.continue();
@@ -188,7 +188,7 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
       body: JSON.stringify(weeklySummaryPayload),
     });
   });
-  await page.route('**/api/v1/schedule-summary?*', async (route) => {
+  await page.route('**/api/v1/schedule-summary*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

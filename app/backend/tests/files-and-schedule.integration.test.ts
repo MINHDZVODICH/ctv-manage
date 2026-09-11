@@ -97,9 +97,16 @@ describe('private files and schedule workflows', () => {
     expect(detail.status).toBe(200);
     expect(detail.body.data.assignments[0].displayName).toBe('CTV Active');
 
-    const month = assignment.workDate.slice(0, 7);
+    expect(assignment.workDate).toBeUndefined();
+    expect(assignment.weekday).toBe(1);
+
+    const rejectedQuery = await request(app)
+      .get('/api/v1/schedule-summary?month=2026-08')
+      .set('Cookie', adminCookie);
+    expect(rejectedQuery.status).toBe(400);
+
     const summary = await request(app)
-      .get(`/api/v1/schedule-summary?month=${month}`)
+      .get('/api/v1/schedule-summary')
       .set('Cookie', adminCookie);
     expect(summary.status).toBe(200);
     expect(summary.body.data.cells.some((cell: any) => cell.shiftId === assignment.shiftId)).toBe(true);

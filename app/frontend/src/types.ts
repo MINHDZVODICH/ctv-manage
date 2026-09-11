@@ -167,6 +167,29 @@ export interface ScheduleResponse {
   data: ApiScheduleData;
 }
 
+export interface WeeklyShiftDto {
+  weekday: number;
+  period: "MORNING" | "AFTERNOON";
+}
+
+export interface WeeklyScheduleDto {
+  id?: string;
+  accountId: string;
+  roomCode: string;
+  version: number;
+  shifts: WeeklyShiftDto[];
+}
+
+export interface WorkHistoryDto {
+  id: string;
+  accountId: string;
+  workDate: string;
+  period: "MORNING" | "AFTERNOON";
+  roomCode: string;
+  status: string;
+  recordedAt?: string;
+}
+
 export interface ApiShiftAssignment {
   id: string;
   accountId: string;
@@ -176,20 +199,19 @@ export interface ApiShiftAssignment {
   status: string;
 }
 
-export interface ApiSummaryCell {
+export interface ApiWeeklySummaryCell {
   shiftId?: string;
-  weekday?: number;
-  workDate?: string;
+  weekday: number;
   period: "MORNING" | "AFTERNOON" | string;
   count: number;
   shiftAssignments: ApiShiftAssignment[];
 }
 
-export type ApiWeeklySummaryCell = ApiSummaryCell;
+export type ApiSummaryCell = ApiWeeklySummaryCell;
 
 export interface WeeklySummaryResponse {
-  cells: ApiSummaryCell[];
-  data?: { cells: ApiSummaryCell[] };
+  cells: ApiWeeklySummaryCell[];
+  data?: { cells: ApiWeeklySummaryCell[] };
 }
 
 export interface ApiHistoryCell {

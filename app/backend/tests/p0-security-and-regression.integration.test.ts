@@ -262,10 +262,10 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     expect(reqAnon.status).toBe(401);
 
     // 4. Schedule summary: Admin=200, CTV=403, Anon=401
-    const sumAdmin = await request(app).get('/api/v1/schedule-summary?month=2026-08').set('Cookie', adminCookie);
+    const sumAdmin = await request(app).get('/api/v1/schedule-summary').set('Cookie', adminCookie);
     expect(sumAdmin.status).toBe(200);
 
-    const sumCtv = await request(app).get('/api/v1/schedule-summary?month=2026-08').set('Cookie', ctvCookie);
+    const sumCtv = await request(app).get('/api/v1/schedule-summary').set('Cookie', ctvCookie);
     expect(sumCtv.status).toBe(403);
 
     // 5. User me: CTV=200, Admin=200, Anon=401

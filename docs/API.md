@@ -664,22 +664,19 @@ Admin lấy ma trận lịch tuần tổng hợp của toàn viện (Thứ 2 đ�
 ---
 
 ### `GET /api/v1/schedule-summary`
-Endpoint truy vấn lịch tổng hợp linh hoạt theo tháng hoặc khoảng ngày (tương thích ngược).
+Endpoint truy vấn mẫu lịch tổng hợp hàng tuần của các CTV (tương đương `GET /api/v1/schedule/weekly-summary`).
 
 - **Xác thực**: Bắt buộc (`ADMIN`).
-- **Query Parameters**:
-  - `month`: Tháng theo định dạng `YYYY-MM`.
-  - `from`, `to`: Khoảng ngày `YYYY-MM-DD` (`from <= to`).
-  - *(Chỉ chọn `month` HOẶC `from/to`, không gửi đồng thời cả hai).*
-- **Response 200 OK**: Trả về cấu trúc `{ data: { cells }, cells }` giống `getWeeklySummary`.
+- **Query Parameters**: Không nhận tham số ngày. Mọi truy vấn kèm `month`, `from`, hoặc `to` sẽ bị từ chối với mã lỗi `400 BAD_REQUEST` (`INVALID_SCHEDULE_QUERY`), do lịch tuần là mẫu định kỳ độc lập ngày dương lịch. (Để truy vấn dữ liệu theo ngày thực tế, sử dụng module Work History).
+- **Response 200 OK**: Trả về cấu trúc `{ data: { cells }, cells }` giống `getWeeklySummary`. Các cell định danh bởi `weekday` (1-5) và `period` (MORNING/AFTERNOON), không chứa `workDate`.
 
 ---
 
 ### Các route tương thích ngược & Stubs
 - `GET /api/v1/users/me/schedule-registration`: Trỏ trực tiếp về `getMySchedule`.
 - `PUT /api/v1/users/me/schedule-registration`: Trỏ trực tiếp về `putMySchedule`.
-- `GET /api/v1/users/me/shifts`: Trả về danh sách ca mô phỏng từ `Schedule` hiện hành để tương thích với các client cũ.
-- `GET /api/v1/shifts/:shiftId`: Trả về thông tin ca theo ID mô phỏng.
+- `GET /api/v1/users/me/shifts`: Trả về danh sách ca tuần của CTV hiện hành (chứa `weekday`, `period`, không chứa `workDate`).
+- `GET /api/v1/shifts/:shiftId`: Trả về thông tin phân bổ ca tuần theo ID `weekly-{weekday}-{period}`.
 
 ---
 

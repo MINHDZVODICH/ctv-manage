@@ -19,6 +19,32 @@ export interface UpsertScheduleInput {
 
 export type UpsertRegistrationInput = UpsertScheduleInput;
 
+export interface WeeklyShiftDto {
+  weekday: number;
+  period: Period;
+}
+
+export interface WeeklyScheduleDto {
+  id: string;
+  accountId: string;
+  roomCode: RoomCode;
+  version: number;
+  shifts: WeeklyShiftDto[];
+  patternSlots?: WeeklyShiftDto[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface WorkHistoryDto {
+  id: string;
+  accountId: string;
+  workDate: string;
+  period: Period;
+  roomCode: RoomCode;
+  status: string;
+  recordedAt?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Pure Helpers & Validation
 // ---------------------------------------------------------------------------

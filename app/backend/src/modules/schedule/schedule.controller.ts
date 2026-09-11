@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { Errors } from '../../shared/errors.js';
 import * as service from './schedule.service.js';
 
 // ---------------------------------------------------------------------------
@@ -20,17 +21,19 @@ const putScheduleSchema = z.object({
   expectedVersion: z.number().int().optional(),
 });
 
-
 const workHistoryQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
   accountId: z.string().min(1).optional(),
 });
 
-const getShiftsQuerySchema = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
-});
+function assertNoScheduleDateParams(query: Record<string, any>) {
+  if (query.month !== undefined || query.from !== undefined || query.to !== undefined) {
+    throw Errors.badRequest(
+      'INVALID_SCHEDULE_QUERY',
+      'Weekly schedule endpoints do not accept date parameters (month/from/to). Query /api/v1/work-history for dated occurrences.',
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -38,6 +41,7 @@ const getShiftsQuerySchema = z.object({
 
 export async function getMySchedule(req: Request, res: Response, next: NextFunction) {
   try {
+    assertNoScheduleDateParams(req.query);
     const user = req.user!;
     const data = await service.getMySchedule(user.id);
     res.json({ data });
@@ -64,6 +68,7 @@ export const putMyRegistration = putMySchedule;
 
 export async function getAccountSchedule(req: Request, res: Response, next: NextFunction) {
   try {
+    assertNoScheduleDateParams(req.query);
     const accountId = req.params.id || req.params.accountId;
     const data = await service.getAccountSchedule(accountId);
     res.json({ data });
@@ -72,29 +77,9 @@ export async function getAccountSchedule(req: Request, res: Response, next: Next
   }
 }
 
-const summaryQuerySchema = z
-  .object({
-    month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
-    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    accountId: z.string().min(1).optional(),
-  })
-  .refine(
-    (d) => !(d.month && (d.from || d.to)),
-    { message: 'Use either month or from/to, not both', path: ['month'] },
-  )
-  .refine(
-    (d) => {
-      if (d.from && d.to) {
-        return d.from <= d.to;
-      }
-      return true;
-    },
-    { message: 'from must be <= to', path: ['from'] },
-  );
-
-export async function getWeeklySummary(_req: Request, res: Response, next: NextFunction) {
+export async function getWeeklySummary(req: Request, res: Response, next: NextFunction) {
   try {
+    assertNoScheduleDateParams(req.query);
     const result = await service.getWeeklySummary();
     res.json({ data: result, ...result });
   } catch (e) {
@@ -104,7 +89,7 @@ export async function getWeeklySummary(_req: Request, res: Response, next: NextF
 
 export async function getSummary(req: Request, res: Response, next: NextFunction) {
   try {
-    summaryQuerySchema.parse(req.query);
+    assertNoScheduleDateParams(req.query);
     const result = await service.getWeeklySummary();
     res.json({ data: result, ...result });
   } catch (e) {
@@ -139,9 +124,9 @@ export async function getWorkHistory(req: Request, res: Response, next: NextFunc
 
 export async function getMyShifts(req: Request, res: Response, next: NextFunction) {
   try {
+    assertNoScheduleDateParams(req.query);
     const user = req.user!;
-    const q = getShiftsQuerySchema.parse(req.query);
-    const data = await service.listMyShifts(user.id, q);
+    const data = await service.listMyShifts(user.id);
     res.json({ data });
   } catch (e) {
     next(e);

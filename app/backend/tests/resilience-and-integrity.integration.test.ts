@@ -71,17 +71,29 @@ describe('Phase C — Resilience, Integrity & Timezone Boundaries Suite', () => 
   test('Timezone and date range queries: Asia/Bangkok UTC+7 midnight and range filters', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
 
-    // Query summary with from and to dates
+    // Query weekly schedule with date parameters returns 400 (Phase 1 domain separation)
     const rangeSummary = await request(app)
       .get('/api/v1/schedule-summary?from=2026-08-01&to=2026-08-15')
       .set('Cookie', adminCookie);
-    expect(rangeSummary.status).toBe(200);
-    expect(rangeSummary.body.data).toBeDefined();
+    expect(rangeSummary.status).toBe(400);
 
-    // Query with invalid range (from > to) returns 400
-    const invalidRange = await request(app)
-      .get('/api/v1/schedule-summary?from=2026-08-15&to=2026-08-01')
+    // Query weekly schedule without date parameters succeeds
+    const weeklySummary = await request(app)
+      .get('/api/v1/schedule-summary')
       .set('Cookie', adminCookie);
-    expect(invalidRange.status).toBe(400);
+    expect(weeklySummary.status).toBe(200);
+    expect(weeklySummary.body.data).toBeDefined();
+
+    // Query dated work history with valid month succeeds
+    const validHistory = await request(app)
+      .get('/api/v1/work-history?month=2026-08')
+      .set('Cookie', adminCookie);
+    expect(validHistory.status).toBe(200);
+
+    // Query dated work history with invalid month returns 400
+    const invalidHistory = await request(app)
+      .get('/api/v1/work-history?month=not-a-month')
+      .set('Cookie', adminCookie);
+    expect(invalidHistory.status).toBe(400);
   });
 });

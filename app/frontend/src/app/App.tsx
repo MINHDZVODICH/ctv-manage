@@ -24,6 +24,7 @@ import {
   accountsToUserAccounts,
   requestsToRegistrationRequests,
   myShiftsToSlots,
+  weeklyScheduleToSlots,
   summaryToSlots,
   mapRole,
   fileUrl,
@@ -180,38 +181,35 @@ export const App: React.FC = () => {
   const loadShifts = useCallback(async () => {
     if (!authUser) return;
     if (!isAdmin) {
-      const [registrationResult, shiftResult] = await Promise.allSettled([
-        api.apiGet('/api/v1/users/me/schedule-registration'),
-        api.apiGet('/api/v1/users/me/shifts'),
-      ]);
-      if (shiftResult.status === 'rejected') throw shiftResult.reason;
-
-      const regRes: any = registrationResult.status === 'fulfilled' ? registrationResult.value : null;
-      const shiftRes: any = shiftResult.value;
-      const reg = regRes?.data ?? regRes;
-      const list: any[] = shiftRes.data ?? shiftRes.items ?? shiftRes ?? [];
-      const u: UserAccount =
-        currentUser ??
-        ({
-          id: authUser.id,
-          name: authUser.displayName,
-          email: authUser.email,
-          phone: '',
-          role: mapRole(authUser.role),
-          status: 'Kích hoạt',
-          registerDate: '',
-        } as unknown as UserAccount);
-      setShifts(myShiftsToSlots(list, u, reg));
-      if (registrationResult.status === 'rejected') throw registrationResult.reason;
-    } else {
-      // Admin: load summary for current month
       try {
-        const now = new Date();
-        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const res: any = await api.apiGet(`/api/v1/schedule-summary?month=${month}`).catch(() => ({ data: { cells: [] } }));
+        const registrationResult = await api.apiGet('/api/v1/users/me/schedule-registration');
+        const reg: any = (registrationResult as any)?.data ?? registrationResult;
+        const u: UserAccount =
+          currentUser ??
+          ({
+            id: authUser.id,
+            name: authUser.displayName,
+            email: authUser.email,
+            phone: '',
+            role: mapRole(authUser.role),
+            status: 'Kích hoạt',
+            registerDate: '',
+          } as unknown as UserAccount);
+        setShifts(weeklyScheduleToSlots(reg, u));
+      } catch (err) {
+        setShifts([]);
+      }
+    } else {
+      // Admin: load weekly schedule summary
+      try {
+        const res: any = await api.apiGet('/api/v1/schedule/weekly-summary').catch(() =>
+          api.apiGet('/api/v1/schedule-summary').catch(() => ({ data: { cells: [] } }))
+        );
         const cells = res.data?.cells ?? res.cells ?? [];
         setShifts(summaryToSlots(cells));
-      } catch {}
+      } catch {
+        setShifts([]);
+      }
     }
   }, [authUser, isAdmin, currentUser]);
 
