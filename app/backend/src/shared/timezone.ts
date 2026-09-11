@@ -47,3 +47,27 @@ export function weekdayUtc(d: Date): number {
   const js = d.getUTCDay();
   return js === 0 ? 7 : js;
 }
+
+/**
+ * Calculates the delay in milliseconds until the next 17:30 Asia/Bangkok (10:30 UTC).
+ */
+export function getDelayUntilNextBangkok1730(now: Date = new Date()): number {
+  const targetUtc = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      10,
+      30,
+      0,
+      0,
+    ),
+  );
+
+  if (now.getTime() >= targetUtc.getTime()) {
+    targetUtc.setUTCDate(targetUtc.getUTCDate() + 1);
+  }
+
+  return targetUtc.getTime() - now.getTime();
+}
+

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient, type SnapshotRun, type Period, type RoomCode, type HistoryStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '../../shared/prisma.js';
 import { logger } from '../../shared/logger.js';
-import { todayInBangkok, parseYmdToUtcDate, formatUtcDateToYmd, addDays, weekdayUtc } from '../../shared/timezone.js';
+import { todayInBangkok, parseYmdToUtcDate, formatUtcDateToYmd, addDays, weekdayUtc, getDelayUntilNextBangkok1730 } from '../../shared/timezone.js';
 import { config } from '../../config.js';
 
 export function standardizeSnapshotErrorCode(err: unknown): string {
@@ -188,4 +188,30 @@ export class SnapshotCoordinatorService {
     }
     return insertedCount;
   }
+
+  /**
+   * Calculates the delay in milliseconds until the next required wake.
+   * If a pending or failed run has a scheduled retry earlier than the 17:30 cutoff,
+   * returns the delay to that retry. Otherwise returns the delay to the next 17:30 Bangkok.
+   */
+  async getNextWakeDelay(now?: Date): Promise<number> {
+    const nowTime = now ?? await this.getDbTime();
+    const pendingRetry = await this.db.snapshotRun.findFirst({
+      where: {
+        status: { in: ['PENDING', 'FAILED'] },
+        nextAttemptAt: { not: null },
+      },
+      orderBy: { nextAttemptAt: 'asc' },
+    });
+
+    const delayToCutoff = getDelayUntilNextBangkok1730(nowTime);
+
+    if (pendingRetry?.nextAttemptAt) {
+      const delayToRetry = Math.max(0, pendingRetry.nextAttemptAt.getTime() - nowTime.getTime());
+      return Math.min(delayToRetry, delayToCutoff);
+    }
+
+    return delayToCutoff;
+  }
 }
+
