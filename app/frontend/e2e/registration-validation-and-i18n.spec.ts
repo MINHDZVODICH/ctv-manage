@@ -106,23 +106,35 @@ test.describe('Registration validation and English translations', () => {
     await editModal.getByRole('button', { name: 'Cancel' }).click();
   });
 
-  test('Registration form has no placeholders for Full Name, Email, Phone Number, and Date of Birth starts empty (--)', async ({ page }) => {
+  test('Login and registration forms have no placeholders on any text/password fields, and Date of Birth starts empty (--)', async ({ page }) => {
     await page.goto('/');
+
+    // 1. Check Login form placeholders
+    const loginForm = page.locator('form');
+    const loginEmailInput = loginForm.locator('input[type="email"]');
+    const loginPasswordInput = loginForm.locator('input[type="password"]');
+    expect(await loginEmailInput.getAttribute('placeholder')).toBeFalsy();
+    expect(await loginPasswordInput.getAttribute('placeholder')).toBeFalsy();
+
+    // 2. Open Registration form
     await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
     await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
 
-    const form = page.locator('form');
-    const nameInput = form.locator('input[type="text"]').first();
-    const emailInput = form.locator('input[type="email"]');
-    const phoneInput = form.locator('input[type="tel"]');
+    const regForm = page.locator('form');
+    const nameInput = regForm.locator('input[type="text"]').first();
+    const emailInput = regForm.locator('input[type="email"]');
+    const phoneInput = regForm.locator('input[type="tel"]');
+    const passwordInputs = regForm.locator('input[type="password"]');
 
     // Placeholders must be empty or absent
     expect(await nameInput.getAttribute('placeholder')).toBeFalsy();
     expect(await emailInput.getAttribute('placeholder')).toBeFalsy();
     expect(await phoneInput.getAttribute('placeholder')).toBeFalsy();
+    expect(await passwordInputs.nth(0).getAttribute('placeholder')).toBeFalsy();
+    expect(await passwordInputs.nth(1).getAttribute('placeholder')).toBeFalsy();
 
     // Date of Birth selects must default to empty ("") with "--"
-    const selects = form.locator('select');
+    const selects = regForm.locator('select');
     await expect(selects.nth(0)).toHaveValue('');
     await expect(selects.nth(1)).toHaveValue('');
     await expect(selects.nth(2)).toHaveValue('');

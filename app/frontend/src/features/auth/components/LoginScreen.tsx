@@ -357,7 +357,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 <input
                   type="email"
                   value={loginEmail}
-                  placeholder={t("auth.email_placeholder")}
                   onChange={(e) => {
                     setLoginEmail(e.target.value);
                     setLoginFieldErrors((current) => ({ ...current, email: undefined }));
@@ -383,7 +382,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <input
                     type={showLoginPassword ? "text" : "password"}
                     value={loginPassword}
-                    placeholder={t("auth.password_placeholder")}
                     onChange={(e) => {
                       setLoginPassword(e.target.value);
                       setLoginFieldErrors((current) => ({ ...current, password: undefined }));
@@ -984,7 +982,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       type={showRegPassword ? "text" : "password"}
                       autoComplete="new-password"
                       value={regPassword}
-                      placeholder={t("auth.password_placeholder")}
                       onFocus={() => clearRegError("regPassword")}
                       onClick={() => clearRegError("regPassword")}
                       onChange={(e) => {
@@ -1024,7 +1021,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       type={showRegConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
                       value={regConfirmPassword}
-                      placeholder={t("auth.confirm_password_placeholder")}
                       onFocus={() => clearRegError("regConfirmPassword")}
                       onClick={() => clearRegError("regConfirmPassword")}
                       onChange={(e) => {
