@@ -32,6 +32,9 @@ describe("i18n Translation System", () => {
     it("returns English strings from nested domain modules", () => {
       expect(translate("Tiếng Anh", "auth.login_title")).toBe("Contributor Mgmt");
       expect(translate("Tiếng Anh", "auth.login_subtitle")).toBe("Log in to continue to the system");
+      expect(translate("Tiếng Anh", "auth.org_name")).toBe("Academy of Military Science and Technology");
+      expect(translate("Tiếng Anh", "auth.logo_alt")).toBe("Academy of Military Science and Technology Logo");
+      expect(translate("Tiếng Anh", "auth.account_pending_approval")).toBe("The account is awaiting approval");
       expect(translate("Tiếng Anh", "accounts.title")).toBe("Account Management");
       expect(translate("Tiếng Anh", "schedule.title")).toBe("Work Schedule");
       expect(translate("Tiếng Anh", "profile.title")).toBe("Personal Profile");
@@ -62,6 +65,7 @@ describe("i18n Translation System", () => {
     it("returns Vietnamese strings from nested domain modules", () => {
       expect(translate("Tiếng Việt", "auth.login_title")).toBe("Hệ thống Quản lý CTV");
       expect(translate("Tiếng Việt", "auth.login_subtitle")).toBe("Đăng nhập để tiếp tục vào hệ thống");
+      expect(translate("Tiếng Việt", "auth.account_pending_approval")).toBe("Tài khoản đang được chờ duyệt");
       expect(translate("Tiếng Việt", "accounts.title")).toBe("Quản lý tài khoản");
       expect(translate("Tiếng Việt", "schedule.title")).toBe("Lịch làm việc");
       expect(translate("Tiếng Việt", "profile.title")).toBe("Hồ sơ cá nhân");

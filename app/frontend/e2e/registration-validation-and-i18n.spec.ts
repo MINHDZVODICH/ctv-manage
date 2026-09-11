@@ -139,5 +139,34 @@ test.describe('Registration validation and English translations', () => {
     await expect(selects.nth(1)).toHaveValue('');
     await expect(selects.nth(2)).toHaveValue('');
   });
+
+  test('Pending account shows awaiting approval notice on login with valid password, and English branding displays Academy of Military Science and Technology', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Check Vietnamese pending notice
+    const loginForm = page.locator('form');
+    await loginForm.locator('input[type="email"]').fill('pending.acceptance@ctv.local');
+    await loginForm.locator('input[type="password"]').fill('Test@123456');
+    await loginForm.getByRole('button', { name: 'Đăng nhập' }).click();
+
+    await expect(page.getByText('Tài khoản đang được chờ duyệt')).toBeVisible();
+
+    // 2. Switch to English language via localStorage
+    await page.evaluate(() => {
+      localStorage.setItem('ctv_sys_language', 'Tiếng Anh');
+    });
+    await page.reload();
+
+    // 3. Verify English organization branding
+    await expect(page.getByText('ACADEMY OF MILITARY SCIENCE AND TECHNOLOGY')).toBeVisible();
+
+    // 4. Check English pending notice
+    const enLoginForm = page.locator('form');
+    await enLoginForm.locator('input[type="email"]').fill('pending.acceptance@ctv.local');
+    await enLoginForm.locator('input[type="password"]').fill('Test@123456');
+    await enLoginForm.getByRole('button', { name: 'Log In' }).click();
+
+    await expect(page.getByText('The account is awaiting approval')).toBeVisible();
+  });
 });
 

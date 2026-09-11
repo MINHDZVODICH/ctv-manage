@@ -22,6 +22,8 @@ export const authTranslations: DomainTranslations = {
     "auth.create_new_account": "Tạo tài khoản mới",
     "auth.login_failed": "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
     "auth.invalid_credentials": "Email hoặc mật khẩu không đúng",
+    "auth.account_pending_approval": "Tài khoản đang được chờ duyệt",
+    "auth.account_disabled": "Tài khoản đã bị vô hiệu hóa",
     "auth.field_required": "Vui lòng nhập trường này!",
     "auth.show_password": "Hiện mật khẩu",
     "auth.hide_password": "Ẩn mật khẩu",
@@ -112,8 +114,8 @@ export const authTranslations: DomainTranslations = {
   },
   en: {
     // Branding
-    "auth.logo_alt": "Military Institute of Science and Technology Logo",
-    "auth.org_name": "Military Institute of Science and Technology",
+    "auth.logo_alt": "Academy of Military Science and Technology Logo",
+    "auth.org_name": "Academy of Military Science and Technology",
     "auth.system_subtitle": "Contributor Schedule Management & Coordination System",
 
     // Auth & Login
@@ -131,6 +133,8 @@ export const authTranslations: DomainTranslations = {
     "auth.create_new_account": "Create new account",
     "auth.login_failed": "Login failed. Please check your credentials.",
     "auth.invalid_credentials": "Invalid email or password",
+    "auth.account_pending_approval": "The account is awaiting approval",
+    "auth.account_disabled": "Account has been disabled",
     "auth.field_required": "This field is required!",
     "auth.show_password": "Show password",
     "auth.hide_password": "Hide password",

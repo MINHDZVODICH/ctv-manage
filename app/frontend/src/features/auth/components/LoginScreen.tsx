@@ -180,9 +180,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     try {
       await onLoginSuccess(loginEmail, loginPassword);
     } catch (err: any) {
-      const msg = err.message || "";
+      const code = err.code || err.details?.error?.code || "";
+      const msg = err.message || err.details?.error?.message || "";
       const lower = msg.toLowerCase();
       if (
+        code === "ACCOUNT_PENDING_APPROVAL" ||
+        lower.includes("chờ duyệt") ||
+        lower.includes("awaiting approval")
+      ) {
+        setLoginError("auth.account_pending_approval");
+      } else if (
+        code === "ACCOUNT_DISABLED" ||
+        lower.includes("vô hiệu hóa") ||
+        lower.includes("disabled")
+      ) {
+        setLoginError("auth.account_disabled");
+      } else if (
         lower.includes("email hoặc mật khẩu không đúng") ||
         lower.includes("invalid credentials") ||
         lower.includes("invalid email or password")
