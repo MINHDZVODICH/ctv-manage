@@ -91,7 +91,30 @@ sequenceDiagram
     end
 ```
 
-### 2.1 Các thành phần chính trong Frontend (Kiến trúc Feature-Based)
+### 2.1 Các thành phần chính trong Frontend (Kiến trúc Module hóa Chuẩn)
+
+Cấu trúc mã nguồn tại `app/frontend/src/` được chuẩn hóa triệt để theo mô hình 3 tầng độc lập, xóa bỏ hoàn toàn các thư mục gốc cũ (`components/`, `context/`, `lib/`, `utils/`, `types.ts`):
+
+```text
+app/frontend/src/
+├── app/                  # Composition root, providers, routing
+│   ├── App.tsx           # Điều phối hiển thị dựa trên trạng thái phiên
+│   └── providers.tsx     # Bọc AppProviders (SystemSettingsProvider + AuthProvider)
+├── features/             # Các module nghiệp vụ tự đóng gói
+│   ├── accounts/         # Quản lý tài khoản và xét duyệt đăng ký
+│   ├── auth/             # Xác thực và đăng nhập
+│   ├── profile/          # Hồ sơ cá nhân và đổi mật khẩu
+│   └── schedule/         # Lịch tuần và lịch sử làm việc
+└── shared/               # Thành phần dùng chung, không phụ thuộc features hay app
+    ├── api/              # HTTP client chuẩn hóa, mã bọc fetch và xử lý lỗi
+    ├── components/ & ui/ # UI components tái sử dụng (Sidebar, TopBar, BlurText, v.v.)
+    ├── context/          # Context dùng chung đa module (SystemSettingsContext)
+    ├── auth/             # AuthContext và hook useAuth()
+    ├── lib/              # Tiện ích thư viện (cn / utils)
+    ├── types/            # Định nghĩa kiểu dùng chung (common, accounts, schedule)
+    └── utils/            # Tiện ích định dạng (formatters, rooms, scheduleSelectors)
+```
+
 1. **`main.tsx` & `app/providers.tsx`**: Điểm vào (entrypoint) khởi động React DOM, gắn kết `AppProviders` bao gồm `SystemSettingsProvider` (giao diện sáng/tối, màu nhấn) và `AuthProvider` (quản lý trạng thái phiên đăng nhập người dùng).
 2. **`shared/auth/AuthContext.tsx`**: Lưu trữ trạng thái `user`, `loading`, cung cấp các hàm `login()`, `logout()`, `register()`. Khi ứng dụng mở lần đầu, `AuthContext` tự động gọi `GET /api/v1/auth/sessions/me` để phục hồi phiên đăng nhập từ cookie hiện có.
 3. **`app/App.tsx`**: Composition root điều phối hiển thị dựa trên trạng thái xác thực và phân quyền:
@@ -104,12 +127,15 @@ sequenceDiagram
    - **`features/profile`**: Quản lý thông tin cá nhân, cập nhật ảnh/CCCD/CV, đổi mật khẩu (`ProfileScreen`, `EditProfileModal`, `ChangePasswordModal`, hook `useProfile()`).
 5. **Tầng dùng chung (`shared/*`)**:
    - **`shared/api/`**: Client HTTP chuẩn hóa `credentials: 'include'`, Content-Type, abort signals và mapper lỗi API.
-   - **`shared/ui/`**: Các thành phần giao diện dùng chung (`Sidebar`, `TopBar`, `SettingsModal`, `NotificationsPopover`).
-   - **`shared/utils/`**: Các hàm tiện ích định dạng dữ liệu (`formatters`, `rooms`, `scheduleSelectors`).
+   - **`shared/components/` & `shared/ui/`**: Các thành phần giao diện dùng chung (`Sidebar`, `TopBar`, `SettingsModal`, `NotificationsPopover`, `BlurText`, `Pagination`).
+   - **`shared/types/`**: Kiểu dữ liệu miền chia sẻ phân chia theo `common.ts`, `accounts.ts`, `schedule.ts`.
+   - **`shared/context/`**: Các Context dùng chung đa tính năng (`SystemSettingsContext`).
+   - **`shared/lib/`**: Tiện ích thư viện giao diện (`utils.ts`).
+   - **`shared/utils/`**: Các hàm tiện ích định dạng dữ liệu (`formatters`, `rooms`, `scheduleSelectors`, `pagination`).
    - **`shared/mappers.ts`**: Các hàm chuyển đổi DTO sang ViewModel.
 
 ### 2.2 Ranh giới kiến trúc và Cơ chế kiểm tra tự động (Architectural Boundaries & Enforcement)
-Để duy trì tính module hóa, ngăn chặn phụ thuộc vòng và rò rỉ kiến trúc, hệ thống Frontend áp dụng bộ quy tắc ranh giới nhập khẩu (Import Boundaries) được kiểm tra tự động:
+Để duy trì tính module hóa, ngăn chặn phụ thuộc vòng và rò rỉ kiến trúc, hệ thống Frontend áp dụng bộ 5 quy tắc ranh giới nhập khẩu (Import Boundaries) được kiểm tra tự động:
 
 1. **Cô lập tầng dùng chung (`SHARED_ISOLATION`)**:
    - Các module trong `src/shared/**` tuyệt đối **không** được phép import từ `src/features/**` hoặc `src/app/**`.
@@ -119,13 +145,15 @@ sequenceDiagram
    - Nghiêm cấm import sâu vào các thư mục con hoặc component nội bộ của feature khác (chẳng hạn `../accounts/components/ResetPasswordModal`).
 3. **Cô lập chiều phụ thuộc ứng dụng (`FEATURE_ISOLATION`)**:
    - Các module trong `src/features/**` tuyệt đối **không** được phép import ngược lên tầng composition root `src/app/**`.
-4. **Chuẩn hóa truy cập mạng (Client API Boundary)**:
+4. **Cấm import từ gốc cũ (`LEGACY_ROOT_FORBIDDEN`)**:
+   - Nghiêm cấm mọi import tham chiếu đến các thư mục hoặc tệp gốc cũ: `components`, `context`, `lib`, `utils`, `types`, `types.ts`. Toàn bộ mã nguồn bắt buộc phải được phân loại và quản lý dưới `src/shared`, `src/features`, hoặc `src/app`.
+5. **Chuẩn hóa truy cập mạng (Client API Boundary)**:
    - Tất cả các component và hook không được gọi trực tiếp `window.fetch`, bắt buộc sử dụng client chuẩn hóa `src/shared/api.ts`.
 
 **Cơ chế thực thi tự động (`npm run check:boundaries`)**:
 - Script tự động hóa `scripts/check-boundaries.mjs` quét toàn bộ cây mã nguồn `src/` bằng TypeScript AST (hoặc Regex fallback) để phát hiện và báo lỗi ngay khi có vi phạm ranh giới.
 - Lệnh được tích hợp vào bộ kiểm thử gate (`check:boundaries`) chạy trước khi build và kiểm thử E2E Playwright.
-- Hỗ trợ chế độ tự kiểm thử qua cờ `--self-test` (`node scripts/check-boundaries.mjs --self-test`) với 100% test case kiểm chứng ranh giới.
+- Hỗ trợ chế độ tự kiểm thử qua cờ `--self-test` (`node scripts/check-boundaries.mjs --self-test`) với 100% test case kiểm chứng ranh giới (25/25 test cases passed).
 
 ---
 

@@ -1,4 +1,4 @@
-import type { WeeklyShiftDto, WorkHistoryDto } from '../types';
+import type { WeeklyShiftDto, WorkHistoryDto } from './types';
 
 // Verify WeeklyShiftDto has weekday and period, and no workDate
 type AssertHasNoWorkDate<T> = 'workDate' extends keyof T ? never : true;

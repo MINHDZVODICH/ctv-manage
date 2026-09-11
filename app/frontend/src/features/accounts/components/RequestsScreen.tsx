@@ -1,7 +1,7 @@
 import React from "react";
-import { RegistrationRequest } from "../../../types";
+import { RegistrationRequest } from "../../../shared/types";
 import { formatPhoneNumber, formatDateOnly } from "../../../shared/utils/formatters";
-import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 import { Pagination } from "../../../shared/ui";
 
 interface RequestsScreenProps {

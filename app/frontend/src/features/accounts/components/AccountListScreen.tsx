@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { UserAccount, UserRole } from "../../../types";
+import { UserAccount, UserRole } from "../../../shared/types";
 import { formatPhoneNumber } from "../../../shared/utils/formatters";
 import { ResetPasswordModal } from "./ResetPasswordModal";
-import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 import { Pagination } from "../../../shared/ui";
 
 interface AccountListScreenProps {

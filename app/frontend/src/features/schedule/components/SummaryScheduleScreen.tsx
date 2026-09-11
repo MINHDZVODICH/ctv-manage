@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ShiftSlot, UserAccount, AssignedCTV } from "../../../types";
+import { ShiftSlot, UserAccount, AssignedCTV } from "../../../shared/types";
 import {
   getAssignedCTVsForDate,
   getMsUntilPostCutoffRefresh,
@@ -7,7 +7,7 @@ import {
 import { formatRoomLabel } from "../../../shared/utils/rooms";
 import { summaryToSlots, ApiSummaryCell } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
-import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface SummaryScheduleScreenProps {
   shifts: ShiftSlot[];

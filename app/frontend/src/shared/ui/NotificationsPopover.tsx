@@ -1,5 +1,5 @@
 import React from 'react';
-import { NotificationItem } from '../../types';
+import { NotificationItem } from '../types';
 
 interface NotificationsPopoverProps {
   isOpen: boolean;

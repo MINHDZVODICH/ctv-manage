@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import * as profileApi from '../api/profileApi';
-import { UserAccount } from '../../../types';
+import { UserAccount } from '../../../shared/types';
 import { ProfileFileKind } from '../types';
 
 interface UseProfileOptions {

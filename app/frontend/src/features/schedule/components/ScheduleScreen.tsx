@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ShiftSlot, UserAccount, AssignedCTV } from "../../../types";
+import { ShiftSlot, UserAccount, AssignedCTV } from "../../../shared/types";
 import { CTVScheduleWorkspace } from "./CTVScheduleWorkspace";
 
 interface ScheduleScreenProps {

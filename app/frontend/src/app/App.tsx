@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { UserAccount, RegistrationRequest, ShiftSlot, ViewTab } from '../types';
+import type { UserAccount, RegistrationRequest, ShiftSlot, ViewTab } from '../shared/types';
 import { Sidebar, SettingsModal } from '../shared/ui';
 import { LoginScreen } from '../features/auth';
 import {
@@ -16,7 +16,7 @@ import {
   ChangePasswordModal,
   useProfile,
 } from '../features/profile';
-import { useSystemSettings } from '../context/SystemSettingsContext';
+import { useSystemSettings } from '../shared/context/SystemSettingsContext';
 import { useAuth } from '../shared/auth/AuthContext';
 import * as api from '../shared/api';
 import {

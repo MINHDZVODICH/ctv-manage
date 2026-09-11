@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { UserAccount } from "../../../types";
+import { UserAccount } from "../../../shared/types";
 
 const PASSWORD_GROUPS = [
   "ABCDEFGHJKLMNPQRSTUVWXYZ",

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
-import { UserAccount } from "../../../types";
+import { UserAccount } from "../../../shared/types";
 import { formatPhoneNumber } from "../../../shared/utils/formatters";
-import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface ProfileScreenProps {
   user: UserAccount;

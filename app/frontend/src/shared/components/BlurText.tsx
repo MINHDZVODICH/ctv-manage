@@ -1,7 +1,7 @@
 import { motion, type Transition, type Easing } from 'motion/react';
 import { useEffect, useRef, useState, useMemo } from 'react';
 
-type BlurTextProps = {
+export type BlurTextProps = {
   text?: string;
   delay?: number;
   className?: string;
@@ -29,7 +29,7 @@ const buildKeyframes = (
   return keyframes;
 };
 
-const BlurText: React.FC<BlurTextProps> = ({
+export const BlurText: React.FC<BlurTextProps> = ({
   text = '',
   delay = 200,
   className = '',

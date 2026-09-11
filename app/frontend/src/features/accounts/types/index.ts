@@ -4,7 +4,7 @@ export type {
   AccountStatus,
   RequestStatus,
   UserRole,
-} from '../../../types';
+} from '../../../shared/types';
 
 export interface AccountFilters {
   q?: string;

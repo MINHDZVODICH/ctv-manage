@@ -1,6 +1,6 @@
 import React from 'react';
 import { AuthProvider } from '../shared/auth/AuthContext';
-import { SystemSettingsProvider } from '../context/SystemSettingsContext';
+import { SystemSettingsProvider } from '../shared/context/SystemSettingsContext';
 
 interface AppProvidersProps {
   children: React.ReactNode;

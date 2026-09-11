@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useSystemSettings } from '../../context/SystemSettingsContext';
-import { ContrastOption, AccentColorOption, LanguageOption } from '../../types';
+import { useSystemSettings } from '../context/SystemSettingsContext';
+import { ContrastOption, AccentColorOption, LanguageOption } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;

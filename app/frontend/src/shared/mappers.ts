@@ -17,8 +17,8 @@ import type {
   WeeklySummaryResponse,
   ApiHistoryCell,
   HistoryResponse,
-} from '../types';
-import { formatRoomLabel } from '../utils/rooms';
+} from './types';
+import { formatRoomLabel } from './utils/rooms';
 
 export type {
   ShiftType,

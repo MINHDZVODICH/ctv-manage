@@ -165,6 +165,15 @@ export function checkImportBoundary(relFile, specifier, srcDir) {
     };
   }
 
+  // Rule 4: Legacy roots forbidden (components, context, lib, utils, types)
+  const legacyRoots = ['components', 'context', 'lib', 'utils', 'types', 'types.ts'];
+  if (legacyRoots.includes(targetCategory)) {
+    return {
+      rule: 'LEGACY_ROOT_FORBIDDEN',
+      message: `Importing from legacy root '${targetCategory}' ('${specifier}') is forbidden. Code must be organized under 'src/shared', 'src/features', or 'src/app'.`,
+    };
+  }
+
   return null;
 }
 
@@ -248,7 +257,7 @@ export function runSelfTest(srcDir) {
     // Rule 1: Valid shared imports
     {
       source: 'shared/ui/Sidebar.tsx',
-      specifier: '../../types',
+      specifier: '../types',
       expectedRule: null,
     },
     {
@@ -260,6 +269,22 @@ export function runSelfTest(srcDir) {
       source: 'shared/ui/Sidebar.tsx',
       specifier: 'react',
       expectedRule: null,
+    },
+    // Rule 4: Legacy roots forbidden
+    {
+      source: 'shared/ui/Sidebar.tsx',
+      specifier: '../../types',
+      expectedRule: 'LEGACY_ROOT_FORBIDDEN',
+    },
+    {
+      source: 'shared/ui/Sidebar.tsx',
+      specifier: '@/components/BlurText',
+      expectedRule: 'LEGACY_ROOT_FORBIDDEN',
+    },
+    {
+      source: 'features/accounts/components/AccountListScreen.tsx',
+      specifier: '../../../context/SystemSettingsContext',
+      expectedRule: 'LEGACY_ROOT_FORBIDDEN',
     },
     // Rule 2: Feature encapsulation violations
     {

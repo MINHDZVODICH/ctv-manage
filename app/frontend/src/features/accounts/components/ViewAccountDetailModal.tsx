@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { UserAccount, ShiftSlot } from "../../../types";
+import { UserAccount, ShiftSlot } from "../../../shared/types";
 import { formatPhoneNumber } from "../../../shared/utils/formatters";
 import { formatRoomLabel } from "../../../shared/utils/rooms";
 import { getMsUntilPostCutoffRefresh } from "../../../shared/utils/scheduleSelectors";

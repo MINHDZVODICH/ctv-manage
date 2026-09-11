@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ViewTab } from "../../types";
-import { useSystemSettings } from "../../context/SystemSettingsContext";
+import { ViewTab } from "../types";
+import { useSystemSettings } from "../context/SystemSettingsContext";
 import amstLogo from "../../assets/logo.png";
 
 interface SidebarProps {

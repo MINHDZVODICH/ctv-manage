@@ -12,4 +12,4 @@ export type {
   WeeklySummaryResponse,
   ApiHistoryCell,
   HistoryResponse,
-} from '../../../types';
+} from '../../../shared/types';

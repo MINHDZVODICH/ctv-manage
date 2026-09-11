@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { UserAccount } from "../../../types";
+import { UserAccount } from "../../../shared/types";
 import { onlyDigits } from "../../../shared/utils/formatters";
 
 interface EditProfileModalProps {

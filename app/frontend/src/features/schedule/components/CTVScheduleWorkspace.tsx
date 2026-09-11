@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ShiftSlot, UserAccount } from "../../../types";
+import { ShiftSlot, UserAccount } from "../../../shared/types";
 import * as api from "../../../shared/api";
 import {
   ApiHistoryEntry,
@@ -10,7 +10,7 @@ import {
 } from "../../../shared/mappers";
 import { formatRoomLabel, ROOM_OPTIONS, roomLabelToCode } from "../../../shared/utils/rooms";
 import { getMsUntilPostCutoffRefresh } from "../../../shared/utils/scheduleSelectors";
-import { useSystemSettings } from "../../../context/SystemSettingsContext";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface CTVScheduleWorkspaceProps {
   currentUser: UserAccount;

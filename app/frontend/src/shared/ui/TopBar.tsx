@@ -1,6 +1,6 @@
 import React from 'react';
-import { ViewTab } from '../../types';
-import { useSystemSettings } from '../../context/SystemSettingsContext';
+import { ViewTab } from '../types';
+import { useSystemSettings } from '../context/SystemSettingsContext';
 
 interface TopBarProps {
   currentTab: ViewTab;

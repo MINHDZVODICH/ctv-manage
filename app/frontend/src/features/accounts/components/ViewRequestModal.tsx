@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { RegistrationRequest } from "../../../types";
+import { RegistrationRequest } from "../../../shared/types";
 import { formatPhoneNumber, formatDateOnly } from "../../../shared/utils/formatters";
 
 interface ViewRequestModalProps {

@@ -1,4 +1,4 @@
-import type { AssignedCTV, ShiftSlot } from "../../types";
+import type { AssignedCTV, ShiftSlot } from "../types";
 import { formatRoomLabel } from "./rooms";
 
 export function getAssignedCTVsForDate(
