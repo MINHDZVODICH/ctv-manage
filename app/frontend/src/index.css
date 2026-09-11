@@ -87,6 +87,18 @@ html.dark .text-\[\#44474e\] {
   color: #a1a5b7 !important;
 }
 
+html.dark .text-\[\#002046\] {
+  color: #ffffff !important;
+}
+
+html.dark .text-\[\#1b365d\] {
+  color: #93c5fd !important;
+}
+
+html.dark .text-\[\#74777f\] {
+  color: #94a3b8 !important;
+}
+
 /* Dark mode hover overrides so row/button hover in dark mode stays dark */
 html.dark .hover\:bg-\[\#f4f3f7\]:hover,
 html.dark .hover\:bg-\[\#f8fafc\]:hover,

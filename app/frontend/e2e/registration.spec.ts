@@ -49,3 +49,71 @@ test('người dùng gửi được yêu cầu đăng ký kèm CCCD và CV', asy
     expect.arrayContaining(['CCCD_FRONT', 'CCCD_BACK', 'CV']),
   );
 });
+
+async function checkContrastRatio(locator: import('@playwright/test').Locator): Promise<number> {
+  return await locator.evaluate((el) => {
+    function parseColor(colorStr: string): [number, number, number] {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return [0, 0, 0];
+      ctx.fillStyle = '#000';
+      ctx.fillStyle = colorStr;
+      ctx.fillRect(0, 0, 1, 1);
+      const data = ctx.getImageData(0, 0, 1, 1).data;
+      return [data[0], data[1], data[2]];
+    }
+    function getLuminance(r: number, g: number, b: number) {
+      const a = [r, g, b].map((v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+    }
+    const style = window.getComputedStyle(el);
+    const fg = parseColor(style.color);
+
+    let bgEl: HTMLElement | null = el.parentElement;
+    let bg: [number, number, number] = [37, 38, 43];
+    while (bgEl) {
+      const bgStyle = window.getComputedStyle(bgEl);
+      const color = bgStyle.backgroundColor;
+      if (color && color !== 'transparent' && !color.includes('rgba(0, 0, 0, 0)')) {
+        bg = parseColor(color);
+        break;
+      }
+      bgEl = bgEl.parentElement;
+    }
+    const l1 = getLuminance(fg[0], fg[1], fg[2]);
+    const l2 = getLuminance(bg[0], bg[1], bg[2]);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  });
+}
+
+test('giao diện đăng ký ở chế độ dark mode đảm bảo độ tương phản tiêu đề và các nút upload', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ctv_sys_dark_mode', 'true');
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
+
+  const heading = page.getByRole('heading', { name: 'Đăng ký tài khoản' });
+  await expect(heading).toBeVisible();
+
+  const cccdUploadText = page.getByText('Tải ảnh lên').first();
+  await expect(cccdUploadText).toBeVisible();
+
+  const cvUploadText = page.getByText('Tải file CV lên');
+  await expect(cvUploadText).toBeVisible();
+
+  const headingRatio = await checkContrastRatio(heading);
+  expect(headingRatio).toBeGreaterThanOrEqual(4.5);
+
+  const cccdRatio = await checkContrastRatio(cccdUploadText);
+  expect(cccdRatio).toBeGreaterThanOrEqual(4.5);
+
+  const cvRatio = await checkContrastRatio(cvUploadText);
+  expect(cvRatio).toBeGreaterThanOrEqual(4.5);
+});
+
