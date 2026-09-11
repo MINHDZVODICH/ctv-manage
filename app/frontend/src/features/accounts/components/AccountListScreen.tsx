@@ -159,7 +159,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                           </div>
                         )}
                         <div>
-                          <div className="font-semibold text-sm text-[#1a1b1e] group-hover/user:text-[#1b365d] group-hover/user:underline transition-colors">
+                          <div className="font-semibold text-sm text-[#1a1b1e] dark:text-white group-hover/user:text-[#1b365d] dark:group-hover/user:text-blue-300 group-hover/user:underline transition-colors">
                             {acc.name}
                           </div>
                         </div>
