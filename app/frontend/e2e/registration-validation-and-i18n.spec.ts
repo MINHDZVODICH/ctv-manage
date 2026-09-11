@@ -34,13 +34,13 @@ test.describe('Registration validation and English translations', () => {
 
     // 1. Mở Cài đặt hệ thống từ Sidebar user menu và chuyển sang Tiếng Anh
     await page.locator('aside').getByRole('button').last().click();
-    await page.getByRole('button', { name: /Cài đặt hệ thống|System Settings/i }).click();
+    await page.getByRole('menuitem', { name: /Cài đặt hệ thống|System Settings/i }).click();
     const settingsModal = page.locator('div.fixed.inset-0').last();
     await expect(settingsModal.getByRole('heading', { name: /Cài đặt hệ thống|System Settings/i })).toBeVisible();
 
     // Chọn ngôn ngữ Tiếng Anh
     await settingsModal.getByText('Tiếng Việt').last().click();
-    await page.getByText('Tiếng Anh').click();
+    await page.getByText('English').click();
 
     // Kiểm tra Accent Color dropdown hiển thị tiếng Anh (ví dụ Blue)
     await expect(settingsModal.getByText('Accent Color')).toBeVisible();
@@ -75,7 +75,7 @@ test.describe('Registration validation and English translations', () => {
 
     // 3. Vào Thông tin tài khoản (Personal Profile) qua Sidebar user menu
     await page.locator('aside').getByRole('button').last().click();
-    await page.getByRole('button', { name: /Personal Profile|Hồ sơ cá nhân/i }).click();
+    await page.getByRole('menuitem', { name: /Personal Profile|Hồ sơ cá nhân/i }).click();
     await expect(page.getByRole('heading', { name: /Account Information|Thông tin tài khoản/i, level: 2 })).toBeVisible();
 
     // Mở Change Password modal
@@ -105,4 +105,27 @@ test.describe('Registration validation and English translations', () => {
     // Đóng Edit Profile modal
     await editModal.getByRole('button', { name: 'Cancel' }).click();
   });
+
+  test('Registration form has no placeholders for Full Name, Email, Phone Number, and Date of Birth starts empty (--)', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
+    await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
+
+    const form = page.locator('form');
+    const nameInput = form.locator('input[type="text"]').first();
+    const emailInput = form.locator('input[type="email"]');
+    const phoneInput = form.locator('input[type="tel"]');
+
+    // Placeholders must be empty or absent
+    expect(await nameInput.getAttribute('placeholder')).toBeFalsy();
+    expect(await emailInput.getAttribute('placeholder')).toBeFalsy();
+    expect(await phoneInput.getAttribute('placeholder')).toBeFalsy();
+
+    // Date of Birth selects must default to empty ("") with "--"
+    const selects = form.locator('select');
+    await expect(selects.nth(0)).toHaveValue('');
+    await expect(selects.nth(1)).toHaveValue('');
+    await expect(selects.nth(2)).toHaveValue('');
+  });
 });
+

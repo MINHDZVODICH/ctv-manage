@@ -27,9 +27,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
 
   // Register form state
   const [regName, setRegName] = useState("");
-  const [regDay, setRegDay] = useState("01");
-  const [regMonth, setRegMonth] = useState("01");
-  const [regYear, setRegYear] = useState("1998");
+  const [regDay, setRegDay] = useState("");
+  const [regMonth, setRegMonth] = useState("");
+  const [regYear, setRegYear] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -232,7 +232,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
       errors.regConfirmPassword = "auth.error_password_mismatch";
     }
 
-    if (regDay && regMonth && regYear) {
+    const hasAnyDobPart = Boolean(regDay || regMonth || regYear);
+    const hasAllDobParts = Boolean(regDay && regMonth && regYear);
+
+    if (hasAnyDobPart && !hasAllDobParts) {
+      errors.regDob = "auth.error_dob_format";
+    } else if (hasAllDobParts) {
       const dobValidation = validateBirthDateString(`${regDay}/${regMonth}/${regYear}`);
       if (!dobValidation.isValid) {
         const errText = dobValidation.error || "";
@@ -459,7 +464,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 <input
                   type="text"
                   value={regName}
-                  placeholder={t("auth.full_name_placeholder")}
                   onFocus={() => clearRegError("regName")}
                   onClick={() => clearRegError("regName")}
                   onChange={(e) => {
@@ -491,6 +495,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
+                    <option value="">--</option>
                     {Array.from(
                       {
                         length: new Date(
@@ -516,18 +521,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     onChange={(e) => {
                       const newMonth = e.target.value;
                       setRegMonth(newMonth);
-                      const maxDays = new Date(
-                        parseInt(regYear || "2000", 10),
-                        parseInt(newMonth, 10),
-                        0
-                      ).getDate();
-                      if (parseInt(regDay, 10) > maxDays) {
-                        setRegDay(String(maxDays).padStart(2, "0"));
+                      if (newMonth && regDay) {
+                        const maxDays = new Date(
+                          parseInt(regYear || "2000", 10),
+                          parseInt(newMonth, 10),
+                          0
+                        ).getDate();
+                        if (parseInt(regDay, 10) > maxDays) {
+                          setRegDay(String(maxDays).padStart(2, "0"));
+                        }
                       }
                       clearRegError("regDob");
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
+                    <option value="">--</option>
                     {Array.from({ length: 12 }, (_, i) => {
                       const m = String(i + 1).padStart(2, "0");
                       return (
@@ -544,18 +552,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     onChange={(e) => {
                       const newYear = e.target.value;
                       setRegYear(newYear);
-                      const maxDays = new Date(
-                        parseInt(newYear, 10),
-                        parseInt(regMonth || "1", 10),
-                        0
-                      ).getDate();
-                      if (parseInt(regDay, 10) > maxDays) {
-                        setRegDay(String(maxDays).padStart(2, "0"));
+                      if (newYear && regMonth && regDay) {
+                        const maxDays = new Date(
+                          parseInt(newYear, 10),
+                          parseInt(regMonth, 10),
+                          0
+                        ).getDate();
+                        if (parseInt(regDay, 10) > maxDays) {
+                          setRegDay(String(maxDays).padStart(2, "0"));
+                        }
                       }
                       clearRegError("regDob");
                     }}
                     className="px-2 py-1.5 border border-[#c4c6cf] dark:border-[#3b3d48] rounded-lg text-xs bg-[#faf9fd] dark:bg-[#262730] text-[#1a1b1e] dark:text-[#f1f5f9] h-[38px] cursor-pointer"
                   >
+                    <option value="">--</option>
                     {Array.from(
                       { length: new Date().getFullYear() - 1949 },
                       (_, i) => {
@@ -584,7 +595,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <input
                     type="email"
                     value={regEmail}
-                    placeholder={t("auth.email_placeholder")}
                     onFocus={() => clearRegError("regEmail")}
                     onClick={() => clearRegError("regEmail")}
                     onChange={(e) => {
@@ -610,7 +620,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                   <input
                     type="tel"
                     value={regPhone}
-                    placeholder={t("auth.phone_placeholder")}
                     onFocus={() => clearRegError("regPhone")}
                     onClick={() => clearRegError("regPhone")}
                     onChange={(e) => {
