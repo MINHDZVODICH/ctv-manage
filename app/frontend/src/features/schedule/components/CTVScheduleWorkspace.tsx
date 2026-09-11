@@ -510,7 +510,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               >
                 door_front
               </span>
-              <span className="font-bold text-slate-900 dark:text-slate-100">{room}</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">{language === "Tiếng Anh" ? room.replace("Buồng", "Room") : room}</span>
             </div>
           </div>
         </div>
@@ -776,7 +776,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   type="button"
                   onClick={() => closeRegistration()}
                   disabled={isSubmitting}
-                  aria-label="Đóng cửa sổ đăng ký"
+                  aria-label={language === "Tiếng Anh" ? "Close registration window" : "Đóng cửa sổ đăng ký"}
                   className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   <span className="material-symbols-outlined" aria-hidden="true">
@@ -791,7 +791,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     htmlFor="modal-room-select"
                     className="block text-sm font-bold text-slate-900 dark:text-white mb-1.5"
                   >
-                    Buồng làm việc
+                    {language === "Tiếng Anh" ? "Workroom" : "Buồng làm việc"}
                   </label>
                   <div className="relative">
                     <select
@@ -804,7 +804,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     >
                       {ROOM_OPTIONS.map((r) => (
                         <option key={r} value={r}>
-                          {r}
+                          {language === "Tiếng Anh" ? r.replace("Buồng", "Room") : r}
                         </option>
                       ))}
                     </select>
@@ -813,13 +813,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
                 <fieldset>
                   <legend className="text-sm font-bold text-slate-900 dark:text-white">
-                    Mẫu ca làm việc theo tuần
+                    {language === "Tiếng Anh" ? "Weekly Shift Schedule Pattern" : "Mẫu ca làm việc theo tuần"}
                   </legend>
                   <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
                     <div className="min-w-[500px]">
                       <div className="grid grid-cols-[120px_repeat(5,1fr)] bg-slate-50 dark:bg-slate-900/40">
                         <div className="border-r border-slate-200 p-2 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300 flex items-center justify-center">
-                          Ca / Thứ
+                          {language === "Tiếng Anh" ? "Shift / Day" : "Ca / Thứ"}
                         </div>
                         {WEEKDAYS.map((day) => (
                           <div
@@ -827,7 +827,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                             className="border-r border-slate-200 p-2 text-center last:border-r-0 dark:border-slate-700 flex items-center justify-center"
                           >
                             <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                              {day.short}
+                              {language === "Tiếng Anh" ? t(day.i18nKey) : day.short}
                             </p>
                           </div>
                         ))}
@@ -844,7 +844,11 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                             >
                               {shiftOption.icon}
                             </span>
-                            {shiftOption.label}
+                            {language === "Tiếng Anh"
+                              ? shiftOption.type === "morning"
+                                ? "Morning"
+                                : "Afternoon"
+                              : shiftOption.label}
                           </div>
                           {WEEKDAYS.map((day) => {
                             const firstDate = getFirstRegistrationDate(day.index);
@@ -859,7 +863,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                   onClick={() => togglePattern(day.index, shiftOption.type)}
                                   disabled={isSubmitting}
                                   aria-pressed={selected}
-                                  aria-label={`${selected ? "Bỏ chọn" : "Chọn"} ${shiftOption.label} ${day.label}${firstDate ? `, ngày đầu tiên ${formatCalendarDate(firstDate)}` : ""}`}
+                                  aria-label={`${selected ? (language === "Tiếng Anh" ? "Deselect" : "Bỏ chọn") : (language === "Tiếng Anh" ? "Select" : "Chọn")} ${language === "Tiếng Anh" ? (shiftOption.type === "morning" ? "Morning" : "Afternoon") : shiftOption.label} ${language === "Tiếng Anh" ? t(day.i18nKey) : day.label}${firstDate ? `, ${language === "Tiếng Anh" ? "first date" : "ngày đầu tiên"} ${formatCalendarDate(firstDate)}` : ""}`}
                                   className={[
                                     "flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer",
                                     "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-300 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-600",

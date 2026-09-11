@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { UserAccount } from "../../../shared/types";
 import { onlyDigits } from "../../../shared/utils/formatters";
+import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -8,6 +9,14 @@ interface EditProfileModalProps {
   onClose: () => void;
   onSave: (updatedData: Partial<UserAccount>) => void;
 }
+
+const normalizeGenderValue = (val?: string) => {
+  if (!val) return "";
+  if (val === "MALE" || val === "Nam") return "Nam";
+  if (val === "FEMALE" || val === "Nữ") return "Nữ";
+  if (val === "OTHER" || val === "Khác") return "Khác";
+  return val;
+};
 
 const parseDobToParts = (rawDob?: string) => {
   if (!rawDob || !rawDob.trim()) {
@@ -47,6 +56,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t, language } = useSystemSettings();
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone);
   
@@ -55,7 +65,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [dobMonth, setDobMonth] = useState(initialDobParts.month);
   const [dobYear, setDobYear] = useState(initialDobParts.year);
 
-  const [gender, setGender] = useState(user.gender || "");
+  const [gender, setGender] = useState(normalizeGenderValue(user.gender));
   const [address, setAddress] = useState(user.address || "");
 
   useEffect(() => {
@@ -66,7 +76,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setDobDay(parts.day);
       setDobMonth(parts.month);
       setDobYear(parts.year);
-      setGender(user.gender || "");
+      setGender(normalizeGenderValue(user.gender));
       setAddress(user.address || "");
     }
   }, [isOpen, user]);
@@ -103,7 +113,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c] shrink-0">
           <h3 className="text-base font-bold text-[#1a1b1e] dark:text-slate-100">
-            Chỉnh sửa thông tin cá nhân
+            {language === "Tiếng Anh" ? "Edit Personal Information" : "Chỉnh sửa thông tin cá nhân"}
           </h3>
           <button
             type="button"
@@ -117,7 +127,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div>
             <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
-              Họ và tên <span className="text-[#DC2626]">*</span>
+              {t("full_name")} <span className="text-[#DC2626]">*</span>
             </label>
             <input
               type="text"
@@ -134,7 +144,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 htmlFor="edit-profile-phone"
                 className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1"
               >
-                Số điện thoại
+                {t("phone_number")}
               </label>
               <input
                 id="edit-profile-phone"
@@ -143,7 +153,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 autoComplete="tel"
                 minLength={6}
                 pattern="[0-9]{6,15}"
-                title="Số điện thoại chỉ gồm từ 6 đến 15 chữ số"
+                title={language === "Tiếng Anh" ? "Phone number must be between 6 and 15 digits" : "Số điện thoại chỉ gồm từ 6 đến 15 chữ số"}
                 value={phone}
                 onChange={(e) => setPhone(onlyDigits(e.target.value, 15))}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
@@ -152,7 +162,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
-                Ngày sinh
+                {t("date_of_birth")}
               </label>
               <div className="grid grid-cols-3 gap-1.5">
                 {/* Ngày */}
@@ -160,7 +170,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <select
                     value={dobDay}
                     onChange={(e) => setDobDay(e.target.value)}
-                    title="Ngày"
+                    title={language === "Tiếng Anh" ? "Day" : "Ngày"}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -194,7 +204,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         setDobDay(String(maxDays).padStart(2, "0"));
                       }
                     }}
-                    title="Tháng"
+                    title={language === "Tiếng Anh" ? "Month" : "Tháng"}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -228,7 +238,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         setDobDay(String(maxDays).padStart(2, "0"));
                       }
                     }}
-                    title="Năm"
+                    title={language === "Tiếng Anh" ? "Year" : "Năm"}
                     className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
                   >
                     <option value="">--</option>
@@ -255,29 +265,29 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
-                Giới tính
+                {t("gender")}
               </label>
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               >
-                <option value="">Chưa cập nhật</option>
-                <option value="Nam">Nam</option>
-                <option value="Nữ">Nữ</option>
-                <option value="Khác">Khác</option>
+                <option value="">{t("not_updated")}</option>
+                <option value="Nam">{t("gender_male")}</option>
+                <option value="Nữ">{t("gender_female")}</option>
+                <option value="Khác">{t("gender_other")}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-[#1a1b1e] dark:text-slate-200 mb-1">
-                Địa chỉ
+                {t("address")}
               </label>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="TP. Hồ Chí Minh"
+                placeholder={language === "Tiếng Anh" ? "e.g. Ho Chi Minh City" : "TP. Hồ Chí Minh"}
                 className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
               />
             </div>
@@ -289,13 +299,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
-              Hủy
+              {t("cancel")}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
-              Lưu thay đổi
+              {t("save")}
             </button>
           </div>
         </form>

@@ -17,6 +17,16 @@ const accentColorMap: Record<AccentColorOption, { name: string; hex: string; bgC
   'Tím': { name: 'Tím', hex: '#a855f7', bgClass: 'bg-purple-500' },
 };
 
+const colorI18nKeys: Record<AccentColorOption, string> = {
+  'Xám': 'color_gray',
+  'Lục': 'color_green',
+  'Lam': 'color_blue',
+  'Vàng': 'color_yellow',
+  'Đỏ': 'color_red',
+  'Cam': 'color_orange',
+  'Tím': 'color_purple',
+};
+
 interface DropdownItem<T> {
   label: string;
   value: T;
@@ -259,7 +269,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               isDarkMode={isDarkMode}
               value={accentColor}
               options={(Object.keys(accentColorMap) as AccentColorOption[]).map((key) => ({
-                label: key,
+                label: t(colorI18nKeys[key]),
                 value: key,
                 colorBgClass: accentColorMap[key].bgClass,
               }))}

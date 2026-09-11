@@ -28,7 +28,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isAdminViewing = false,
   onBack,
 }) => {
-  const { t } = useSystemSettings();
+  const { t, language } = useSystemSettings();
   const [previewModal, setPreviewModal] = useState<{
     title: string;
     url: string;
@@ -51,6 +51,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatGender = (gender?: string | null) => {
+    if (!gender) return t("not_updated");
+    if (language === "Tiếng Anh") {
+      if (gender === "Nam" || gender === "MALE") return t("gender_male");
+      if (gender === "Nữ" || gender === "FEMALE") return t("gender_female");
+      if (gender === "Khác" || gender === "OTHER") return t("gender_other");
+    }
+    return gender;
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -408,7 +418,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t("gender")}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{user.gender || t("not_updated")}</p>
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">{formatGender(user.gender)}</p>
                   </div>
 
                   <div>

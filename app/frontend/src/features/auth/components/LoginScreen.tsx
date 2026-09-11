@@ -60,6 +60,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
   const cvFileInputRef = useRef<HTMLInputElement>(null);
 
   const [regErrors, setRegErrors] = useState<{ [key: string]: string }>({});
+  const [regGeneralError, setRegGeneralError] = useState("");
 
   // Countdown timer for register success
   const [countdown, setCountdown] = useState(5);
@@ -184,6 +185,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
   };
 
   const clearRegError = (field: string) => {
+    setRegGeneralError("");
     setRegErrors((prev) => {
       if (!prev[field]) return prev;
       const next = { ...prev };
@@ -195,6 +197,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
   // Submit Register
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRegGeneralError("");
     const errors: { [key: string]: string } = {};
 
     if (!regName.trim()) errors.regName = "Vui lòng nhập họ và tên!";
@@ -204,10 +207,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     }
     if (!cccdFrontFile) errors.cccdFront = "Vui lòng tải ảnh CCCD mặt trước!";
     if (!cccdBackFile) errors.cccdBack = "Vui lòng tải ảnh CCCD mặt sau!";
-    if (!regPassword) errors.regPassword = "Vui lòng nhập mật khẩu!";
-    if (!regConfirmPassword) errors.regConfirmPassword = "Vui lòng nhập lại mật khẩu!";
-
-    if (regPassword && regConfirmPassword && regPassword !== regConfirmPassword) {
+    if (!regPassword) {
+      errors.regPassword = "Vui lòng nhập mật khẩu!";
+    } else if (regPassword.length < 6) {
+      errors.regPassword = "Mật khẩu phải có ít nhất 6 ký tự!";
+    }
+    if (!regConfirmPassword) {
+      errors.regConfirmPassword = "Vui lòng nhập lại mật khẩu!";
+    } else if (regPassword && regConfirmPassword && regPassword !== regConfirmPassword) {
       errors.regConfirmPassword = "Mật khẩu phải trùng khớp!";
     }
 
@@ -247,10 +254,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
       setMode("register_success");
     } catch (err: any) {
       const msg: string = err.message || "Đăng ký thất bại";
-      if (msg.toLowerCase().includes("email")) {
+      const lower = msg.toLowerCase();
+      if (lower.includes("email")) {
         setRegErrors({ regEmail: msg });
-      } else {
+      } else if (lower.includes("mật khẩu") || lower.includes("password")) {
+        setRegErrors({ regPassword: msg });
+      } else if (lower.includes("cccd") || lower.includes("ảnh")) {
+        setRegErrors({ cccdFront: msg });
+      } else if (lower.includes("cv") || lower.includes("pdf")) {
+        setRegErrors({ cvFile: msg });
+      } else if (lower.includes("điện thoại") || lower.includes("phone")) {
+        setRegErrors({ regPhone: msg });
+      } else if (lower.includes("ngày sinh") || lower.includes("birth")) {
+        setRegErrors({ regDob: msg });
+      } else if (lower.includes("họ và tên") || lower.includes("displayname") || lower.includes("tên")) {
         setRegErrors({ regName: msg });
+      } else {
+        setRegGeneralError(msg);
       }
     } finally {
       setIsProcessing(false);
@@ -369,6 +389,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                     onClick={() => {
                       setMode("register");
                       setRegErrors({});
+                      setRegGeneralError("");
                     }}
                     className="text-[#002046] dark:text-blue-400 font-bold hover:underline cursor-pointer ml-1"
                   >
@@ -384,6 +405,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
         {mode === "register" && (
           <div>
             <h1 className="text-xl font-bold text-[#002046] dark:text-white text-center mb-5">Đăng ký tài khoản</h1>
+
+            {regGeneralError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs rounded-xl flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-red-600 dark:text-red-400">error</span>
+                <span>{regGeneralError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
               {/* Họ và tên */}

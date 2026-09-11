@@ -89,6 +89,13 @@ const translations: Record<LanguageOption, Record<string, string>> = {
     low_contrast: "Thấp",
     medium_contrast: "Trung bình",
     high_contrast: "Cao",
+    color_gray: "Xám",
+    color_green: "Lục",
+    color_blue: "Lam",
+    color_yellow: "Vàng",
+    color_red: "Đỏ",
+    color_orange: "Cam",
+    color_purple: "Tím",
 
     // Roles & Statuses
     role_admin: "Quản trị viên",
@@ -240,6 +247,13 @@ const translations: Record<LanguageOption, Record<string, string>> = {
     low_contrast: "Low",
     medium_contrast: "Medium",
     high_contrast: "High",
+    color_gray: "Gray",
+    color_green: "Green",
+    color_blue: "Blue",
+    color_yellow: "Yellow",
+    color_red: "Red",
+    color_orange: "Orange",
+    color_purple: "Purple",
 
     // Roles & Statuses
     role_admin: "Administrator",
