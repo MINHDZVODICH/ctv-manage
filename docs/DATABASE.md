@@ -24,8 +24,8 @@ erDiagram
         string id PK "cuid"
         string email UK "Trim & Lowercase"
         string passwordHash "Argon2id"
-        string role "ADMIN | CTV"
-        string status "ACTIVE | DISABLED"
+        Role role "enum: ADMIN | CTV"
+        AccountStatus status "enum: ACTIVE | DISABLED"
         int version "Optimistic Locking, default 1"
         boolean mustChangePassword "default false"
         string displayName
@@ -338,13 +338,20 @@ Toàn bộ quá trình nâng cấp và điều chỉnh cơ sở dữ liệu đư
 |---|---|---|---|
 | 1 | `20260904090000_init_postgresql` | Non-destructive | Khởi tạo cấu trúc PostgreSQL ban đầu gồm các bảng Account, Session, RegistrationRequest, FileAsset, và cấu trúc lịch cũ 5 bảng. |
 | 2 | `20260905090000_redesign_schedule_shift_history` | **Destructive** | **Tái cấu trúc toàn diện phân hệ Lịch làm việc & Lịch sử**:<br/>- Xóa bỏ 5 bảng cũ: `SchedulePatternSlot`, `ScheduleRegistration`, `ShiftAssignment`, `WorkHistory`, và bảng `Shift` theo ngày.<br/>- Tạo 3 bảng mới chuẩn hóa: `Schedule`, `Shift`, `History`.<br/>- Thiết lập khóa ngoại và `onDelete: Cascade`.<br/>- Thiết lập ràng buộc `@@unique([accountId, workDate, period])` trên bảng `History` để đảm bảo tính idempotent của tiến trình snapshot 17:30. |
+| 3 | `20260907170407_add_snapshot_run_and_rate_limit_window` | Non-destructive | Bổ sung bảng `SnapshotRun` để điều phối snapshot theo ngày và bảng `RateLimitWindow` để giới hạn tần suất truy cập phân tán. |
+| 4 | `20260909100000_work_history_checkpoint` | Non-destructive | Bổ sung bảng `WorkHistorySource` và các trigger tự động ghi nhận biến động cấu hình phục vụ hồi tố. |
+| 5 | `20260909110000_work_history_progress_clock` | Non-destructive | Bổ sung bảng `WorkHistoryProgress` đóng vai trò đồng hồ xử lý tuần tự theo ngày cho work history. |
+| 6 | `20260911140000_strengthen_domain_integrity` | Domain Hardening | **Củng cố toàn vẹn dữ liệu ở cấp độ CSDL**:<br/>- Chuyển đổi các cột chuỗi sang PostgreSQL Native Enums: `Role`, `AccountStatus`, `RegistrationStatus`, `FileState`, `FileCategory`, `RoomCode`, `Period`, `HistoryStatus`, `SnapshotRunStatus`, `RateLimitScope`.<br/>- Thêm CHECK constraints: `Shift.weekday BETWEEN 1 AND 5`, `SnapshotRun.attemptCount >= 0`, `SnapshotRun.insertedCount >= 0`, `RateLimitWindow.requestCount >= 0`.<br/>- Khởi tạo đồng bộ trigger lịch sử với kiểu enum mới. |
 
 ---
 
 ## 4. Các bất biến nghiệp vụ được bảo đảm bởi cơ sở dữ liệu (Database Invariants)
 
 1. **Email và CTV Code là duy nhất**: Không thể tồn tại 2 tài khoản trùng email (`@@unique([email])`) hoặc trùng mã CTV (`@@unique([ctvCode])`).
-2. **Mỗi CTV chỉ có tối đa một mẫu lịch tuần**: Ràng buộc `Schedule_accountId_key` (`@@unique([accountId])`) đảm bảo 1 CTV không bao giờ có 2 bản ghi lịch tuần đồng thời.
-3. **Mỗi ô ca trong tuần không bị đăng ký trùng**: Khóa chính `@@id([scheduleId, weekday, period])` đảm bảo một CTV không thể có 2 ca trùng cả thứ và buổi trong cùng một lịch.
-4. **Lịch sử làm việc không bị trùng lặp**: Ràng buộc `@@unique([accountId, workDate, period])` đảm bảo một CTV chỉ có tối đa một bản ghi lịch sử trong cùng một buổi của một ngày cụ thể, giúp lệnh `prisma.history.createMany({ skipDuplicates: true })` chạy an toàn và tuyệt đối không tạo bản ghi rác.
-5. **Dọn dẹp liên kết toàn vẹn (Cascading Deletes)**: Khi một tài khoản bị xóa hoàn toàn khỏi cơ sở dữ liệu, toàn bộ phiên đăng nhập (`Session`), liên kết tệp (`AccountFile`), lịch tuần (`Schedule`), ca tuần (`Shift`) và lịch sử làm việc (`History`) của tài khoản đó đều tự động được dọn dẹp sạch sẽ qua ràng buộc `ON DELETE CASCADE` ở mức cơ sở dữ liệu.
+2. **Kiểu dữ liệu miền chuẩn hóa (PostgreSQL Native Enums)**: Toàn bộ các trạng thái, vai trò, phòng làm việc và ca đều được kiểm soát nghiêm ngặt ở mức CSDL bằng PostgreSQL Enum. Không thể chèn giá trị ngoài danh mục (ví dụ: `ADMN`, `ROOM_999`, `UNKNOWN_STATUS` đều bị CSDL từ chối ngay lập tức).
+3. **Mỗi CTV chỉ có tối đa một mẫu lịch tuần**: Ràng buộc `Schedule_accountId_key` (`@@unique([accountId])`) đảm bảo 1 CTV không bao giờ có 2 bản ghi lịch tuần đồng thời.
+4. **Mỗi ô ca trong tuần không bị đăng ký trùng**: Khóa chính `@@id([scheduleId, weekday, period])` đảm bảo một CTV không thể có 2 ca trùng cả thứ và buổi trong cùng một lịch.
+5. **Ràng buộc ngày trong tuần (CHECK Constraint)**: Ràng buộc `Shift_weekday_check` (`CHECK ("weekday" >= 1 AND "weekday" <= 5)`) bảo đảm ca làm việc chỉ từ Thứ 2 đến Thứ 6.
+6. **Lịch sử làm việc không bị trùng lặp**: Ràng buộc `@@unique([accountId, workDate, period])` đảm bảo một CTV chỉ có tối đa một bản ghi lịch sử trong cùng một buổi của một ngày cụ thể, giúp lệnh `prisma.history.createMany({ skipDuplicates: true })` chạy an toàn và tuyệt đối không tạo bản ghi rác.
+7. **Bộ đếm không âm (Non-negative Counters)**: CHECK constraints đảm bảo `SnapshotRun.attemptCount >= 0`, `SnapshotRun.insertedCount >= 0`, `RateLimitWindow.requestCount >= 0`.
+8. **Dọn dẹp liên kết toàn vẹn (Cascading Deletes)**: Khi một tài khoản bị xóa hoàn toàn khỏi cơ sở dữ liệu, toàn bộ phiên đăng nhập (`Session`), liên kết tệp (`AccountFile`), lịch tuần (`Schedule`), ca tuần (`Shift`) và lịch sử làm việc (`History`) của tài khoản đó đều tự động được dọn dẹp sạch sẽ qua ràng buộc `ON DELETE CASCADE` ở mức cơ sở dữ liệu.

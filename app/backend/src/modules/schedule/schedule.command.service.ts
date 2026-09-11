@@ -1,4 +1,4 @@
-import type { Schedule } from '@prisma/client';
+import type { Schedule, RoomCode, Period } from '@prisma/client';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
 import {
@@ -57,7 +57,7 @@ export async function upsertSchedule(
       scheduleRecord = await tx.schedule.update({
         where: { id: existing.id },
         data: {
-          roomCode: input.roomCode,
+          roomCode: input.roomCode as RoomCode,
           version: { increment: 1 },
         },
       });
@@ -71,7 +71,7 @@ export async function upsertSchedule(
           data: slots.map((s) => ({
             scheduleId: existing.id,
             weekday: s.weekday,
-            period: s.period,
+            period: s.period as Period,
           })),
         });
       }
@@ -86,12 +86,12 @@ export async function upsertSchedule(
       scheduleRecord = await tx.schedule.create({
         data: {
           accountId,
-          roomCode: input.roomCode,
+          roomCode: input.roomCode as RoomCode,
           version: 1,
           shifts: slots.length > 0 ? {
             create: slots.map((s) => ({
               weekday: s.weekday,
-              period: s.period,
+              period: s.period as Period,
             })),
           } : undefined,
         },

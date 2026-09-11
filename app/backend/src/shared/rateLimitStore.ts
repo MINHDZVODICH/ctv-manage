@@ -1,8 +1,9 @@
+import type { RateLimitScope } from '@prisma/client';
 import crypto from 'node:crypto';
 import { prisma } from './prisma.js';
 import { config } from '../config.js';
 
-export type RateLimitScope = 'LOGIN_IP' | 'LOGIN_ACCOUNT' | 'REGISTRATION_IP' | 'UPLOAD_ACCOUNT';
+export type { RateLimitScope };
 
 export interface RateLimitRecord {
   requestCount: number;
@@ -32,7 +33,7 @@ export async function incrementRateLimit(
 
   const rows = await prisma.$queryRaw<Array<{ requestCount: number; expiresAt: Date | string }>>`
     INSERT INTO "RateLimitWindow" ("id", "scope", "identityDigest", "windowStart", "requestCount", "expiresAt")
-    VALUES (${id}, ${scope}, ${identityDigest}, ${windowStart}, 1, ${expiresAt})
+    VALUES (${id}, ${scope}::"RateLimitScope", ${identityDigest}, ${windowStart}, 1, ${expiresAt})
     ON CONFLICT ("scope", "identityDigest", "windowStart")
     DO UPDATE SET "requestCount" = "RateLimitWindow"."requestCount" + 1
     RETURNING "requestCount", "expiresAt";

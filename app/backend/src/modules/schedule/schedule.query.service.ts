@@ -1,6 +1,6 @@
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
-import type { WeeklyScheduleDto, WeeklyShiftDto } from './schedule.types.js';
+import type { WeeklyScheduleDto, WeeklyShiftDto, Period } from './schedule.types.js';
 
 // ---------------------------------------------------------------------------
 // getMySchedule / getAccountSchedule
@@ -178,7 +178,7 @@ export async function listMyShifts(accountId: string) {
 export async function getShiftForUser(shiftId: string, accountId: string, isAdmin: boolean) {
   const parts = shiftId.split('-');
   const wd = Number(parts[1]);
-  const p = parts[2];
+  const p = parts[2] as Period;
 
   if (!isAdmin) {
     const userSchedule = await prisma.schedule.findUnique({

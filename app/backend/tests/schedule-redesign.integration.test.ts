@@ -275,10 +275,10 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       orderBy: { period: 'asc' },
     });
     expect(historyAfter).toHaveLength(2);
-    expect(historyAfter[0].period).toBe('AFTERNOON'); // alphabetical A before M
+    expect(historyAfter[0].period).toBe('MORNING'); // Period enum order ('MORNING', 'AFTERNOON')
     expect(historyAfter[0].roomCode).toBe('ROOM_3');
     expect(historyAfter[0].status).toBe('COMPLETED');
-    expect(historyAfter[1].period).toBe('MORNING');
+    expect(historyAfter[1].period).toBe('AFTERNOON');
     expect(historyAfter[1].roomCode).toBe('ROOM_3');
     expect(historyAfter[1].status).toBe('COMPLETED');
 

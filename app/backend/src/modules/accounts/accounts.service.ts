@@ -1,5 +1,5 @@
 import * as argon2 from 'argon2';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, AccountStatus } from '@prisma/client';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
 import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
@@ -214,7 +214,7 @@ export async function updateNotes(accountId: string, adminNotes: string | null, 
 // changeStatus
 // ---------------------------------------------------------------------------
 
-export async function changeStatus(accountId: string, status: string, expectedVersion?: number) {
+export async function changeStatus(accountId: string, status: AccountStatus, expectedVersion?: number) {
   return await prisma.$transaction(async (tx) => {
     const account = await tx.account.findFirst({ where: { id: accountId, deletedAt: null } });
     if (!account) throw Errors.notFound('Không tìm thấy tài khoản');

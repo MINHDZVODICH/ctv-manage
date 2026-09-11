@@ -1,5 +1,5 @@
-﻿import { randomUUID } from 'node:crypto';
-import { Prisma, type PrismaClient, type SnapshotRun } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Prisma, type PrismaClient, type SnapshotRun, type Period, type RoomCode, type HistoryStatus } from '@prisma/client';
 import { prisma as defaultPrisma } from '../../shared/prisma.js';
 import { logger } from '../../shared/logger.js';
 import { todayInBangkok, parseYmdToUtcDate, formatUtcDateToYmd, addDays, weekdayUtc } from '../../shared/timezone.js';
@@ -78,8 +78,11 @@ export class SnapshotCoordinatorService {
       const entries = sources.flatMap((source) => {
         if (!source.eligible || !source.roomCode) return [];
         return source.shifts.filter((shift) => shift.weekday === weekdayUtc(targetDate)).map((shift) => ({
-          accountId: source.accountId, workDate: targetDate, period: shift.period,
-          roomCode: source.roomCode!, status: 'COMPLETED',
+          accountId: source.accountId,
+          workDate: targetDate,
+          period: shift.period as Period,
+          roomCode: source.roomCode as RoomCode,
+          status: 'COMPLETED' as HistoryStatus,
         }));
       });
       const writeTime = now ?? await this.getDbTime(tx);

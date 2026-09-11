@@ -1,6 +1,7 @@
 import type {} from "multer";
 import argon2 from "argon2";
 import type { Prisma } from "@prisma/client";
+import { RegistrationStatus, FileCategory } from "@prisma/client";
 import { prisma } from "../../shared/prisma.js";
 import { Errors } from "../../shared/errors.js";
 import { normalizeEmail } from "../../shared/crypto.js";
@@ -142,9 +143,14 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
           dateOfBirth: input.dateOfBirth ?? null,
           gender: input.gender ?? null,
           address: input.address ?? null,
-          status: "PENDING",
+          status: RegistrationStatus.PENDING,
           files: entries.length
-            ? { create: entries.map((e) => ({ fileId: e.fileAssetId, category: e.category })) }
+            ? {
+                create: entries.map((e) => ({
+                  fileAsset: { connect: { id: e.fileAssetId } },
+                  category: e.category as FileCategory,
+                })),
+              }
             : undefined,
         },
         include: { files: { include: { fileAsset: true } } },
@@ -168,10 +174,10 @@ export interface ListParams {
   q?: string;
   page?: number;
   pageSize?: number;
-  status?: string;
+  status?: RegistrationStatus;
 }
 
-export async function listPending({ q, page = 1, pageSize = 20, status = "PENDING" }: ListParams) {
+export async function listPending({ q, page = 1, pageSize = 20, status = RegistrationStatus.PENDING }: ListParams) {
   const where: Prisma.RegistrationRequestWhereInput = { status };
   if (q && q.trim()) {
     const term = q.trim();

@@ -7,28 +7,89 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Domain values remain Strings so the migration preserves existing data and API contracts.
+enum Role {
+  ADMIN
+  CTV
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FileState {
+  STAGED
+  ACTIVE
+  QUARANTINED
+  DELETED
+}
+
+enum FileCategory {
+  AVATAR
+  CCCD_FRONT
+  CCCD_BACK
+  CV
+}
+
+enum RoomCode {
+  ROOM_1
+  ROOM_2
+  ROOM_3
+  ROOM_4
+}
+
+enum Period {
+  MORNING
+  AFTERNOON
+}
+
+enum HistoryStatus {
+  COMPLETED
+  ACTIVE
+  DISABLED
+}
+
+enum SnapshotRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  MISSED
+}
+
+enum RateLimitScope {
+  LOGIN_IP
+  LOGIN_ACCOUNT
+  REGISTRATION_IP
+  UPLOAD_ACCOUNT
+}
 
 model Account {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String        @id @default(cuid())
+  email              String        @unique
   passwordHash       String
-  role               String // ADMIN | CTV
-  status             String // ACTIVE | DISABLED
-  version            Int       @default(1)
-  mustChangePassword Boolean   @default(false)
+  role               Role
+  status             AccountStatus
+  version            Int           @default(1)
+  mustChangePassword Boolean       @default(false)
   displayName        String
   phone              String?
-  ctvCode            String?   @unique
+  ctvCode            String?       @unique
   dateOfBirth        DateTime?
   gender             String?
   address            String?
   adminNotes         String?
-  joinedAt           DateTime  @default(now())
+  joinedAt           DateTime      @default(now())
   lastLoginAt        DateTime?
   passwordChangedAt  DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
   deletedAt          DateTime?
 
   sessions         Session[]
@@ -59,7 +120,7 @@ model Session {
 }
 
 model RegistrationRequest {
-  id                String    @id @default(cuid())
+  id                String             @id @default(cuid())
   email             String
   passwordHash      String?
   displayName       String
@@ -67,13 +128,13 @@ model RegistrationRequest {
   dateOfBirth       DateTime?
   gender            String?
   address           String?
-  status            String // PENDING | APPROVED | REJECTED
+  status            RegistrationStatus @default(PENDING)
   rejectionReason   String?
   reviewedById      String?
   approvedAccountId String?
-  submittedAt       DateTime  @default(now())
+  submittedAt       DateTime           @default(now())
   reviewedAt        DateTime?
-  updatedAt         DateTime  @updatedAt
+  updatedAt         DateTime           @updatedAt
 
   reviewedBy      Account? @relation("ReviewedBy", fields: [reviewedById], references: [id])
   approvedAccount Account? @relation("ApprovedAccount", fields: [approvedAccountId], references: [id])
@@ -92,7 +153,7 @@ model FileAsset {
   mimeType     String
   sizeBytes    Int
   sha256       String?
-  state        String // STAGED | ACTIVE | QUARANTINED | DELETED
+  state        FileState
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
 
@@ -106,7 +167,7 @@ model FileAsset {
 model RegistrationRequestFile {
   requestId String
   fileId    String
-  category  String // AVATAR | CCCD_FRONT | CCCD_BACK | CV
+  category  FileCategory
 
   request   RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   fileAsset FileAsset           @relation(fields: [fileId], references: [id], onDelete: Cascade)
@@ -118,8 +179,8 @@ model RegistrationRequestFile {
 model AccountFile {
   accountId String
   fileId    String
-  category  String // AVATAR | CCCD_FRONT | CCCD_BACK | CV
-  createdAt DateTime  @default(now())
+  category  FileCategory
+  createdAt DateTime     @default(now())
   deletedAt DateTime?
 
   account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -132,7 +193,7 @@ model AccountFile {
 model Schedule {
   id        String   @id @default(cuid())
   accountId String   @unique
-  roomCode  String   // ROOM_1..4
+  roomCode  RoomCode
   version   Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,8 +206,8 @@ model Schedule {
 
 model Shift {
   scheduleId String
-  weekday    Int    // 1..5 (Thứ 2..Thứ 6)
-  period     String // MORNING | AFTERNOON
+  weekday    Int
+  period     Period
 
   schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
@@ -155,13 +216,13 @@ model Shift {
 }
 
 model History {
-  id         String   @id @default(cuid())
+  id         String        @id @default(cuid())
   accountId  String
   workDate   DateTime
-  period     String   // MORNING | AFTERNOON
-  roomCode   String
-  status     String   @default("COMPLETED")
-  recordedAt DateTime @default(now())
+  period     Period
+  roomCode   RoomCode
+  status     HistoryStatus @default(COMPLETED)
+  recordedAt DateTime      @default(now())
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -171,19 +232,19 @@ model History {
 }
 
 model SnapshotRun {
-  id             String    @id @default(cuid())
-  workDate       DateTime  @unique @db.Date
-  status         String    // PENDING | RUNNING | SUCCEEDED | FAILED | MISSED
-  attemptCount   Int       @default(0)
+  id             String            @id @default(cuid())
+  workDate       DateTime          @unique @db.Date
+  status         SnapshotRunStatus
+  attemptCount   Int               @default(0)
   nextAttemptAt  DateTime?
   leaseToken     String?
   leaseExpiresAt DateTime?
   startedAt      DateTime?
   completedAt    DateTime?
-  insertedCount  Int       @default(0)
+  insertedCount  Int               @default(0)
   errorCode      String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([status, nextAttemptAt])
 }
@@ -212,11 +273,11 @@ model WorkHistorySource {
 }
 
 model RateLimitWindow {
-  id             String   @id @default(cuid())
-  scope          String   // LOGIN_IP | LOGIN_ACCOUNT | REGISTRATION_IP | UPLOAD_ACCOUNT
+  id             String         @id @default(cuid())
+  scope          RateLimitScope
   identityDigest String
   windowStart    DateTime
-  requestCount   Int      @default(1)
+  requestCount   Int            @default(1)
   expiresAt      DateTime
 
   @@unique([scope, identityDigest, windowStart])
