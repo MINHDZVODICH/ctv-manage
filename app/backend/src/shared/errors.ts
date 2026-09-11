@@ -6,6 +6,7 @@ export class AppError extends Error {
 export const Errors = {
   invalidCredentials: () => new AppError(401, 'INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng'),
   accountDisabled: () => new AppError(403, 'ACCOUNT_DISABLED', 'Tài khoản đã bị vô hiệu hóa'),
+  pendingApproval: () => new AppError(403, 'ACCOUNT_PENDING_APPROVAL', 'Tài khoản đang được chờ duyệt'),
   unauthorized: () => new AppError(401, 'UNAUTHORIZED', 'Chưa đăng nhập'),
   forbidden: (code = 'FORBIDDEN', msg = 'Không có quyền truy cập') => new AppError(403, code, msg),
   notFound: (msg = 'Không tìm thấy') => new AppError(404, 'NOT_FOUND', msg),

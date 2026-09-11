@@ -75,6 +75,45 @@ describe('Auth Security, Proxy Trust, Timing Protection & Rate Limiting Integrat
     expect(res.body.error?.code).toBe('ACCOUNT_DISABLED');
   });
 
+  test('4b. pending registration with WRONG password: returns 401 INVALID_CREDENTIALS (does NOT leak pending status)', async () => {
+    const hashed = await argon2.hash(TEST_PASSWORD);
+    await prisma.registrationRequest.create({
+      data: {
+        email: 'pending.candidate@ctv.local',
+        passwordHash: hashed,
+        displayName: 'Pending Candidate',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ email: 'pending.candidate@ctv.local', password: 'incorrect-password' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error?.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  test('4c. pending registration with CORRECT password: returns 403 ACCOUNT_PENDING_APPROVAL', async () => {
+    const hashed = await argon2.hash(TEST_PASSWORD);
+    await prisma.registrationRequest.create({
+      data: {
+        email: 'pending.candidate@ctv.local',
+        passwordHash: hashed,
+        displayName: 'Pending Candidate',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ email: 'pending.candidate@ctv.local', password: TEST_PASSWORD });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error?.code).toBe('ACCOUNT_PENDING_APPROVAL');
+    expect(res.body.error?.message).toBe('Tài khoản đang được chờ duyệt');
+  });
+
   test('5. login rate limit: 10 req / 15 min per IP + normalized email', async () => {
     const email = 'ctv.active@ctv.local';
 

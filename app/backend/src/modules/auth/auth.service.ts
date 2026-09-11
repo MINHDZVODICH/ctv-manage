@@ -77,6 +77,18 @@ export async function authenticate(
   });
 
   if (!account) {
+    const pendingRequest = await prisma.registrationRequest.findFirst({
+      where: { email, status: 'PENDING' },
+    });
+
+    if (pendingRequest && pendingRequest.passwordHash) {
+      const validPending = await argon2.verify(pendingRequest.passwordHash, password);
+      if (validPending) {
+        throw Errors.pendingApproval();
+      }
+      throw Errors.invalidCredentials();
+    }
+
     await argon2.verify(DUMMY_HASH, password);
     throw Errors.invalidCredentials();
   }
