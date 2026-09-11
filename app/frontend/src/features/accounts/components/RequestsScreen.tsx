@@ -141,7 +141,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                           {req.initials || req.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-semibold text-sm text-[#1b365d] dark:text-white group-hover/name:underline dark:group-hover/name:text-blue-300">
+                          <div className="font-semibold text-sm text-[#1a1b1e] dark:!text-white group-hover/name:text-[#1b365d] dark:group-hover/name:!text-blue-300 group-hover/name:underline transition-colors">
                             {req.name}
                           </div>
                         </div>
