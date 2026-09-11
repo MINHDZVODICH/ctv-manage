@@ -5,7 +5,7 @@ import {
   getMsUntilPostCutoffRefresh,
 } from "../../../shared/utils/scheduleSelectors";
 import { formatRoomLabel } from "../../../shared/utils/rooms";
-import { summaryToSlots, ApiSummaryCell } from "../../../shared/mappers";
+import { summaryToSlots, historyToSlots, ApiSummaryCell } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
 import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 
@@ -84,6 +84,8 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isLoadingWeekly, setIsLoadingWeekly] = useState(false);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyRetryKey, setHistoryRetryKey] = useState(0);
 
   const weeklyRequestController = useRef<AbortController | null>(null);
   const monthRequestController = useRef<AbortController | null>(null);
@@ -137,17 +139,20 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
     const sequence = ++monthRequestSequence.current;
     monthRequestController.current = controller;
     setIsLoadingMonth(true);
+    setHistoryError(false);
     try {
       const res: any = await api.apiGet(`/api/v1/work-history?month=${month}`, {
         signal: controller.signal,
       });
       if (sequence !== monthRequestSequence.current) return;
       const cells: ApiSummaryCell[] = res.data?.cells ?? res.cells ?? [];
-      const slots = summaryToSlots(cells);
+      const slots = historyToSlots(cells as any);
       setHistoryShifts(slots);
     } catch (error) {
       if (!api.isRequestAborted(error)) {
-        // Keep prior month
+        if (sequence === monthRequestSequence.current) {
+          setHistoryError(true);
+        }
       }
     } finally {
       if (sequence === monthRequestSequence.current) setIsLoadingMonth(false);
@@ -159,7 +164,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
       void fetchHistoryMonth(calendarDate);
     }
     return () => monthRequestController.current?.abort();
-  }, [calendarDate, fetchHistoryMonth, view]);
+  }, [calendarDate, fetchHistoryMonth, view, historyRetryKey]);
 
   useEffect(() => {
     if (view !== "history") return;
@@ -689,6 +694,19 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 </button>
               </div>
             </div>
+
+            {historyError && (
+              <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+                <span>{t("work_history_load_error")}</span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryRetryKey((current) => current + 1)}
+                  className="min-h-11 rounded-xl border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900 cursor-pointer"
+                >
+                  {t("retry")}
+                </button>
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               <div className="min-w-[700px] space-y-3">

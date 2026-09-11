@@ -8,6 +8,7 @@ import {
   ScheduleResponse,
   ApiSummaryCell,
   summaryToSlots,
+  historyToSlots,
   scheduleToPattern,
 } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
@@ -124,6 +125,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
   const accountHistoryController = useRef<AbortController | null>(null);
   const accountHistorySequence = useRef(0);
+  const [historyRetryKey, setHistoryRetryKey] = useState(0);
 
   const fetchAccountHistory = useCallback(async () => {
     if (!showWorkHistory || !account || account.role === "Admin") return;
@@ -144,7 +146,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
       );
       if (sequence !== accountHistorySequence.current) return;
       const cells: ApiSummaryCell[] = response.data?.cells ?? response.cells ?? [];
-      setHistoryShifts(summaryToSlots(cells));
+      setHistoryShifts(historyToSlots(cells as any));
     } catch (error) {
       if (!api.isRequestAborted(error)) {
         if (sequence === accountHistorySequence.current) {
@@ -163,7 +165,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
       void fetchAccountHistory();
     }
     return () => accountHistoryController.current?.abort();
-  }, [fetchAccountHistory, showWorkHistory, account?.id, account?.role, historyDate]);
+  }, [fetchAccountHistory, showWorkHistory, account?.id, account?.role, historyDate, historyRetryKey]);
 
   useEffect(() => {
     if (!showWorkHistory || !account || account.role === "Admin") return;
@@ -381,6 +383,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Đóng hồ sơ"
             className="text-[#74777f] hover:text-[#1b365d] dark:hover:text-white p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -1000,6 +1003,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowWorkHistory(false)}
+                  aria-label="Đóng lịch sử"
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -1010,9 +1014,16 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
             {historyError && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200 flex items-center justify-between gap-2"
               >
-                {historyError}
+                <span>{historyError}</span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryRetryKey((k) => k + 1)}
+                  className="rounded-lg border border-rose-300 bg-white px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900 cursor-pointer"
+                >
+                  Thử lại
+                </button>
               </div>
             )}
 

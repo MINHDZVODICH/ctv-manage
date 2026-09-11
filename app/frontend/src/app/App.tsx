@@ -181,24 +181,20 @@ export const App: React.FC = () => {
   const loadShifts = useCallback(async () => {
     if (!authUser) return;
     if (!isAdmin) {
-      try {
-        const registrationResult = await api.apiGet('/api/v1/users/me/schedule-registration');
-        const reg: any = (registrationResult as any)?.data ?? registrationResult;
-        const u: UserAccount =
-          currentUser ??
-          ({
-            id: authUser.id,
-            name: authUser.displayName,
-            email: authUser.email,
-            phone: '',
-            role: mapRole(authUser.role),
-            status: 'Kích hoạt',
-            registerDate: '',
-          } as unknown as UserAccount);
-        setShifts(weeklyScheduleToSlots(reg, u));
-      } catch (err) {
-        setShifts([]);
-      }
+      const registrationResult = await api.apiGet('/api/v1/users/me/schedule-registration');
+      const reg: any = (registrationResult as any)?.data ?? registrationResult;
+      const u: UserAccount =
+        currentUser ??
+        ({
+          id: authUser.id,
+          name: authUser.displayName,
+          email: authUser.email,
+          phone: '',
+          role: mapRole(authUser.role),
+          status: 'Kích hoạt',
+          registerDate: '',
+        } as unknown as UserAccount);
+      setShifts(weeklyScheduleToSlots(reg, u));
     } else {
       // Admin: load weekly schedule summary
       try {
