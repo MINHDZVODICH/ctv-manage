@@ -27,12 +27,13 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
   const cvFileName = request.cvFileName || "CV";
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
-    >
+    <>
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-[#1e1f23] rounded-2xl border border-[#E2E8F0] dark:border-[#3b3d45] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150"
       >
         {/* Fixed Header */}
@@ -276,44 +277,42 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
           </button>
         </div>
       </div>
+    </div>
 
-      {/* LIGHTBOX PREVIEW MODAL */}
-      {previewImg && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl border border-slate-200 dark:border-slate-700 max-w-xl w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#1b365d] dark:text-[#87a0cd] text-[20px]">badge</span>
-                <h3 className="font-bold text-sm text-[#1b365d] dark:text-[#87a0cd]">{previewImg.title}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewImg(null)}
-                aria-label={t("close")}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+    {/* LIGHTBOX PREVIEW MODAL */}
+    {previewImg && (
+      <div
+        onClick={() => setPreviewImg(null)}
+        className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-[#1e1f23] rounded-2xl border border-slate-200 dark:border-slate-700 max-w-xl w-full p-5 shadow-2xl space-y-4"
+        >
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#1b365d] dark:text-[#87a0cd] text-[20px]">badge</span>
+              <h3 className="font-bold text-sm text-[#1b365d] dark:text-[#87a0cd]">{previewImg.title}</h3>
             </div>
-            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 flex items-center justify-center max-h-[60vh]">
-              <img
-                src={previewImg.url}
-                alt={previewImg.title}
-                className="w-full h-auto object-contain max-h-[60vh]"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setPreviewImg(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                {t("close")}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewImg(null)}
+              aria-label={t("close")}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+          <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 flex items-center justify-center max-h-[60vh]">
+            <img
+              src={previewImg.url}
+              alt={previewImg.title}
+              className="w-full h-auto object-contain max-h-[60vh]"
+            />
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </>
+);
 };

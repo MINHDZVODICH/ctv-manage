@@ -916,8 +916,14 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
 
       {/* CCCD LIGHTBOX PREVIEW MODAL */}
       {previewImg && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-2xl max-w-xl w-full p-5 shadow-2xl space-y-4">
+        <div
+          onClick={() => setPreviewImg(null)}
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-2xl max-w-xl w-full p-5 shadow-2xl space-y-4"
+          >
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#1b365d] dark:text-[#87a0cd] text-[20px]">
