@@ -8,7 +8,12 @@ import {
   summaryToSlots,
   scheduleToPattern,
 } from "../../../shared/mappers";
-import { formatRoomLabel, ROOM_OPTIONS, roomLabelToCode } from "../../../shared/utils/rooms";
+import {
+  formatRoomDisplay,
+  formatRoomLabel,
+  ROOM_OPTIONS,
+  roomLabelToCode,
+} from "../../../shared/utils/rooms";
 import { getMsUntilPostCutoffRefresh } from "../../../shared/utils/scheduleSelectors";
 import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
 import { formatDateLocale } from "../../../shared/i18n";
@@ -24,12 +29,6 @@ type ShiftType = "morning" | "afternoon";
 type WeeklyPattern = Record<number, ShiftType[]>;
 
 const APP_TIME_ZONE = "Asia/Bangkok";
-
-const formatRoomDisplay = (roomStr: string, t: (key: string) => string): string => {
-  if (!roomStr || roomStr === "Chưa cập nhật") return t("not_updated");
-  if (roomStr === "Chưa gán buồng") return t("schedule.room_unassigned");
-  return roomStr.replace(/Buồng/g, t("schedule.room_prefix"));
-};
 
 const WEEKDAYS = [
   { index: 0, shortKey: "schedule.mon_short", i18nKey: "schedule.monday" },
@@ -178,7 +177,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const [weeklyPattern, setWeeklyPattern] = useState<WeeklyPattern>(createEmptyWeeklyPattern);
   const [registrationPattern, setRegistrationPattern] =
     useState<WeeklyPattern>(createEmptyWeeklyPattern);
-  const [room, setRoom] = useState<string>(ROOM_OPTIONS[0]);
+  const [room, setRoom] = useState<string>("");
   const [modalRoom, setModalRoom] = useState<string>(ROOM_OPTIONS[0]);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -192,17 +191,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const applyRegistration = useCallback((registration: any) => {
     if (!registration || (!registration.id && !registration.shifts && !registration.patternSlots)) {
       setWeeklyPattern(createEmptyWeeklyPattern());
-      setRoom(ROOM_OPTIONS[0]);
+      setRoom("");
       setModalRoom(ROOM_OPTIONS[0]);
       setCurrentRegistrationVersion(undefined);
       return;
     }
 
     const nextPattern = scheduleToPattern(registration.shifts || registration.patternSlots);
-    const nextRoom = formatRoomLabel(registration.roomCode) || ROOM_OPTIONS[0];
+    const nextRoom = formatRoomLabel(registration.roomCode) || "";
     setWeeklyPattern(nextPattern);
     setRoom(nextRoom);
-    setModalRoom(nextRoom);
+    setModalRoom(nextRoom || ROOM_OPTIONS[0]);
     setCurrentRegistrationVersion(registration.version);
   }, []);
 
@@ -376,7 +375,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       3: [...(weeklyPattern[3] || [])],
       4: [...(weeklyPattern[4] || [])],
     });
-    setModalRoom(room);
+    setModalRoom(room || ROOM_OPTIONS[0]);
     setIsRegistrationOpen(true);
   };
 
@@ -509,7 +508,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               >
                 door_front
               </span>
-              <span className="font-bold text-slate-900 dark:text-slate-100">{formatRoomDisplay(room, t)}</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">{formatRoomDisplay(room, t("schedule.room_prefix"))}</span>
             </div>
           </div>
         </div>
@@ -799,7 +798,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     >
                       {ROOM_OPTIONS.map((r) => (
                         <option key={r} value={r}>
-                          {formatRoomDisplay(r, t)}
+                          {formatRoomDisplay(r, t("schedule.room_prefix"))}
                         </option>
                       ))}
                     </select>

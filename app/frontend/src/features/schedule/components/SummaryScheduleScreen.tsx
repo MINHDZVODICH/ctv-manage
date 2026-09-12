@@ -4,7 +4,7 @@ import {
   getAssignedCTVsForDate,
   getMsUntilPostCutoffRefresh,
 } from "../../../shared/utils/scheduleSelectors";
-import { formatRoomLabel } from "../../../shared/utils/rooms";
+import { formatRoomDisplay as formatRoomDisplayUtil, formatRoomLabel } from "../../../shared/utils/rooms";
 import { summaryToSlots, historyToSlots, ApiSummaryCell } from "../../../shared/mappers";
 import * as api from "../../../shared/api";
 import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
@@ -41,9 +41,7 @@ const WEEKDAYS = [
 ] as const;
 
 const formatRoomDisplay = (roomStr: string, t: (key: string) => string): string => {
-  if (!roomStr || roomStr === "Chưa cập nhật") return t("not_updated");
-  if (roomStr === "Chưa gán buồng") return t("schedule.room_unassigned");
-  return roomStr.replace(/Buồng/g, t("schedule.room_prefix"));
+  return formatRoomDisplayUtil(roomStr, t("schedule.room_prefix"));
 };
 
 const startOfDay = (date: Date) => {
@@ -53,6 +51,26 @@ const startOfDay = (date: Date) => {
 };
 
 const getCurrentCalendarDate = () => {
+  if (typeof window !== "undefined") {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mockParam =
+        urlParams.get("mockDate") ||
+        (window as any).__MOCK_DATE__ ||
+        localStorage.getItem("mock_date");
+      if (mockParam) {
+        if (mockParam.toLowerCase() === "friday" || mockParam.toLowerCase() === "fri") {
+          return new Date(2026, 8, 11);
+        }
+        const parsed = new Date(mockParam);
+        if (!isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: APP_TIME_ZONE,
     year: "numeric",
@@ -380,9 +398,6 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
               </h3>
             </div>
           </div>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            {t("schedule.total")} <strong className="text-slate-800 dark:text-slate-200">{todayData.list.length}</strong> {t("schedule.ctv_unit")}
-          </span>
         </div>
 
         {todayData.list.length === 0 ? (
@@ -391,145 +406,54 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
             <p className="text-sm font-medium">{t("schedule.no_today")}</p>
           </div>
         ) : (
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-[#1f2023]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    <th className="py-3.5 px-4 w-[160px] text-center border-r border-slate-200 dark:border-slate-800">
-                      {t("schedule.shift_work")}
-                    </th>
-                    <th className="py-3.5 px-4 min-w-[200px]">
-                      {t("schedule.collaborator")}
-                    </th>
-                    <th className="py-3.5 px-4 min-w-[150px]">
-                      {t("schedule.phone_number")}
-                    </th>
-                    <th className="py-3.5 px-4 min-w-[150px]">
-                      {t("schedule.assigned_room")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs">
-                  {/* --- Morning Shift --- */}
-                  {todayData.morningList.length === 0 ? (
-                    <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
-                      <td
-                        rowSpan={1}
-                        className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-b border-slate-200 dark:border-slate-800"
-                      >
-                        <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
-                          <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
-                          <span>{t("schedule.morning")}</span>
-                        </div>
-                      </td>
-                      <td
-                        colSpan={3}
-                        className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 italic text-xs"
-                      >
-                        {t("schedule.no_morning")}
-                      </td>
-                    </tr>
-                  ) : (
-                    todayData.morningList.map((ctv, idx) => {
-                      const isLast = idx === todayData.morningList.length - 1;
-                      return (
-                        <tr
-                          key={`morning-${ctv.id || idx}`}
-                          className="hover:bg-slate-50/60 dark:hover:bg-[#1f2023]/60 transition-colors"
-                        >
-                          {idx === 0 && (
-                            <td
-                              rowSpan={todayData.morningList.length}
-                              className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-b border-slate-200 dark:border-slate-800"
-                            >
-                              <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
-                                <span className="material-symbols-outlined text-[17px]">wb_sunny</span>
-                                <span>{t("schedule.morning")}</span>
-                              </div>
-                            </td>
-                          )}
-                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
-                            <div
-                              onClick={() => handleCTVClick(ctv)}
-                              className="inline-flex items-center gap-3 cursor-pointer group"
-                              title={t("schedule.click_to_view_detail")}
-                            >
-                              {ctv.avatar ? (
-                                <img
-                                  src={ctv.avatar}
-                                  alt={ctv.name}
-                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all">
-                                  {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all">
-                                {ctv.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
-                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
-                              <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
-                              <span>{ctv.phone || "—"}</span>
-                            </div>
-                          </td>
-                          <td className={`py-3.5 px-4 ${isLast ? "border-b border-slate-200 dark:border-slate-800" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
-                            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                              <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
-                              <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+              <div className="min-w-[700px]">
+                {/* Table Header: 4 Columns */}
+                <div className="grid grid-cols-[150px_1fr_1fr_1fr] bg-slate-50/90 dark:bg-[#1a1b1e]/90 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <div className="py-3.5 px-4 text-center border-r border-slate-200 dark:border-slate-800">
+                    {t("schedule.shift_work")}
+                  </div>
+                  <div className="py-3.5 px-4">
+                    {t("schedule.ctv_name")}
+                  </div>
+                  <div className="py-3.5 px-4 text-center">
+                    {t("schedule.phone_number")}
+                  </div>
+                  <div className="py-3.5 px-4 text-right">
+                    {t("schedule.assigned_room")}
+                  </div>
+                </div>
 
-                  {/* --- Afternoon Shift --- */}
-                  {todayData.afternoonList.length === 0 ? (
-                    <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors">
-                      <td
-                        rowSpan={1}
-                        className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800"
-                      >
-                        <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
-                          <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
-                          <span>{t("schedule.afternoon")}</span>
-                        </div>
-                      </td>
-                      <td
-                        colSpan={3}
-                        className="py-4 px-4 text-slate-400 dark:text-slate-500 italic text-xs"
-                      >
-                        {t("schedule.no_afternoon")}
-                      </td>
-                    </tr>
-                  ) : (
-                    todayData.afternoonList.map((ctv, idx) => {
-                      const isLast = idx === todayData.afternoonList.length - 1;
-                      return (
-                        <tr
-                          key={`afternoon-${ctv.id || idx}`}
-                          className="hover:bg-slate-50/60 dark:hover:bg-[#1f2023]/60 transition-colors"
-                        >
-                          {idx === 0 && (
-                            <td
-                              rowSpan={todayData.afternoonList.length}
-                              className="py-4 px-4 align-middle text-center bg-slate-50/40 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800"
-                            >
-                              <div className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400">
-                                <span className="material-symbols-outlined text-[17px]">wb_twilight</span>
-                                <span>{t("schedule.afternoon")}</span>
-                              </div>
-                            </td>
-                          )}
-                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
+                {/* ================= SECTION: CA SÁNG ================= */}
+                <div className="grid grid-cols-[150px_1fr]">
+                  {/* Left Column: Cột Ca Sáng (Chỉ có icon + Sáng, to rõ nét) */}
+                  <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800 flex items-center justify-center text-center select-none">
+                    <div className="inline-flex items-center justify-center gap-2 text-base font-bold text-amber-700 dark:text-amber-400">
+                      <span className="material-symbols-outlined text-[26px]">wb_sunny</span>
+                      <span className="tracking-wide">{t("schedule.morning")}</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Danh sách CTV Ca Sáng (Cuộn độc lập, max-h vừa đủ trọn vẹn 5 dòng) */}
+                  <div className="max-h-[325px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {todayData.morningList.length === 0 ? (
+                      <div className="py-8 px-4 flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 font-medium text-xs gap-1.5">
+                        <span className="material-symbols-outlined text-[24px] opacity-50 select-none">person_off</span>
+                        <span>{t("schedule.no_morning")}</span>
+                      </div>
+                    ) : (
+                      todayData.morningList.map((ctv, idx) => {
+                        const isAssigned = ctv.roomDisplay && ctv.roomDisplay !== "Chưa gán buồng" && ctv.roomDisplay !== "Chưa cập nhật";
+                        return (
+                          <div
+                            key={`morning-${ctv.id || idx}`}
+                            className="grid grid-cols-[1fr_1fr_1fr] items-center py-3.5 px-4 hover:bg-slate-50/80 dark:hover:bg-[#1a1b1e]/60 transition-colors text-xs"
+                          >
+                            {/* Họ tên CTV */}
                             <div
                               onClick={() => handleCTVClick(ctv)}
-                              className="inline-flex items-center gap-3 cursor-pointer group"
+                              className="inline-flex items-center gap-3 cursor-pointer group min-w-0 pr-3"
                               title={t("schedule.click_to_view_detail")}
                             >
                               {ctv.avatar ? (
@@ -543,29 +467,114 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                                   {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all">
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all truncate">
                                 {ctv.name}
                               </span>
                             </div>
-                          </td>
-                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
-                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+
+                            {/* Số điện thoại (Nằm ở giữa cột) */}
+                            <div className="flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
                               <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
                               <span>{ctv.phone || "—"}</span>
                             </div>
-                          </td>
-                          <td className={`py-3.5 px-4 ${isLast ? "" : "border-b border-slate-100 dark:border-slate-800/60"}`}>
-                            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                              <span className="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">meeting_room</span>
-                              <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
+
+                            {/* Buồng làm việc (Nằm sát bên phải) */}
+                            <div className="flex items-center justify-end">
+                              {isAssigned ? (
+                                <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-flex items-center gap-1 text-[11px]">
+                                  <span className="material-symbols-outlined text-[14px] text-blue-600 dark:text-blue-400">meeting_room</span>
+                                  <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
+                                </span>
+                              ) : (
+                                <div className="w-[88px] flex justify-center">
+                                  <span className="text-slate-400 dark:text-slate-500 font-bold text-sm tracking-wider select-none">--</span>
+                                </div>
+                              )}
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* ================= 10PX DIVIDER STRIP ================= */}
+                <div className="h-[10px] w-full bg-slate-50/90 dark:bg-[#1a1b1e]/90 border-t border-b border-slate-200 dark:border-slate-800" />
+
+                {/* ================= SECTION: CA CHIỀU ================= */}
+                <div className="grid grid-cols-[150px_1fr]">
+                  {/* Left Column: Cột Ca Chiều (Chỉ có icon + Chiều, to rõ nét) */}
+                  <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 border-r border-slate-200 dark:border-slate-800 flex items-center justify-center text-center select-none">
+                    <div className="inline-flex items-center justify-center gap-2 text-base font-bold text-indigo-700 dark:text-indigo-400">
+                      <span className="material-symbols-outlined text-[26px]">wb_twilight</span>
+                      <span className="tracking-wide">{t("schedule.afternoon")}</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Danh sách CTV Ca Chiều (Cuộn độc lập, max-h vừa đủ trọn vẹn 5 dòng) */}
+                  <div className="max-h-[325px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {todayData.afternoonList.length === 0 ? (
+                      <div className="py-8 px-4 flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 font-medium text-xs gap-1.5">
+                        <span className="material-symbols-outlined text-[24px] opacity-50 select-none">person_off</span>
+                        <span>{t("schedule.no_afternoon")}</span>
+                      </div>
+                    ) : (
+                      todayData.afternoonList.map((ctv, idx) => {
+                        const isAssigned = ctv.roomDisplay && ctv.roomDisplay !== "Chưa gán buồng" && ctv.roomDisplay !== "Chưa cập nhật";
+                        return (
+                          <div
+                            key={`afternoon-${ctv.id || idx}`}
+                            className="grid grid-cols-[1fr_1fr_1fr] items-center py-3.5 px-4 hover:bg-slate-50/80 dark:hover:bg-[#1a1b1e]/60 transition-colors text-xs"
+                          >
+                            {/* Họ tên CTV */}
+                            <div
+                              onClick={() => handleCTVClick(ctv)}
+                              className="inline-flex items-center gap-3 cursor-pointer group min-w-0 pr-3"
+                              title={t("schedule.click_to_view_detail")}
+                            >
+                              {ctv.avatar ? (
+                                <img
+                                  src={ctv.avatar}
+                                  alt={ctv.name}
+                                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 group-hover:ring-slate-400 dark:group-hover:ring-slate-500 transition-all">
+                                  {ctv.initials || ctv.name.substring(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:underline underline-offset-2 transition-all truncate">
+                                {ctv.name}
+                              </span>
+                            </div>
+
+                            {/* Số điện thoại (Nằm ở giữa cột) */}
+                            <div className="flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                              <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
+                              <span>{ctv.phone || "—"}</span>
+                            </div>
+
+                            {/* Buồng làm việc (Nằm sát bên phải) */}
+                            <div className="flex items-center justify-end">
+                              {isAssigned ? (
+                                <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-flex items-center gap-1 text-[11px]">
+                                  <span className="material-symbols-outlined text-[14px] text-blue-600 dark:text-blue-400">meeting_room</span>
+                                  <span>{formatRoomDisplay(ctv.roomDisplay, t)}</span>
+                                </span>
+                              ) : (
+                                <div className="w-[88px] flex justify-center">
+                                  <span className="text-slate-400 dark:text-slate-500 font-bold text-sm tracking-wider select-none">--</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         )}
@@ -805,13 +814,6 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                 </h3>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {t("schedule.total")}{" "}
-                  <strong className="text-slate-800 dark:text-slate-200">
-                    {selectedShiftDetail.ctvList.length}
-                  </strong>{" "}
-                  {t("schedule.ctv_unit")}
-                </span>
                 <button
                   type="button"
                   onClick={() => setSelectedShiftDetail(null)}
@@ -836,7 +838,7 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                         <tr className="bg-slate-50 dark:bg-[#1f2023] border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           <th className="py-3.5 px-4">{t("schedule.ctv_name")}</th>
                           <th className="py-3.5 px-4">{t("schedule.phone_number")}</th>
-                          <th className="py-3.5 px-4">{t("schedule.assigned_room")}</th>
+                          <th className="py-3.5 px-4 text-right">{t("schedule.assigned_room")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -873,7 +875,15 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                                 <span>{ctv.phone || "—"}</span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4"><span className="px-3 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-block text-[11px]">{formatRoomDisplay(ctv.roomDisplay, t)}</span></td>
+                            <td className="py-3.5 px-4 text-right">
+                              {formatRoomDisplay(ctv.roomDisplay, t) === "--" ? (
+                                <span className="text-slate-400 dark:text-slate-500 font-bold text-sm tracking-wider select-none pr-1">--</span>
+                              ) : (
+                                <span className="px-3 py-1 bg-blue-50 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-semibold rounded-lg border border-blue-100 dark:border-blue-900/60 inline-block text-[11px]">
+                                  {formatRoomDisplay(ctv.roomDisplay, t)}
+                                </span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -881,9 +891,6 @@ export const SummaryScheduleScreen: React.FC<SummaryScheduleScreenProps> = ({
                   </div>
                 </div>
               )}
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-[#1f2023] border-t border-slate-200 dark:border-slate-800 flex justify-end shrink-0">
-              <button type="button" onClick={() => setSelectedShiftDetail(null)} className="px-5 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer">{t("close")}</button>
             </div>
           </div>
         </div>

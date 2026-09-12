@@ -196,6 +196,21 @@ html.dark textarea {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
+.pattern-stripes {
+  height: 10px;
+  width: 100%;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dark .pattern-stripes,
+html.dark .pattern-stripes {
+  background-color: #1a1b1e;
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

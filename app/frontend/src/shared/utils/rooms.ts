@@ -19,7 +19,7 @@ export function formatRoomLabel(value?: string | null): string | undefined {
   );
   if (canonical) return canonical.label;
 
-  const legacyMatch = trimmed.match(/^(?:buồng|buong|phòng|phong)\s*([1-4])$/i);
+  const legacyMatch = trimmed.match(/^(?:buồng|buong|phòng|phong|room)\s*([1-4])$/i);
   if (legacyMatch) return `Buồng ${legacyMatch[1]}`;
 
   return trimmed;
@@ -28,4 +28,15 @@ export function formatRoomLabel(value?: string | null): string | undefined {
 export function roomLabelToCode(value?: string | null): RoomCode | undefined {
   const label = formatRoomLabel(value);
   return ROOMS.find((room) => room.label === label)?.code;
+}
+
+export function formatRoomDisplay(
+  value?: string | null,
+  roomPrefix: string = "Buồng",
+): string {
+  const code = roomLabelToCode(value);
+  if (!code) return "--";
+  const label = formatRoomLabel(code);
+  if (!label) return "--";
+  return label.replace(/^Buồng\b/, roomPrefix);
 }

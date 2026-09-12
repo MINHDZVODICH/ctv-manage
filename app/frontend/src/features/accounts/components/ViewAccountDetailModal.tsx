@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { UserAccount, ShiftSlot } from "../../../shared/types";
 import { formatPhoneNumber } from "../../../shared/utils/formatters";
-import { formatRoomLabel } from "../../../shared/utils/rooms";
+import { formatRoomDisplay } from "../../../shared/utils/rooms";
 import { getMsUntilPostCutoffRefresh } from "../../../shared/utils/scheduleSelectors";
 import {
   ApiScheduleData,
@@ -358,10 +358,10 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
   };
 
   // Determine assigned work room for CTV
-  const assignedWorkRoom =
-    formatRoomLabel(
-      accountSchedule?.roomCode || account.workRoom || account.room,
-    ) || t("accounts.no_room");
+  const assignedWorkRoom = formatRoomDisplay(
+    accountSchedule?.roomCode || account.workRoom || account.room,
+    t("schedule.room_prefix"),
+  );
 
   const weekdayLabels = [t("mon"), t("tue"), t("wed"), t("thu"), t("fri")];
 
