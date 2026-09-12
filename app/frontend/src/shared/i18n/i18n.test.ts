@@ -10,7 +10,7 @@ import {
 describe("i18n Translation System", () => {
   describe("translate() in English mode", () => {
     it("returns English strings for common and navigation keys", () => {
-      expect(translate("Tiếng Anh", "system_name")).toBe("Contributor Mgmt");
+      expect(translate("Tiếng Anh", "system_name")).toBe("Contributor Management");
       expect(translate("Tiếng Anh", "admin_view")).toBe("Administrator View");
       expect(translate("Tiếng Anh", "ctv_view")).toBe("Contributor View");
       expect(translate("Tiếng Anh", "save")).toBe("Save changes");
@@ -30,7 +30,7 @@ describe("i18n Translation System", () => {
     });
 
     it("returns English strings from nested domain modules", () => {
-      expect(translate("Tiếng Anh", "auth.login_title")).toBe("Contributor Mgmt");
+      expect(translate("Tiếng Anh", "auth.login_title")).toBe("Contributor Management");
       expect(translate("Tiếng Anh", "auth.login_subtitle")).toBe("Log in to continue to the system");
       expect(translate("Tiếng Anh", "auth.org_name")).toBe("Academy of Military Science and Technology");
       expect(translate("Tiếng Anh", "auth.logo_alt")).toBe("Academy of Military Science and Technology Logo");

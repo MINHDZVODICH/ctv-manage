@@ -160,7 +160,7 @@ const legacyVietnamese: LocaleTranslations = {
 };
 
 const legacyEnglish: LocaleTranslations = {
-  system_name: "Contributor Mgmt",
+  system_name: "Contributor Management",
   admin_view: "Administrator View",
   ctv_view: "Contributor View",
   nav_accounts: "Account List",

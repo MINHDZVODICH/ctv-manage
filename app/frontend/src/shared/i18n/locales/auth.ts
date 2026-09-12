@@ -119,7 +119,7 @@ export const authTranslations: DomainTranslations = {
     "auth.system_subtitle": "Contributor Schedule Management & Coordination System",
 
     // Auth & Login
-    "auth.login_title": "Contributor Mgmt",
+    "auth.login_title": "Contributor Management",
     "auth.login_subtitle": "Log in to continue to the system",
     "auth.login_heading": "Log In",
     "auth.email": "Email",

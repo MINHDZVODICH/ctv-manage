@@ -18,7 +18,7 @@ services:
       retries: 12
 
   backend:
-    image: ctv-backend:1.0.1
+    image: ctv-backend:latest
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
@@ -42,7 +42,7 @@ services:
       - dist/src/main.js
 
   frontend:
-    image: ctv-frontend:1.0.0
+    image: ctv-frontend:latest
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile

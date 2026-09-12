@@ -3,12 +3,12 @@ import { execFileSync } from 'node:child_process';
 
 const BUDGETS = {
   backend: {
-    name: 'ctv-backend:1.0.1',
+    name: 'ctv-backend:latest',
     maxBytes: 350 * 1024 * 1024, // 350 MB budget (>= 25% reduction from 467 MB)
     baselineMb: 467.04,
   },
   frontend: {
-    name: 'ctv-frontend:1.0.0',
+    name: 'ctv-frontend:latest',
     maxBytes: 50 * 1024 * 1024, // 50 MB budget (>= 50% reduction from 102.47 MB)
     baselineMb: 102.47,
   },

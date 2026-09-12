@@ -16,7 +16,7 @@ services:
       retries: 12
 
   backend:
-    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-backend:1.0.1
+    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-backend:latest
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -37,7 +37,7 @@ services:
       - dist/src/main.js
 
   frontend:
-    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-frontend:1.0.0
+    image: ${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE in .env.docker}/ctv-frontend:latest
     restart: unless-stopped
     ports:
       - "${CTV_HTTP_PORT:-8080}:80"
