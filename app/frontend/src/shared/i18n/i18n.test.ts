@@ -38,6 +38,9 @@ describe("i18n Translation System", () => {
       expect(translate("Tiếng Anh", "accounts.title")).toBe("Account Management");
       expect(translate("Tiếng Anh", "schedule.title")).toBe("Work Schedule");
       expect(translate("Tiếng Anh", "profile.title")).toBe("Personal Profile");
+      expect(translate("Tiếng Anh", "profile.cv_format_hint")).toBe("PDF format (.pdf)");
+      expect(translate("Tiếng Anh", "profile.cv_format_hint")).not.toContain("Word");
+      expect(translate("Tiếng Anh", "profile.cv_format_hint")).not.toContain(".doc");
     });
   });
 
@@ -69,6 +72,9 @@ describe("i18n Translation System", () => {
       expect(translate("Tiếng Việt", "accounts.title")).toBe("Quản lý tài khoản");
       expect(translate("Tiếng Việt", "schedule.title")).toBe("Lịch làm việc");
       expect(translate("Tiếng Việt", "profile.title")).toBe("Hồ sơ cá nhân");
+      expect(translate("Tiếng Việt", "profile.cv_format_hint")).toBe("Định dạng PDF (.pdf)");
+      expect(translate("Tiếng Việt", "profile.cv_format_hint")).not.toContain("Word");
+      expect(translate("Tiếng Việt", "profile.cv_format_hint")).not.toContain(".doc");
     });
   });
 

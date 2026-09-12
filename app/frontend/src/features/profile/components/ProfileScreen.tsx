@@ -138,6 +138,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const handleCvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+        e.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === "string" && onUpdateCvFile) {
@@ -164,10 +168,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     user.cvFileName || (user.cvFile ? `CV_${user.name.replace(/\s+/g, "_")}.pdf` : "");
   const cvDisplaySize = user.cvFileSize || "";
   const hasCv = Boolean(user.cvFile);
-  const isPdf =
-    cvDisplayName.toLowerCase().endsWith(".pdf") ||
-    (!cvDisplayName.toLowerCase().endsWith(".doc") &&
-      !cvDisplayName.toLowerCase().endsWith(".docx"));
+  const isPdf = cvDisplayName.toLowerCase().endsWith(".pdf");
 
   const handleDownloadCv = () => {
     if (!user.cvFile) return;
@@ -267,7 +268,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               type="file"
               ref={cvFileInputRef}
               data-testid="profile-cv"
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,application/pdf"
               className="hidden"
               onChange={handleCvFileSelect}
             />
@@ -568,10 +569,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <span className="material-symbols-outlined text-[22px]">upload_file</span>
                     </div>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover/cv:text-blue-600 transition-colors">
-                      {t("profile.upload_cv")}
-                    </p>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      {t("profile.cv_format_hint")}
+                      {t("profile.upload_cv")} <span className="font-normal text-slate-400 dark:text-slate-500">(.pdf)</span>
                     </p>
                   </div>
                 )}
