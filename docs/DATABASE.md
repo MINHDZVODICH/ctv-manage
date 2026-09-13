@@ -201,9 +201,12 @@ Lưu trữ thông tin người dùng hệ thống (Admin và Cộng tác viên).
 | `deletedAt` | `DateTime` / `TIMESTAMP(3)` | Có | `NULL` | - | Thời điểm xóa mềm (nếu có) |
 
 - **Chỉ mục (Index)**:
-  - `@@unique([email])`
+  - `@@unique([email])` (Định danh email duy nhất toàn cầu, duy trì vĩnh viễn cả khi tài khoản bị xóa mềm `deletedAt IS NOT NULL`)
   - `@@unique([ctvCode])`
   - `@@index([status, deletedAt])`
+- **Quy tắc định danh tài khoản xóa mềm (Persistent Identity & Resurrection)**:
+  - Email là định danh bất biến. Khi tài khoản bị xóa mềm (`deletedAt IS NOT NULL`), email vẫn bị giữ độc quyền tại mức database (`@@unique([email])`).
+  - Khi người dùng sở hữu email từng bị xóa mềm đăng ký lại và được Admin duyệt, hệ thống phục hồi (resurrect) bản ghi tài khoản cũ: khôi phục `status = ACTIVE`, đặt `deletedAt = NULL`, cập nhật mật khẩu và thông tin mới, đồng thời bảo toàn mã CTV (`ctvCode`) ban đầu.
 - **Quan hệ Cascade**:
   - `sessions`: `Session[]` -> Xóa Account tự động xóa toàn bộ Session (`onDelete: Cascade`).
   - `accountFiles`: `AccountFile[]` -> Xóa Account tự động xóa liên kết AccountFile (`onDelete: Cascade`).
@@ -259,6 +262,10 @@ Lưu trữ các hồ sơ đăng ký tài khoản CTV do người dùng gửi lê
   - `@@index([status, submittedAt(sort: Desc)])`
   - `@@index([email])`
   - `@@index([reviewedById, reviewedAt])`
+  - **PostgreSQL Partial Unique Index** `RegistrationRequest_pending_email_key`:
+    `CREATE UNIQUE INDEX "RegistrationRequest_pending_email_key" ON "RegistrationRequest" ("email") WHERE "status" = 'PENDING';`
+    Đảm bảo tại mức cơ sở dữ liệu rằng tại mọi thời điểm, mỗi địa chỉ email chỉ có tối đa 01 yêu cầu đăng ký ở trạng thái `PENDING`. Mọi nỗ lực gửi đơn trùng lặp trong khi đơn cũ đang chờ duyệt đều bị chặn ngay tại database.
+    *Lưu ý Migration*: Quá trình di chuyển (migration) sử dụng khối preflight kiểm tra; tuyệt đối không tự động từ chối (auto-reject) hay ghi đè dữ liệu ứng viên. Nếu cơ sở dữ liệu có bản ghi trùng lặp đang `PENDING`, migration sẽ chủ động dừng và báo lỗi ngoại lệ, yêu cầu người vận hành xử lý thủ công (explicit remediation) trước khi tạo chỉ mục. Không áp dụng migration cưỡng bức lên dữ liệu ứng dụng khi chưa khắc phục xung đột.
 
 ---
 

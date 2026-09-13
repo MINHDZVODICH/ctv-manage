@@ -12,14 +12,12 @@ describe('Operations Snapshot Runs & Missed Date Tracking Integration Tests', ()
   let coordinator: SnapshotCoordinatorService;
 
   beforeEach(async () => {
-    delete process.env.SNAPSHOT_TRACKING_START_DATE;
     await resetDatabase();
     await seedActors();
     coordinator = new SnapshotCoordinatorService();
   });
 
   afterAll(async () => {
-    delete process.env.SNAPSHOT_TRACKING_START_DATE;
     await prisma.$disconnect();
   });
 

@@ -55,8 +55,23 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
+      - name: Verify code formatting
+        run: npm run format:check
+
+      - name: Run ESLint
+        run: npm run lint
+
       - name: Verify frontend architectural import boundaries
         run: npm run check:boundaries --workspace=app/frontend
+
+      - name: Check i18n translations
+        run: npm run check:i18n
+
+      - name: Run i18n unit tests
+        run: npm run test:i18n
+
+      - name: Run frontend unit tests
+        run: npm run test:unit:frontend
 
       - name: Build applications
         run: npm run build

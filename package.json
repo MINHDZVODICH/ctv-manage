@@ -35,6 +35,7 @@
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
+    "check:boundaries": "npm run check:boundaries --workspace=app/frontend",
     "check": "npm run typecheck && npm run check:boundaries --workspace=app/frontend && npm run test:unit:frontend && npm run test:api"
   },
   "devDependencies": {

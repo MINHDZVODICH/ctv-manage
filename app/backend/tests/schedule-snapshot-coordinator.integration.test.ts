@@ -1,4 +1,4 @@
-﻿import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/shared/prisma.js';
 import { resetDatabase, seedActors } from './helpers.js';
 import { SnapshotCoordinatorService } from '../src/modules/schedule/snapshot-coordinator.service.js';
@@ -40,19 +40,16 @@ async function lastProcessed() {
 
 describe('Persistent work history recovery', () => {
   beforeEach(async () => {
-    delete process.env.SNAPSHOT_TRACKING_START_DATE;
     await resetDatabase();
   });
   afterAll(async () => {
-    delete process.env.SNAPSHOT_TRACKING_START_DATE;
     await prisma.$disconnect();
   });
 
   it('starts today on first boot, even if old tracking config and runs exist', async () => {
     await seedSchedule();
-    process.env.SNAPSHOT_TRACKING_START_DATE = '2020-01-01';
     await prisma.snapshotRun.create({ data: { workDate: date(monday), status: 'MISSED' } });
-    await new SnapshotCoordinatorService().reconcilePass(morningTuesday);
+    await new SnapshotCoordinatorService(prisma, '2020-01-01').reconcilePass(morningTuesday);
     expect(await lastProcessed()).toEqual(date(monday));
     expect(await prisma.history.count()).toBe(0);
     expect(

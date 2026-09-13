@@ -1,92 +1,45 @@
-import type {} from 'multer';
 import argon2 from 'argon2';
-import type { Prisma, FileCategory } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { RegistrationStatus } from '@prisma/client';
 import { prisma } from '../../shared/prisma.js';
 import { Errors } from '../../shared/errors.js';
 import { normalizeEmail } from '../../shared/crypto.js';
+import { sha256Of } from '../../shared/fileStorage.js';
 import {
-  assertFileMagic,
-  buildStorageKey,
-  deleteFile,
-  fileExists,
-  generateCuid,
-  saveBufferToFile,
-  sha256Of,
-} from '../../shared/fileStorage.js';
-import { logger } from '../../shared/logger.js';
+  type CreateRegistrationInput,
+  type RegistrationFilesInput,
+  type ListParams,
+  type RegistrationRequestDto,
+  type RegistrationDecisionResultDto,
+  FILE_CATEGORY_BY_FIELD,
+  type RegistrationFileField,
+} from './registration.types.js';
+import { registrationFileService } from './registration-file.service.js';
+import { generateCtvCode } from './ctv-code.service.js';
+import { translateRegistrationPrismaError } from './registration-errors.js';
+import { toRequestDto } from './registration.mapper.js';
 
-export const FILE_CATEGORY_BY_FIELD = {
-  cccdFront: 'CCCD_FRONT',
-  cccdBack: 'CCCD_BACK',
-  cv: 'CV',
-} as const;
-
-export type RegistrationFileField = keyof typeof FILE_CATEGORY_BY_FIELD;
-
-const ALLOWED_MIMES: Record<string, string[]> = {
-  CCCD_FRONT: ['image/jpeg', 'image/png', 'image/webp'],
-  CCCD_BACK: ['image/jpeg', 'image/png', 'image/webp'],
-  CV: ['application/pdf'],
+export {
+  FILE_CATEGORY_BY_FIELD,
+  type RegistrationFileField,
+  type CreateRegistrationInput,
+  type RegistrationFilesInput,
+  type ListParams,
+  type RegistrationRequestDto,
+  type RegistrationDecisionResultDto,
 };
 
-export interface CreateRegistrationInput {
-  emailRaw: string;
-  displayName: string;
-  phone?: string | null;
-  dateOfBirth?: Date | null;
-  gender?: string | null;
-  address?: string | null;
-  password: string;
-}
-
-export interface RegistrationFilesInput {
-  cccdFront?: Express.Multer.File;
-  cccdBack?: Express.Multer.File;
-  cv?: Express.Multer.File;
-}
-
-function toFileDto(rf: {
-  category: string;
-  fileId: string;
-  fileAsset: { originalName: string; mimeType: string; sizeBytes: number };
-}) {
-  return {
-    category: rf.category,
-    fileId: rf.fileId,
-    originalName: rf.fileAsset.originalName,
-    mimeType: rf.fileAsset.mimeType,
-    sizeBytes: rf.fileAsset.sizeBytes,
-  };
-}
-
-function toRequestDto(r: any) {
-  return {
-    id: r.id,
-    email: r.email,
-    displayName: r.displayName,
-    phone: r.phone,
-    dateOfBirth: r.dateOfBirth,
-    gender: r.gender,
-    address: r.address,
-    status: r.status,
-    rejectionReason: r.rejectionReason,
-    reviewedById: r.reviewedById,
-    approvedAccountId: r.approvedAccountId,
-    submittedAt: r.submittedAt,
-    reviewedAt: r.reviewedAt,
-    files: (r.files ?? []).map(toFileDto),
-  };
-}
-
-export async function createRequest(input: CreateRegistrationInput, files: RegistrationFilesInput) {
+export async function createRequest(
+  input: CreateRegistrationInput,
+  files: RegistrationFilesInput,
+): Promise<RegistrationRequestDto> {
   const email = normalizeEmail(input.emailRaw);
 
-  // Conflict check: account email exists OR pending registration with same email
+  // Fast pre-check: active account or pending request
   const [existingAccount, pendingRequest] = await Promise.all([
     prisma.account.findFirst({ where: { email, deletedAt: null }, select: { id: true } }),
     prisma.registrationRequest.findFirst({
-      where: { email, status: 'PENDING' },
+      where: { email, status: RegistrationStatus.PENDING },
       select: { id: true },
     }),
   ]);
@@ -95,40 +48,12 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
   }
 
   const passwordHash = await argon2.hash(input.password);
+  const preparedEntries = registrationFileService.prepareFiles(files);
+  const writtenKeys = await registrationFileService.saveFilesToStorage(preparedEntries);
 
-  const entries: Array<{
-    field: RegistrationFileField;
-    category: string;
-    file: Express.Multer.File;
-    fileAssetId: string;
-    storageKey: string;
-  }> = [];
-
-  for (const field of Object.keys(FILE_CATEGORY_BY_FIELD) as RegistrationFileField[]) {
-    const file = files[field];
-    if (!file) continue;
-    const category = FILE_CATEGORY_BY_FIELD[field];
-    // Validate file magic via mime check (defense in depth — controller also validates)
-    assertFileMagic(file.buffer, ALLOWED_MIMES[category]);
-    entries.push({
-      field,
-      category,
-      file,
-      fileAssetId: generateCuid(),
-      storageKey: buildStorageKey(file.originalname),
-    });
-  }
-
-  // Save files to disk first, tracking written keys for cleanup on failure
-  const writtenKeys: string[] = [];
   try {
-    for (const e of entries) {
-      await saveBufferToFile(e.file.buffer, e.storageKey);
-      writtenKeys.push(e.storageKey);
-    }
-
     const created = await prisma.$transaction(async (tx) => {
-      for (const e of entries) {
+      for (const e of preparedEntries) {
         await tx.fileAsset.create({
           data: {
             id: e.fileAssetId,
@@ -141,6 +66,7 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
           },
         });
       }
+
       return tx.registrationRequest.create({
         data: {
           email,
@@ -151,11 +77,11 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
           gender: input.gender ?? null,
           address: input.address ?? null,
           status: RegistrationStatus.PENDING,
-          files: entries.length
+          files: preparedEntries.length
             ? {
-                create: entries.map((e) => ({
+                create: preparedEntries.map((e) => ({
                   fileAsset: { connect: { id: e.fileAssetId } },
-                  category: e.category as FileCategory,
+                  category: e.category,
                 })),
               }
             : undefined,
@@ -166,25 +92,9 @@ export async function createRequest(input: CreateRegistrationInput, files: Regis
 
     return toRequestDto(created);
   } catch (err) {
-    for (const key of writtenKeys) {
-      try {
-        await deleteFile(key);
-      } catch (cleanupErr) {
-        logger.warn(
-          { cleanupErr, key },
-          'Failed to cleanup uploaded file after createRequest failure',
-        );
-      }
-    }
-    throw err;
+    await registrationFileService.cleanupStorageFiles(writtenKeys);
+    translateRegistrationPrismaError(err);
   }
-}
-
-export interface ListParams {
-  q?: string;
-  page?: number;
-  pageSize?: number;
-  status?: RegistrationStatus;
 }
 
 export async function listPending({
@@ -215,70 +125,72 @@ export async function listPending({
   return { items: items.map(toRequestDto), total, page, pageSize };
 }
 
-async function generateCtvCode(tx: Prisma.TransactionClient): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `CTV-${year}-`;
-  const last = await tx.account.findFirst({
-    where: { ctvCode: { startsWith: prefix } },
-    orderBy: { ctvCode: 'desc' },
-    select: { ctvCode: true },
-  });
-  let seq = 1;
-  if (last?.ctvCode) {
-    const tail = last.ctvCode.slice(prefix.length);
-    const n = Number.parseInt(tail, 10);
-    if (Number.isFinite(n)) seq = n + 1;
-  }
-  return `${prefix}${String(seq).padStart(3, '0')}`;
-}
-
 export async function decide(
   requestId: string,
   decision: 'APPROVED' | 'REJECTED',
   reviewedById: string,
   rejectionReason?: string,
-) {
-  const request = await prisma.registrationRequest.findUnique({
-    where: { id: requestId },
-    include: { files: { include: { fileAsset: true } } },
-  });
-  if (!request) throw Errors.notFound('Không tìm thấy yêu cầu đăng ký');
-  if (request.status !== 'PENDING') {
-    throw Errors.conflict('REGISTRATION_ALREADY_REVIEWED', 'Yêu cầu đã được xử lý trước đó');
-  }
-
+): Promise<RegistrationDecisionResultDto> {
   const now = new Date();
-
-  if (decision === 'REJECTED') {
-    const updated = await prisma.registrationRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'REJECTED',
-        reviewedById,
-        reviewedAt: now,
-        rejectionReason: rejectionReason ?? null,
-        passwordHash: null,
-      },
-      include: { files: { include: { fileAsset: true } } },
-    });
-    return toRequestDto(updated);
-  }
-
-  // APPROVED
-  if (!request.passwordHash) {
-    throw Errors.badRequest('MISSING_PASSWORD', 'Yêu cầu đăng ký không có mật khẩu');
-  }
-  // Check files still exist on disk
-  for (const rf of request.files) {
-    if (!(await fileExists(rf.fileAsset.storageKey))) {
-      throw Errors.conflict('FILES_MISSING', 'Tệp đính kèm không còn tồn tại, không thể duyệt');
-    }
-  }
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // Acquire row-level lock on RegistrationRequest to ensure atomic decision transition
+      const lockedRows = await tx.$queryRaw<Array<{ id: string; status: RegistrationStatus }>>`
+        SELECT id, status FROM "RegistrationRequest" WHERE id = ${requestId} FOR UPDATE
+      `;
+      const locked = lockedRows[0];
+      if (!locked) {
+        throw Errors.notFound('Không tìm thấy yêu cầu đăng ký');
+      }
+      if (locked.status !== RegistrationStatus.PENDING) {
+        throw Errors.conflict('REGISTRATION_ALREADY_REVIEWED', 'Yêu cầu đã được xử lý trước đó');
+      }
+
+      if (decision === 'REJECTED') {
+        const updated = await tx.registrationRequest.update({
+          where: { id: requestId },
+          data: {
+            status: RegistrationStatus.REJECTED,
+            reviewedById,
+            reviewedAt: now,
+            rejectionReason: rejectionReason ?? null,
+            passwordHash: null,
+          },
+          include: { files: { include: { fileAsset: true } } },
+        });
+        return { request: updated, account: undefined };
+      }
+
+      // APPROVED decision path
+      const request = await tx.registrationRequest.findUniqueOrThrow({
+        where: { id: requestId },
+        include: { files: { include: { fileAsset: true } } },
+      });
+
+      if (!request.passwordHash) {
+        throw Errors.badRequest('MISSING_PASSWORD', 'Yêu cầu đăng ký không có mật khẩu');
+      }
+
+      // Verify physical files still exist on storage
+      await registrationFileService.verifyFilesExist(request.files);
+
+      // Check if an active account already exists with this email
+      const activeAccount = await tx.account.findFirst({
+        where: { email: request.email, deletedAt: null },
+        select: { id: true },
+      });
+      if (activeAccount) {
+        throw Errors.conflict(
+          'EMAIL_ALREADY_EXISTS',
+          'Tài khoản với email này đã tồn tại và đang hoạt động',
+        );
+      }
+
+      // Concurrency-safe CTV code generation using PostgreSQL advisory lock
       const ctvCode = await generateCtvCode(tx);
 
+      // Check for existing soft-deleted account to resurrect
       const existingDeleted = await tx.account.findFirst({
         where: { email: request.email, deletedAt: { not: null } },
       });
@@ -288,7 +200,7 @@ export async function decide(
         account = await tx.account.update({
           where: { id: existingDeleted.id },
           data: {
-            passwordHash: request.passwordHash as string,
+            passwordHash: request.passwordHash,
             role: 'CTV',
             status: 'ACTIVE',
             deletedAt: null,
@@ -306,7 +218,7 @@ export async function decide(
         account = await tx.account.create({
           data: {
             email: request.email,
-            passwordHash: request.passwordHash as string,
+            passwordHash: request.passwordHash,
             role: 'CTV',
             status: 'ACTIVE',
             version: 1,
@@ -321,22 +233,18 @@ export async function decide(
         });
       }
 
-      if (request.files.length > 0) {
-        for (const rf of request.files) {
-          await tx.accountFile.create({
-            data: { accountId: account.id, fileId: rf.fileId, category: rf.category },
-          });
-        }
-        await tx.fileAsset.updateMany({
-          where: { id: { in: request.files.map((rf) => rf.fileId) }, state: { not: 'ACTIVE' } },
-          data: { state: 'ACTIVE' },
-        });
-      }
+      // Transactional migration of registration files to account files
+      await registrationFileService.linkFilesToAccount(
+        tx,
+        account.id,
+        request.files.map((rf) => ({ fileId: rf.fileId, category: rf.category })),
+      );
 
+      // Mark request as APPROVED
       const updatedRequest = await tx.registrationRequest.update({
         where: { id: requestId },
         data: {
-          status: 'APPROVED',
+          status: RegistrationStatus.APPROVED,
           reviewedById,
           reviewedAt: now,
           approvedAccountId: account.id,
@@ -348,18 +256,19 @@ export async function decide(
       return { request: updatedRequest, account };
     });
 
-    return {
-      ...toRequestDto(result.request),
-      approvedAccount: {
-        id: result.account.id,
-        email: result.account.email,
-        ctvCode: result.account.ctvCode,
-      },
-    };
-  } catch (e: any) {
-    if (e?.code === 'P2002') {
-      throw Errors.conflict('EMAIL_ALREADY_EXISTS', 'Email đã tồn tại trong hệ thống');
+    const dto = toRequestDto(result.request);
+    if (result.account) {
+      return {
+        ...dto,
+        approvedAccount: {
+          id: result.account.id,
+          email: result.account.email,
+          ctvCode: result.account.ctvCode,
+        },
+      };
     }
-    throw e;
+    return dto;
+  } catch (error) {
+    translateRegistrationPrismaError(error);
   }
 }

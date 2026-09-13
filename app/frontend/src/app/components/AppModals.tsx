@@ -1,7 +1,8 @@
 import React from 'react';
 import type { UserAccount } from '../../shared/types';
 import { SettingsModal } from '../../shared/ui';
-import { ViewAccountDetailModal, ViewRequestModal } from '../../features/accounts';
+import { ViewAccountDetailModal } from '../../features/accounts';
+import { ViewRequestModal } from '../../features/registration';
 import { EditProfileModal, ChangePasswordModal } from '../../features/profile';
 import type { UseAccountsAdminResult } from '../../features/accounts';
 import type { UseRegistrationRequestsResult } from '../../features/registration';

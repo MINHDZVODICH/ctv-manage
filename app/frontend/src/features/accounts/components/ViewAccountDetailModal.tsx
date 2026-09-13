@@ -346,7 +346,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            aria-label="Đóng hồ sơ"
+            aria-label={t('close')}
             className="text-[#74777f] hover:text-[#1b365d] dark:hover:text-white p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -868,7 +868,7 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowWorkHistory(false)}
-                  aria-label="Đóng lịch sử"
+                  aria-label={t('close')}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>

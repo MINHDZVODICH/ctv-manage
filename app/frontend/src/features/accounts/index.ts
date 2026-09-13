@@ -4,7 +4,8 @@ export * from './mappers/account.mapper';
 export * from './api/accountsApi';
 export * from './hooks/useAccountsAdmin';
 export { AccountListScreen } from './components/AccountListScreen';
-export { RequestsScreen } from './components/RequestsScreen';
 export { ViewAccountDetailModal } from './components/ViewAccountDetailModal';
 export { ResetPasswordModal } from './components/ResetPasswordModal';
-export { ViewRequestModal } from './components/ViewRequestModal';
+
+// Re-exports for backward compatibility (canonical ownership is in @features/registration)
+export { RequestsScreen, ViewRequestModal } from '../registration';

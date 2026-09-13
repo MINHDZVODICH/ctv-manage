@@ -1,6 +1,7 @@
 import React from 'react';
 import type { UserAccount, ViewTab } from '../../shared/types';
-import { AccountListScreen, RequestsScreen } from '../../features/accounts';
+import { AccountListScreen } from '../../features/accounts';
+import { RequestsScreen } from '../../features/registration';
 import { ScheduleScreen, SummaryScheduleScreen } from '../../features/schedule';
 import { ProfileScreen } from '../../features/profile';
 import type { UseAccountsAdminResult } from '../../features/accounts';

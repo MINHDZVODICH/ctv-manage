@@ -76,7 +76,7 @@ export const App: React.FC = () => {
     if (authUser.role !== 'ADMIN' && (currentTab === 'accounts' || currentTab === 'requests')) {
       setCurrentTab('schedule');
     }
-  }, [authUser?.role, currentTab]);
+  }, [authUser, currentTab]);
 
   const handleLogout = async () => {
     await logout();

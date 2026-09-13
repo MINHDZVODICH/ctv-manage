@@ -101,9 +101,10 @@ app/frontend/src/
 │   ├── App.tsx           # Điều phối hiển thị dựa trên trạng thái phiên
 │   └── providers.tsx     # Bọc AppProviders (SystemSettingsProvider + AuthProvider)
 ├── features/             # Các module nghiệp vụ tự đóng gói
-│   ├── accounts/         # Quản lý tài khoản và xét duyệt đăng ký
+│   ├── accounts/         # Quản lý tài khoản
 │   ├── auth/             # Xác thực và đăng nhập
 │   ├── profile/          # Hồ sơ cá nhân và đổi mật khẩu
+│   ├── registration/     # Quản lý yêu cầu đăng ký và xét duyệt hồ sơ CTV
 │   └── schedule/         # Lịch tuần và lịch sử làm việc
 └── shared/               # Thành phần dùng chung, không phụ thuộc features hay app
     ├── api/              # HTTP client chuẩn hóa, mã bọc fetch và xử lý lỗi
@@ -709,4 +710,10 @@ E:/CTV_Manage/
      - Tầng Facade (`schedule.service.ts`) chỉ thực hiện re-export, bảo toàn tính tương thích ngược tuyệt đối.
    - `Service` là nơi duy nhất sở hữu truy vấn `prisma` và đảm bảo tính toàn vẹn nghiệp vụ.
    - `Middleware` độc lập với nghiệp vụ cụ thể, chỉ xử lý ngữ cảnh an toàn (phiên, vai trò, xử lý lỗi tập trung).
+   - **Bảo đảm toàn vẹn đồng thời và nghiệp vụ đăng ký (Registration Concurrency & Data Integrity)**:
+     - Tính duy nhất của yêu cầu đang chờ duyệt (`PENDING`) cho mỗi email được bảo đảm cưỡng bức ở mức PostgreSQL qua Partial Unique Index (`RegistrationRequest_pending_email_key`).
+     - Quyết định xét duyệt/từ chối đơn đăng ký là một giao dịch nguyên tử (Atomic State Transition) được bảo vệ bằng khóa dòng `FOR UPDATE`, ngăn ngừa hoàn toàn tình trạng duyệt/từ chối trùng hoặc xung đột quyết định giữa các Admin đồng thời.
+     - Cấp phát mã CTV tuần tự không trùng lặp khi duyệt song song sử dụng khóa cố vấn cấp giao dịch PostgreSQL (`pg_advisory_xact_lock(17300000::int, year::int)`).
+     - Định danh email của tài khoản xóa mềm (`deletedAt IS NOT NULL`) được bảo toàn vĩnh viễn và phục hồi (resurrect) nguyên vẹn khi người dùng tái đăng ký và được phê duyệt.
+     - Cơ chế dọn dẹp tệp tải lên (upload cleanup) tự động thu hồi và xóa tệp vật lý khi có lỗi xảy ra trong quá trình ghi cơ sở dữ liệu.
    - Cơ sở dữ liệu quan hệ PostgreSQL là nguồn chân lý duy nhất cho toàn bộ dữ liệu nghiệp vụ của hệ thống.
