@@ -43,7 +43,7 @@ export async function getReady(_req: Request, res: Response): Promise<void> {
     res.status(200).json({ status: 'ready' });
   } catch (error) {
     if (timer) clearTimeout(timer);
-    logger.error({ error }, 'Readiness check failed');
+    logger.error({ err: error, error }, 'Readiness check failed');
     res.status(503).json({ status: 'not_ready' });
   }
 }
