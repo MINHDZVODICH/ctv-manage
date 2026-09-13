@@ -119,6 +119,10 @@ try {
 
     Write-Host '[5/5] Starting application...'
     Invoke-Compose -ComposeArgs @('up', '-d', '--no-build', '--pull', 'never')
+    if ($Update) {
+        Write-Host 'Cleaning up old application images...'
+        & $script:dockerExe image prune -f *> $null
+    }
     $url = "http://localhost:$Port"
     $ready = $false
     $deadline = (Get-Date).AddMinutes(2)
