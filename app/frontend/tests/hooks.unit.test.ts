@@ -101,7 +101,7 @@ describe('Frontend Feature Hooks (React Testing Library & jsdom)', () => {
         page: 1,
         pageSize: 5,
       });
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const confirmSpy = vi.spyOn(window, 'confirm');
 
       const onToast = vi.fn();
       const { result } = renderHook(() => useAccountsAdmin({ isAdmin: true, onToast }));
@@ -133,6 +133,7 @@ describe('Frontend Feature Hooks (React Testing Library & jsdom)', () => {
         await result.current.deleteAccount('acc-1');
       });
       expect(accountsApi.deleteAccount).toHaveBeenCalledWith('acc-1');
+      expect(confirmSpy).not.toHaveBeenCalled();
     });
 
     it('handles search input debouncing and pagination changes', async () => {

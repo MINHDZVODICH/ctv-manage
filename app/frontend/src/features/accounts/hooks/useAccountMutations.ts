@@ -64,10 +64,6 @@ export function useAccountMutations(options: UseAccountMutationsOptions) {
     async (id: string) => {
       const target = accounts.find((a) => a.id === id);
       if (!target) return;
-      const confirmed = window.confirm(
-        translate('app.delete_account_confirm', { name: target.name }),
-      );
-      if (!confirmed) return;
 
       try {
         await accountsApi.deleteAccount(id);
