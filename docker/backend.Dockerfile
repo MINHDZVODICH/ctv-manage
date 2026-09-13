@@ -17,7 +17,7 @@ RUN npm run prisma:generate \
 FROM base AS production-deps
 WORKDIR /app/deploy
 COPY app/backend/package.json ./package.json
-RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));delete p.devDependencies;if(p.dependencies)delete p.dependencies.prisma;fs.writeFileSync('package.json',JSON.stringify(p,null,2));" \
+RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));const v=p.dependencies?.['@prisma/client']||p.devDependencies?.prisma;if(!v)throw new Error('Cannot resolve Prisma version from package.json');p.dependencies=p.dependencies||{};p.dependencies.prisma=v;delete p.devDependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2));" \
     && npm install --omit=dev --no-audit --no-fund
 # Copy generated Prisma Client and runtime engine from build stage
 COPY --from=build /app/app/backend/node_modules/.prisma ./node_modules/.prisma
@@ -36,12 +36,15 @@ COPY --from=build /app/app/backend/dist/scripts ./dist/scripts
 COPY app/backend/prisma ./prisma
 COPY app/backend/scripts/database-summary.mjs ./scripts/database-summary.mjs
 COPY docker/bootstrap-admin.cjs ./scripts/bootstrap-admin.cjs
+COPY docker/backend-entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 COPY app/backend/package.json ./package.json
 
-RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.scripts={start:'node dist/src/main.js','db:summary':'node scripts/database-summary.mjs','admin:bootstrap':'node scripts/bootstrap-admin.cjs'};delete p.devDependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
+RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.scripts={start:'node dist/src/main.js','db:summary':'node scripts/database-summary.mjs','admin:bootstrap':'node scripts/bootstrap-admin.cjs','prisma:deploy':'prisma migrate deploy'};delete p.devDependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
 
 EXPOSE 4001
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "dist/src/main.js"]
 
 

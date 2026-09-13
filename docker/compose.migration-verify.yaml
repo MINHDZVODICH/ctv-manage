@@ -1,0 +1,52 @@
+name: ctv-migration-verify
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ctv_manage
+      POSTGRES_PASSWORD: ctv_manage
+      POSTGRES_DB: ctv_manage
+    ports:
+      - "127.0.0.1:25432:5432"
+    volumes:
+      - migration_verify_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ctv_manage -d ctv_manage"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ctv-backend:test-migration
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4001
+      DATABASE_URL: postgresql://ctv_manage:ctv_manage@postgres:5432/ctv_manage?schema=public
+      CORS_ORIGIN: http://localhost:28080,http://127.0.0.1:28080
+      STORAGE_DRIVER: local
+      FILE_STORAGE_ROOT: /data/uploads
+      RATE_LIMIT_KEY_SECRET: ctv_manage_rate_limit_secret
+    volumes:
+      - migration_verify_uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: minhdz163/ctv-frontend:latest
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:28080:80"
+    depends_on:
+      - backend
+
+volumes:
+  migration_verify_postgres_data:
+  migration_verify_uploads:

@@ -1,0 +1,55 @@
+name: ctv-fresh-machine
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ctv_manage
+      POSTGRES_PASSWORD: ctv_manage
+      POSTGRES_DB: ctv_manage
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - fresh_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ctv_manage -d ctv_manage"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: minhdz163/ctv-backend:latest
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4001
+      DATABASE_URL: postgresql://ctv_manage:ctv_manage@postgres:5432/ctv_manage?schema=public
+      CORS_ORIGIN: http://localhost:18080,http://127.0.0.1:18080
+      STORAGE_DRIVER: local
+      FILE_STORAGE_ROOT: /data/uploads
+      RATE_LIMIT_KEY_SECRET: ctv_manage_rate_limit_secret
+    volumes:
+      - fresh_uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - node
+      - dist/src/main.js
+
+  frontend:
+    image: minhdz163/ctv-frontend:latest
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:80"
+    depends_on:
+      - backend
+
+volumes:
+  fresh_postgres_data:
+  fresh_uploads:
