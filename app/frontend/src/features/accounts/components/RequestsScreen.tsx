@@ -1,8 +1,8 @@
-import React from "react";
-import { RegistrationRequest } from "../../../shared/types";
-import { formatPhoneNumber, formatDateOnly } from "../../../shared/utils/formatters";
-import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
-import { Pagination } from "../../../shared/ui";
+import React from 'react';
+import type { RegistrationRequest } from '../../../shared/types';
+import { formatPhoneNumber, formatDateOnly } from '../../../shared/utils/formatters';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
+import { Pagination } from '../../../shared/ui';
 
 interface RequestsScreenProps {
   requests: RegistrationRequest[];
@@ -44,10 +44,12 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("requests.title")}</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">
+            {t('requests.title')}
+          </h2>
           <p className="text-sm text-[#44474e] mt-1">
-            {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{total}</span>{" "}
-            {t("requests.items_count")}
+            {t('total_label')} <span className="font-semibold text-[#1a1b1e]">{total}</span>{' '}
+            {t('requests.items_count')}
           </p>
         </div>
       </div>
@@ -66,7 +68,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
               onChange={(e) => {
                 onSearchChange(e.target.value);
               }}
-              placeholder={t("search_placeholder")}
+              placeholder={t('search_placeholder')}
               className="w-full pl-10 pr-4 py-2 h-[40px] border border-[#E2E8F0] rounded text-sm bg-white text-[#1a1b1e] focus:border-[#1b365d] focus:ring-1 focus:ring-[#1b365d] outline-none"
             />
           </div>
@@ -78,7 +80,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
               className="text-[#44474e] hover:text-[#1b365d] font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-              <span>{t("refresh")}</span>
+              <span>{t('refresh')}</span>
             </button>
           </div>
         </div>
@@ -91,19 +93,19 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  {t("accounts.no")}
+                  {t('accounts.no')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("full_name")}
+                  {t('full_name')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("phone_number")}
+                  {t('phone_number')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("submission_date")}
+                  {t('submission_date')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider text-right">
-                  {t("actions")}
+                  {t('actions')}
                 </th>
               </tr>
             </thead>
@@ -111,17 +113,19 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
               {loading && requests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {t("requests.loading")}
+                    {t('requests.loading')}
                   </td>
                 </tr>
               ) : error && requests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#DC2626] text-sm">{error}</td>
+                  <td colSpan={5} className="py-12 text-center text-[#DC2626] text-sm">
+                    {error}
+                  </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {t("requests.empty")}
+                    {t('requests.empty')}
                   </td>
                 </tr>
               ) : (
@@ -135,7 +139,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                       <div
                         onClick={() => onViewRequestDetail(req)}
                         className="inline-flex items-center gap-3 cursor-pointer group/name transition-colors"
-                        title={t("requests.view_detail_tooltip")}
+                        title={t('requests.view_detail_tooltip')}
                       >
                         <div className="w-9 h-9 rounded-full bg-[#aec7f7] text-[#2e476f] flex items-center justify-center font-bold text-xs shrink-0 group-hover/name:ring-2 group-hover/name:ring-[#1b365d]/20">
                           {req.initials || req.name.substring(0, 2).toUpperCase()}
@@ -148,20 +152,20 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-sm text-[#44474e] font-medium">
-                      {req.phone ? formatPhoneNumber(req.phone) : "---"}
+                      {req.phone ? formatPhoneNumber(req.phone) : '---'}
                     </td>
                     <td className="py-3.5 px-4 text-sm text-[#44474e]">
                       {formatDateOnly(req.submittedAt)}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                        {req.status === "Chờ duyệt" && (
+                        {req.status === 'Chờ duyệt' && (
                           <>
                             <button
                               onClick={() => onApproveRequest(req.id)}
                               className="p-1.5 text-[#16A34A] hover:bg-[#c7ecc7] rounded transition-colors cursor-pointer"
-                              title={t("requests.approve_tooltip")}
-                              aria-label={t("requests.approve")}
+                              title={t('requests.approve_tooltip')}
+                              aria-label={t('requests.approve')}
                             >
                               <span className="material-symbols-outlined text-[20px]">
                                 check_circle
@@ -170,8 +174,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                             <button
                               onClick={() => onRejectRequest(req.id)}
                               className="p-1.5 text-[#DC2626] hover:bg-[#ffdad6] rounded transition-colors cursor-pointer"
-                              title={t("requests.reject_tooltip")}
-                              aria-label={t("requests.reject")}
+                              title={t('requests.reject_tooltip')}
+                              aria-label={t('requests.reject')}
                             >
                               <span className="material-symbols-outlined text-[20px]">cancel</span>
                             </button>

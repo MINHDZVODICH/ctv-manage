@@ -66,7 +66,9 @@ export async function bootstrapAdmin(
       },
     });
 
-    console.log(`✅ Administrator account created successfully for ${normalizedEmail} (mustChangePassword: true).`);
+    console.log(
+      `✅ Administrator account created successfully for ${normalizedEmail} (mustChangePassword: true).`,
+    );
     return {
       created: true,
       accountId: createdAccount.id,
@@ -82,7 +84,9 @@ export async function bootstrapAdmin(
 
 const isDirectRun =
   typeof process !== 'undefined' &&
-  Boolean(process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/bootstrap-admin.ts'));
+  Boolean(
+    process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/bootstrap-admin.ts'),
+  );
 
 if (isDirectRun) {
   bootstrapAdmin()

@@ -66,7 +66,11 @@ export async function authorizeFile(actorId: string, actorRole: string, fileId: 
   };
 }
 
-export async function uploadFileForAccount(targetAccountId: string, category: FileCategory, file: Express.Multer.File) {
+export async function uploadFileForAccount(
+  targetAccountId: string,
+  category: FileCategory,
+  file: Express.Multer.File,
+) {
   const account = await prisma.account.findFirst({
     where: { id: targetAccountId, deletedAt: null },
     select: { id: true },
@@ -111,7 +115,10 @@ export async function uploadFileForAccount(targetAccountId: string, category: Fi
     try {
       await deleteFile(storageKey);
     } catch (cleanupErr) {
-      logger.warn({ cleanupErr, storageKey }, 'Failed to cleanup file after uploadFileForAccount failure');
+      logger.warn(
+        { cleanupErr, storageKey },
+        'Failed to cleanup file after uploadFileForAccount failure',
+      );
     }
     throw err;
   }

@@ -19,9 +19,13 @@ describe('Request log privacy', () => {
     for (const value of ['private-account', 'private-category', 'private-email']) {
       expect(serialized).not.toContain(value);
     }
-    expect(info).toHaveBeenCalledWith(expect.objectContaining({
-      route: '/accounts/:accountId/files/:category', status: 200,
-    }), expect.any(String));
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: '/accounts/:accountId/files/:category',
+        status: 200,
+      }),
+      expect.any(String),
+    );
   });
 
   it('uses UNMATCHED for unknown URLs and does not log their raw paths', async () => {
@@ -30,6 +34,9 @@ describe('Request log privacy', () => {
     app.use(requestLogger);
     await request(app).get('/unknown/private-id?token=private-token').expect(404);
     expect(JSON.stringify(info.mock.calls)).not.toContain('private-');
-    expect(info).toHaveBeenCalledWith(expect.objectContaining({ route: 'UNMATCHED', status: 404 }), expect.any(String));
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({ route: 'UNMATCHED', status: 404 }),
+      expect.any(String),
+    );
   });
 });

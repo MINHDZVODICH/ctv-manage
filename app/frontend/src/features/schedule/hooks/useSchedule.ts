@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { scheduleApi, type UpsertSchedulePayload } from '../api/scheduleApi';
 import type { ApiScheduleSlot } from '../types';
+import { normalizeErrorMessage } from '../../../shared/api/errors';
 
 export function useSchedule() {
   const [shifts, setShifts] = useState<ApiScheduleSlot[]>([]);
@@ -21,8 +22,8 @@ export function useSchedule() {
         setVersion(raw.version ?? 0);
       }
       return raw;
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load schedule');
+    } catch (err: unknown) {
+      setError(normalizeErrorMessage(err, 'Failed to load schedule'));
       return null;
     } finally {
       setLoading(false);
@@ -41,8 +42,8 @@ export function useSchedule() {
         setVersion(raw.version ?? 0);
       }
       return raw;
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update schedule');
+    } catch (err: unknown) {
+      setError(normalizeErrorMessage(err, 'Failed to update schedule'));
       throw err;
     } finally {
       setLoading(false);

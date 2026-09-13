@@ -1,7 +1,7 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -118,7 +118,7 @@ html.dark .text-\[\#2e476f\] {
   color: #90b4f8 !important;
 }
 
-html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark input:not([type='checkbox']):not([type='radio']),
 html.dark select,
 html.dark textarea {
   background-color: #262730 !important;
@@ -160,18 +160,18 @@ html.dark textarea {
 }
 
 /* Contrast adjustments */
-[data-contrast="high"] {
+[data-contrast='high'] {
   filter: contrast(118%);
   font-weight: 500;
 }
 
-[data-contrast="high"] button,
-[data-contrast="high"] input,
-[data-contrast="high"] select {
+[data-contrast='high'] button,
+[data-contrast='high'] input,
+[data-contrast='high'] select {
   font-weight: 600 !important;
 }
 
-[data-contrast="low"] {
+[data-contrast='low'] {
   filter: contrast(90%);
 }
 
@@ -189,11 +189,19 @@ html.dark textarea {
   direction: ltr;
   font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
 }
 
 .material-symbols-outlined.filled {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
 }
 
 .pattern-stripes {
@@ -216,14 +224,14 @@ html.dark .pattern-stripes {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent; 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1; 
+  background: #cbd5e1;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8; 
+  background: #94a3b8;
 }
 
 @theme inline {

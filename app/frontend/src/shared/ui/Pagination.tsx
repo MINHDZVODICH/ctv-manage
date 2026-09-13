@@ -1,5 +1,6 @@
 import React from 'react';
-import { getPaginationItems, PaginationItem } from '../utils/pagination';
+import type { PaginationItem } from '../utils/pagination';
+import { getPaginationItems } from '../utils/pagination';
 import { useSystemSettings } from '../context/SystemSettingsContext';
 
 export interface PaginationProps {

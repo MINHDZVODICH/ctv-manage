@@ -125,9 +125,7 @@ export async function getWeeklySummary() {
 
       for (const ctv of activeCtvs) {
         if (!ctv.schedule) continue;
-        const hasShift = ctv.schedule.shifts.some(
-          (s) => s.weekday === wd && s.period === p,
-        );
+        const hasShift = ctv.schedule.shifts.some((s) => s.weekday === wd && s.period === p);
         if (hasShift) {
           assignments.push({
             id: `${ctv.id}-${wd}-${p}`,

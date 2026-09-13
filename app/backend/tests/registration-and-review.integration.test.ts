@@ -2,7 +2,14 @@ import { afterAll, beforeEach, describe, expect, test } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
-import { loginCookie, resetDatabase, seedActors, TEST_PASSWORD, validPdf, validPng } from './helpers.js';
+import {
+  loginCookie,
+  resetDatabase,
+  seedActors,
+  TEST_PASSWORD,
+  validPdf,
+  validPng,
+} from './helpers.js';
 
 const app = createApp();
 
@@ -56,7 +63,9 @@ describe('Phase B — Public Registration & Review Suite (REG-001..010, REV-001.
     expect(res.body.request.status).toBe('PENDING');
     expect(res.body.request.files).toHaveLength(0);
 
-    const saved = await prisma.registrationRequest.findUnique({ where: { id: res.body.request.id } });
+    const saved = await prisma.registrationRequest.findUnique({
+      where: { id: res.body.request.id },
+    });
     expect(saved).not.toBeNull();
     expect(saved?.passwordHash).not.toBeNull();
   });
@@ -130,17 +139,23 @@ describe('Phase B — Public Registration & Review Suite (REG-001..010, REV-001.
     }
 
     // 1. CTV is forbidden
-    const ctvList = await request(app).get('/api/v1/registration-requests').set('Cookie', ctvCookie);
+    const ctvList = await request(app)
+      .get('/api/v1/registration-requests')
+      .set('Cookie', ctvCookie);
     expect(ctvList.status).toBe(403);
 
     // 2. Admin can list requests with pagination
-    const adminList = await request(app).get('/api/v1/registration-requests?page=1&pageSize=2').set('Cookie', adminCookie);
+    const adminList = await request(app)
+      .get('/api/v1/registration-requests?page=1&pageSize=2')
+      .set('Cookie', adminCookie);
     expect(adminList.status).toBe(200);
     expect(adminList.body.items).toHaveLength(2);
     expect(adminList.body.total).toBe(3);
 
     // 3. Admin can search by name or email
-    const searchRes = await request(app).get('/api/v1/registration-requests?q=Number 2').set('Cookie', adminCookie);
+    const searchRes = await request(app)
+      .get('/api/v1/registration-requests?q=Number 2')
+      .set('Cookie', adminCookie);
     expect(searchRes.status).toBe(200);
     expect(searchRes.body.items).toHaveLength(1);
     expect(searchRes.body.items[0].displayName).toBe('Applicant Number 2');
@@ -208,7 +223,11 @@ describe('Phase B — Public Registration & Review Suite (REG-001..010, REV-001.
     const rejectRes = await request(app)
       .patch(`/api/v1/registration-requests/${requestId}`)
       .set('Cookie', adminCookie)
-      .send({ decision: 'REJECTED', expectedStatus: 'PENDING', rejectionReason: 'Hồ sơ chưa đủ thông tin' });
+      .send({
+        decision: 'REJECTED',
+        expectedStatus: 'PENDING',
+        rejectionReason: 'Hồ sơ chưa đủ thông tin',
+      });
     expect(rejectRes.status).toBe(200);
     expect(rejectRes.body.request.status).toBe('REJECTED');
     expect(rejectRes.body.request.rejectionReason).toBe('Hồ sơ chưa đủ thông tin');
@@ -218,7 +237,9 @@ describe('Phase B — Public Registration & Review Suite (REG-001..010, REV-001.
     expect(saved?.passwordHash).toBeNull();
 
     // No account created
-    const noAccount = await prisma.account.findUnique({ where: { email: 'applicant.rejected@ctv.local' } });
+    const noAccount = await prisma.account.findUnique({
+      where: { email: 'applicant.rejected@ctv.local' },
+    });
     expect(noAccount).toBeNull();
   });
 

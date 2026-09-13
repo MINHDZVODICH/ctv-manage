@@ -2,13 +2,7 @@ import { describe, test, expect, beforeEach, afterAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
-import {
-  loginCookie,
-  resetDatabase,
-  seedActors,
-  TEST_PASSWORD,
-  validPng,
-} from './helpers.js';
+import { loginCookie, resetDatabase, seedActors, TEST_PASSWORD, validPng } from './helpers.js';
 import { incrementRateLimit } from '../src/shared/rateLimitStore.js';
 
 const app = createApp();

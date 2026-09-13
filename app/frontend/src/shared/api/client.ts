@@ -1,10 +1,9 @@
 import type { ApiError } from './types';
+import { isAbortError } from './errors';
 
 const BASE = '';
 
-export function isRequestAborted(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
-}
+export { isAbortError, isAbortError as isRequestAborted };
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -18,7 +17,12 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 
   if (res.status === 204) return undefined as unknown as T;
 
-  const body = await res.json().catch(() => ({}));
+  const body = await res.json().catch((parseError) => {
+    if (res.status !== 204) {
+      console.warn(`[apiClient] Response from ${path} could not be parsed as JSON:`, parseError);
+    }
+    return {};
+  });
   if (!res.ok) {
     const err = new Error(body?.error?.message || body?.message || res.statusText) as ApiError;
     err.status = res.status;
@@ -74,7 +78,15 @@ export async function apiUpload<T>(
     credentials: 'include',
   });
 
-  const body = await res.json().catch(() => ({}));
+  const body = await res.json().catch((parseError) => {
+    if (res.status !== 204) {
+      console.warn(
+        `[apiClient] Upload response from ${path} could not be parsed as JSON:`,
+        parseError,
+      );
+    }
+    return {};
+  });
   if (!res.ok) {
     const err = new Error(body?.error?.message || res.statusText) as ApiError;
     err.status = res.status;
@@ -87,6 +99,12 @@ export async function apiUpload<T>(
 
 export async function apiDownload(path: string): Promise<Blob> {
   const res = await fetch(`${BASE}${path}`, { credentials: 'include' });
-  if (!res.ok) throw new Error('Download failed');
+  if (!res.ok) {
+    const message = `Download from ${path} failed with HTTP ${res.status} (${res.statusText})`;
+    console.error(`[apiClient] ${message}`);
+    const err = new Error(message) as ApiError;
+    err.status = res.status;
+    throw err;
+  }
   return res.blob();
 }

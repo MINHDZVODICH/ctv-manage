@@ -72,7 +72,9 @@ export function getSupabaseClient(): SupabaseClient {
     return customSupabaseClient;
   }
   if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) {
-    throw Errors.internal('Supabase configuration (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) is required');
+    throw Errors.internal(
+      'Supabase configuration (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) is required',
+    );
   }
   return createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -145,12 +147,10 @@ export async function fileExists(storageKey: string): Promise<boolean> {
     const lastSlash = storageKey.lastIndexOf('/');
     const folder = lastSlash >= 0 ? storageKey.slice(0, lastSlash) : '';
     const fileName = lastSlash >= 0 ? storageKey.slice(lastSlash + 1) : storageKey;
-    const { data, error } = await client.storage
-      .from(config.SUPABASE_STORAGE_BUCKET)
-      .list(folder, {
-        search: fileName,
-        limit: 100,
-      });
+    const { data, error } = await client.storage.from(config.SUPABASE_STORAGE_BUCKET).list(folder, {
+      search: fileName,
+      limit: 100,
+    });
     if (error || !data) return false;
     return data.some((item: any) => item.name === fileName);
   }
@@ -209,8 +209,14 @@ export function sniffMimeType(buf: Buffer): string | null {
   // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
     buf.length >= 8 &&
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
-    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
   ) {
     return 'image/png';
   }
@@ -230,13 +236,24 @@ export function sniffMimeType(buf: Buffer): string | null {
   // OLE compound document (legacy Office .doc): D0 CF 11 E0 A1 B1 1A E1
   if (
     buf.length >= 8 &&
-    buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0 &&
-    buf[4] === 0xa1 && buf[5] === 0xb1 && buf[6] === 0x1a && buf[7] === 0xe1
+    buf[0] === 0xd0 &&
+    buf[1] === 0xcf &&
+    buf[2] === 0x11 &&
+    buf[3] === 0xe0 &&
+    buf[4] === 0xa1 &&
+    buf[5] === 0xb1 &&
+    buf[6] === 0x1a &&
+    buf[7] === 0xe1
   ) {
     return 'application/msword';
   }
   // ZIP container (.docx and other OOXML): PK\x03\x04 | PK\x05\x06 | PK\x07\x08
-  if (buf[0] === 0x50 && buf[1] === 0x4b && (buf[2] === 0x03 || buf[2] === 0x05 || buf[2] === 0x07) && buf[3] === 0x0a) {
+  if (
+    buf[0] === 0x50 &&
+    buf[1] === 0x4b &&
+    (buf[2] === 0x03 || buf[2] === 0x05 || buf[2] === 0x07) &&
+    buf[3] === 0x0a
+  ) {
     return 'application/zip';
   }
   return null;

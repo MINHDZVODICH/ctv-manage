@@ -19,15 +19,15 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Account" ("id", "email", "passwordHash", "role", "status", "displayName")
-         VALUES ('acc_test_invalid_role', 'test.invalid.role@ctv.local', 'hash', 'ADMN'::"Role", 'ACTIVE'::"AccountStatus", 'Test')`
-      )
+         VALUES ('acc_test_invalid_role', 'test.invalid.role@ctv.local', 'hash', 'ADMN'::"Role", 'ACTIVE'::"AccountStatus", 'Test')`,
+      ),
     ).rejects.toThrow();
 
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Account" ("id", "email", "passwordHash", "role", "status", "displayName")
-         VALUES ('acc_test_invalid_role2', 'test.invalid.role2@ctv.local', 'hash', 'ADMN', 'ACTIVE'::"AccountStatus", 'Test')`
-      )
+         VALUES ('acc_test_invalid_role2', 'test.invalid.role2@ctv.local', 'hash', 'ADMN', 'ACTIVE'::"AccountStatus", 'Test')`,
+      ),
     ).rejects.toThrow();
   });
 
@@ -35,8 +35,8 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Account" ("id", "email", "passwordHash", "role", "status", "displayName")
-         VALUES ('acc_test_invalid_stat', 'test.invalid.status@ctv.local', 'hash', 'CTV'::"Role", 'UNKNOWN_STATUS'::"AccountStatus", 'Test')`
-      )
+         VALUES ('acc_test_invalid_stat', 'test.invalid.status@ctv.local', 'hash', 'CTV'::"Role", 'UNKNOWN_STATUS'::"AccountStatus", 'Test')`,
+      ),
     ).rejects.toThrow();
   });
 
@@ -45,8 +45,8 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Schedule" ("id", "accountId", "roomCode", "version", "createdAt", "updatedAt")
-         VALUES ('sched_inv_room', '${ctv.id}', 'ROOM_999'::"RoomCode", 1, NOW(), NOW())`
-      )
+         VALUES ('sched_inv_room', '${ctv.id}', 'ROOM_999'::"RoomCode", 1, NOW(), NOW())`,
+      ),
     ).rejects.toThrow();
   });
 
@@ -55,8 +55,8 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Shift" ("scheduleId", "weekday", "period")
-         VALUES ('${schedule.id}', 1, 'MORNINGGG'::"Period")`
-      )
+         VALUES ('${schedule.id}', 1, 'MORNINGGG'::"Period")`,
+      ),
     ).rejects.toThrow();
   });
 
@@ -66,16 +66,16 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Shift" ("scheduleId", "weekday", "period")
-         VALUES ('${schedule.id}', 0, 'MORNING'::"Period")`
-      )
+         VALUES ('${schedule.id}', 0, 'MORNING'::"Period")`,
+      ),
     ).rejects.toThrow(/Shift_weekday_check/);
 
     // Test weekday = 6 (Saturday)
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "Shift" ("scheduleId", "weekday", "period")
-         VALUES ('${schedule.id}', 6, 'MORNING'::"Period")`
-      )
+         VALUES ('${schedule.id}', 6, 'MORNING'::"Period")`,
+      ),
     ).rejects.toThrow(/Shift_weekday_check/);
   });
 
@@ -83,8 +83,8 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "SnapshotRun" ("id", "workDate", "status", "attemptCount", "createdAt", "updatedAt")
-         VALUES ('snap_inv_status', '2026-09-15', 'SUCEED'::"SnapshotRunStatus", 1, NOW(), NOW())`
-      )
+         VALUES ('snap_inv_status', '2026-09-15', 'SUCEED'::"SnapshotRunStatus", 1, NOW(), NOW())`,
+      ),
     ).rejects.toThrow();
   });
 
@@ -92,15 +92,15 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "SnapshotRun" ("id", "workDate", "status", "attemptCount", "createdAt", "updatedAt")
-         VALUES ('snap_inv_attempts', '2026-09-16', 'PENDING'::"SnapshotRunStatus", -1, NOW(), NOW())`
-      )
+         VALUES ('snap_inv_attempts', '2026-09-16', 'PENDING'::"SnapshotRunStatus", -1, NOW(), NOW())`,
+      ),
     ).rejects.toThrow(/SnapshotRun_attemptCount_check/);
 
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "SnapshotRun" ("id", "workDate", "status", "insertedCount", "createdAt", "updatedAt")
-         VALUES ('snap_inv_inserted', '2026-09-17', 'PENDING'::"SnapshotRunStatus", -5, NOW(), NOW())`
-      )
+         VALUES ('snap_inv_inserted', '2026-09-17', 'PENDING'::"SnapshotRunStatus", -5, NOW(), NOW())`,
+      ),
     ).rejects.toThrow(/SnapshotRun_insertedCount_check/);
   });
 
@@ -108,15 +108,15 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "RateLimitWindow" ("id", "scope", "identityDigest", "windowStart", "expiresAt")
-         VALUES ('rl_inv_scope', 'INVALID_SCOPE'::"RateLimitScope", 'digest', NOW(), NOW())`
-      )
+         VALUES ('rl_inv_scope', 'INVALID_SCOPE'::"RateLimitScope", 'digest', NOW(), NOW())`,
+      ),
     ).rejects.toThrow();
 
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "RateLimitWindow" ("id", "scope", "identityDigest", "windowStart", "requestCount", "expiresAt")
-         VALUES ('rl_inv_count', 'LOGIN_IP'::"RateLimitScope", 'digest', NOW(), -1, NOW())`
-      )
+         VALUES ('rl_inv_count', 'LOGIN_IP'::"RateLimitScope", 'digest', NOW(), -1, NOW())`,
+      ),
     ).rejects.toThrow(/RateLimitWindow_requestCount_check/);
   });
 
@@ -124,15 +124,15 @@ describe('Phase 2 Database-Level Domain Integrity (PostgreSQL Enums & CHECK cons
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "RegistrationRequest" ("id", "email", "displayName", "status", "updatedAt")
-         VALUES ('req_inv_status', 'invalid.status@test.local', 'Test', 'PENDINGGG'::"RegistrationStatus", NOW())`
-      )
+         VALUES ('req_inv_status', 'invalid.status@test.local', 'Test', 'PENDINGGG'::"RegistrationStatus", NOW())`,
+      ),
     ).rejects.toThrow();
 
     await expect(
       prisma.$executeRawUnsafe(
         `INSERT INTO "AccountFile" ("accountId", "fileId", "category")
-         VALUES ('acc_dummy', 'file_dummy', 'INVALID_CATEGORY'::"FileCategory")`
-      )
+         VALUES ('acc_dummy', 'file_dummy', 'INVALID_CATEGORY'::"FileCategory")`,
+      ),
     ).rejects.toThrow();
   });
 });

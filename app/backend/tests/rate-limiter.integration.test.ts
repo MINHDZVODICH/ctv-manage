@@ -5,10 +5,7 @@ import crypto from 'node:crypto';
 import { prisma } from '../src/shared/prisma.js';
 import { config } from '../src/config.js';
 import { createRateLimiter } from '../src/middleware/rateLimiter.js';
-import {
-  cleanupExpiredRateLimits,
-  calculateIdentityDigest,
-} from '../src/shared/rateLimitStore.js';
+import { cleanupExpiredRateLimits, calculateIdentityDigest } from '../src/shared/rateLimitStore.js';
 
 function createTestApp(limiterMiddleware: RequestHandler) {
   const app = express();

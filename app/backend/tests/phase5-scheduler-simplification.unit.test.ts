@@ -16,7 +16,10 @@ vi.mock('../src/shared/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
-import { startScheduleSnapshotJob, getDelayUntilNextBangkok1730 } from '../src/jobs/schedule-snapshot.job.js';
+import {
+  startScheduleSnapshotJob,
+  getDelayUntilNextBangkok1730,
+} from '../src/jobs/schedule-snapshot.job.js';
 
 describe('Phase 5 — Event-Driven Snapshot Scheduler Simplification (Option B)', () => {
   beforeEach(() => {

@@ -25,19 +25,23 @@ export function createApp() {
   const mountRouter = (path: string, router: express.Router) => {
     app.use(path, routeLogContext(path), router);
   };
-  const allowedOrigins = config.CORS_ORIGIN
-    .split(',')
+  const allowedOrigins = config.CORS_ORIGIN.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
   const trustedIps = config.TRUSTED_PROXY_IPS
-    ? config.TRUSTED_PROXY_IPS.split(',').map((s) => s.trim()).filter(Boolean)
+    ? config.TRUSTED_PROXY_IPS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   app.set('trust proxy', trustedIps.length > 0 ? trustedIps : false);
 
   app.use(
     cors({
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      origin: (
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void,
+      ) => {
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {

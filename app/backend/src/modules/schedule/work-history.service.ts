@@ -63,7 +63,9 @@ export interface WorkHistoryResponseDto {
 // ---------------------------------------------------------------------------
 
 /** Compatibility entry point: all writers use the same persisted cursor. */
-export async function snapshotTodayWorkHistory(now = new Date()): Promise<SnapshotTodayWorkHistoryResult> {
+export async function snapshotTodayWorkHistory(
+  now = new Date(),
+): Promise<SnapshotTodayWorkHistoryResult> {
   const processedCount = await new SnapshotCoordinatorService().reconcilePass(now);
   const today = todayInBangkok(now);
   if (processedCount === 0 && now < new Date(today + 'T10:30:00.000Z')) {

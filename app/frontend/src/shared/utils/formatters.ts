@@ -1,9 +1,9 @@
 export function formatPhoneNumber(phone?: string): string {
-  if (!phone) return "";
-  const cleaned = phone.replace(/\D/g, "");
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
   let digits = cleaned;
-  if (digits.startsWith("84") && digits.length === 11) {
-    digits = "0" + digits.slice(2);
+  if (digits.startsWith('84') && digits.length === 11) {
+    digits = '0' + digits.slice(2);
   }
   if (digits.length === 10) {
     return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 10)}`;
@@ -15,21 +15,21 @@ export function formatPhoneNumber(phone?: string): string {
 }
 
 export function formatDateOnly(dateTime?: string): string {
-  if (!dateTime) return "";
+  if (!dateTime) return '';
 
   const value = dateTime.trim();
-  if (!value) return "";
+  if (!value) return '';
 
   const vietnameseDate = value.match(/(?:^|\s)(\d{1,2})\/(\d{1,2})\/(\d{4})(?=$|[,\s])/);
   if (vietnameseDate) {
     const [, day, month, year] = vietnameseDate;
-    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
   }
 
   const isoDate = value.match(/(?:^|\s)(\d{4})-(\d{1,2})-(\d{1,2})(?=$|[T\s])/);
   if (isoDate) {
     const [, year, month, day] = isoDate;
-    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
   }
 
   return value;
@@ -37,21 +37,21 @@ export function formatDateOnly(dateTime?: string): string {
 
 export function validateDateOfBirth(
   dob: string,
-  t?: (key: string, params?: Record<string, string | number>) => string
+  t?: (key: string, params?: Record<string, string | number>) => string,
 ): { isValid: boolean; error?: string; errorCode?: string } {
   const trimmed = dob?.trim();
   if (!trimmed) {
     return {
       isValid: false,
-      errorCode: "validation.required",
-      error: t ? t("validation.required") : "validation.required",
+      errorCode: 'validation.required',
+      error: t ? t('validation.required') : 'validation.required',
     };
   }
 
   let day: number, month: number, year: number;
 
-  const vnMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  const isoMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  const vnMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const isoMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
 
   if (vnMatch) {
     day = parseInt(vnMatch[1], 10);
@@ -64,8 +64,8 @@ export function validateDateOfBirth(
   } else {
     return {
       isValid: false,
-      errorCode: "validation.dob_format",
-      error: t ? t("validation.dob_format") : "validation.dob_format",
+      errorCode: 'validation.dob_format',
+      error: t ? t('validation.dob_format') : 'validation.dob_format',
     };
   }
 
@@ -73,16 +73,16 @@ export function validateDateOfBirth(
   if (year < 1900 || year > currentYear) {
     return {
       isValid: false,
-      errorCode: "validation.dob_year_range",
-      error: t ? t("validation.dob_year_range", { currentYear }) : "validation.dob_year_range",
+      errorCode: 'validation.dob_year_range',
+      error: t ? t('validation.dob_year_range', { currentYear }) : 'validation.dob_year_range',
     };
   }
 
   if (month < 1 || month > 12) {
     return {
       isValid: false,
-      errorCode: "validation.dob_month_invalid",
-      error: t ? t("validation.dob_month_invalid") : "validation.dob_month_invalid",
+      errorCode: 'validation.dob_month_invalid',
+      error: t ? t('validation.dob_month_invalid') : 'validation.dob_month_invalid',
     };
   }
 
@@ -90,8 +90,10 @@ export function validateDateOfBirth(
   if (day < 1 || day > daysInMonth) {
     return {
       isValid: false,
-      errorCode: "validation.dob_day_invalid",
-      error: t ? t("validation.dob_day_invalid", { month, year, daysInMonth }) : "validation.dob_day_invalid",
+      errorCode: 'validation.dob_day_invalid',
+      error: t
+        ? t('validation.dob_day_invalid', { month, year, daysInMonth })
+        : 'validation.dob_day_invalid',
     };
   }
 
@@ -99,8 +101,8 @@ export function validateDateOfBirth(
   if (dateObj.getTime() > Date.now()) {
     return {
       isValid: false,
-      errorCode: "validation.dob_future",
-      error: t ? t("validation.dob_future") : "validation.dob_future",
+      errorCode: 'validation.dob_future',
+      error: t ? t('validation.dob_future') : 'validation.dob_future',
     };
   }
 
@@ -115,7 +117,7 @@ export function validateBirthDateString(val?: string | null): { isValid: boolean
 }
 
 export const onlyDigits = (value: string, maxLength: number) =>
-  value.replace(/\D/g, "").slice(0, maxLength);
+  value.replace(/\D/g, '').slice(0, maxLength);
 
 export const formatDateDigits = (value: string) => {
   const digits = onlyDigits(value, 8);

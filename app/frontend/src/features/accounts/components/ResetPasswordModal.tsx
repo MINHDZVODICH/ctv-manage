@@ -1,12 +1,12 @@
-import React, { useState } from "react";
-import { UserAccount } from "../../../shared/types";
-import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
+import React, { useState } from 'react';
+import type { UserAccount } from '../../../shared/types';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
 
 const PASSWORD_GROUPS = [
-  "ABCDEFGHJKLMNPQRSTUVWXYZ",
-  "abcdefghijkmnopqrstuvwxyz",
-  "23456789",
-  "!@#$%",
+  'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  'abcdefghijkmnopqrstuvwxyz',
+  '23456789',
+  '!@#$%',
 ] as const;
 
 const secureRandomIndex = (maxExclusive: number) => {
@@ -24,10 +24,8 @@ const secureRandomIndex = (maxExclusive: number) => {
 };
 
 const generateRandomPassword = (length = 12) => {
-  const allCharacters = PASSWORD_GROUPS.join("");
-  const characters = PASSWORD_GROUPS.map(
-    (group) => group[secureRandomIndex(group.length)],
-  );
+  const allCharacters = PASSWORD_GROUPS.join('');
+  const characters = PASSWORD_GROUPS.map((group) => group[secureRandomIndex(group.length)]);
 
   while (characters.length < length) {
     characters.push(allCharacters[secureRandomIndex(allCharacters.length)]);
@@ -38,9 +36,8 @@ const generateRandomPassword = (length = 12) => {
     [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
   }
 
-  return characters.join("");
+  return characters.join('');
 };
-
 
 interface ResetPasswordModalProps {
   account: UserAccount | null;
@@ -91,14 +88,14 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1b365d] dark:text-white leading-tight">
-                {t("accounts.reset_password_title")}
+                {t('accounts.reset_password_title')}
               </h3>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label={t("close")}
+            aria-label={t('close')}
             className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -135,7 +132,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
               htmlFor="generated-reset-password"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
             >
-              {t("accounts.auto_generated_password")} <span className="text-red-500">*</span>:
+              {t('accounts.auto_generated_password')} <span className="text-red-500">*</span>:
             </label>
 
             <div className="relative">
@@ -144,7 +141,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("accounts.new_password_placeholder")}
+                placeholder={t('accounts.new_password_placeholder')}
                 autoComplete="new-password"
                 spellCheck={false}
                 className="w-full text-sm font-mono font-bold tracking-wider pl-3.5 pr-20 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-[#1a1b1e] text-slate-800 dark:text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none"
@@ -158,8 +155,8 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                     setCopied(false);
                   }}
                   className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
-                  title={t("accounts.generate_another_password")}
-                  aria-label={t("accounts.generate_another_password")}
+                  title={t('accounts.generate_another_password')}
+                  aria-label={t('accounts.generate_another_password')}
                 >
                   <span className="material-symbols-outlined text-[18px]">refresh</span>
                 </button>
@@ -167,11 +164,11 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                   type="button"
                   onClick={handleCopy}
                   className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
-                  title={t("accounts.copy_password")}
-                  aria-label={t("accounts.copy_password")}
+                  title={t('accounts.copy_password')}
+                  aria-label={t('accounts.copy_password')}
                 >
                   <span className="material-symbols-outlined text-[18px]">
-                    {copied ? "check" : "content_copy"}
+                    {copied ? 'check' : 'content_copy'}
                   </span>
                 </button>
               </div>
@@ -180,7 +177,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             {copied && (
               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1.5 flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                <span>{t("accounts.copied_password_toast")}</span>
+                <span>{t('accounts.copied_password_toast')}</span>
               </p>
             )}
           </div>
@@ -192,7 +189,7 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
               disabled={!password.trim()}
               className="px-6 py-2.5 bg-accent hover:opacity-90 active:opacity-80 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-opacity shadow-xs cursor-pointer disabled:cursor-not-allowed"
             >
-              {t("confirm")}
+              {t('confirm')}
             </button>
           </div>
         </form>

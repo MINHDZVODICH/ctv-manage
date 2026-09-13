@@ -59,10 +59,7 @@ export function assertResetAllowed(argv: string[] = process.argv): void {
   }
 }
 
-export async function cleanDemoDatabase(
-  prisma: any,
-  argv: string[] = process.argv,
-): Promise<void> {
+export async function cleanDemoDatabase(prisma: any, argv: string[] = process.argv): Promise<void> {
   assertResetAllowed(argv);
   await prisma.history.deleteMany();
   await prisma.shift.deleteMany();
@@ -278,7 +275,9 @@ export async function runDemoSeed(options: SeedDemoOptions = {}): Promise<void> 
     console.log('🎉 Demo seed completed successfully!');
     console.log(`👤 Admin: ${adminAccount.email}`);
     console.log('💼 Active CTV accounts: ctv1@amst.gov.vn, ctv2@amst.gov.vn, ctv3@amst.gov.vn');
-    console.log('⏳ Pending accounts: choduyet1@gmail.com, choduyet2@gmail.com, choduyet3@gmail.com');
+    console.log(
+      '⏳ Pending accounts: choduyet1@gmail.com, choduyet2@gmail.com, choduyet3@gmail.com',
+    );
   } finally {
     if (isInternalClient) {
       await prisma.$disconnect();

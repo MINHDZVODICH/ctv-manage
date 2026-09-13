@@ -12,11 +12,13 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+import { config } from '../config.js';
+
 export const COOKIE_NAME = 'ctv_session';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function sessionCookieOptions() {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = config.NODE_ENV === 'production';
   return {
     httpOnly: true as const,
     secure: isProd,
@@ -29,7 +31,7 @@ export function sessionCookieOptions() {
 export function clearCookieOptions() {
   return {
     httpOnly: true as const,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
     maxAge: 0,

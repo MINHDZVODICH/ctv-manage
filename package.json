@@ -13,6 +13,7 @@
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue.bold,green.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "test": "npm run test:api && npm run test:e2e",
     "test:api": "npm run test --workspace=app/backend",
+    "test:unit:frontend": "npm run test:unit --workspace=app/frontend",
     "test:e2e": "npm run test:e2e --workspace=app/frontend",
     "test:acceptance": "npm run typecheck && npm run build && npm run test:api && npm run test:e2e",
     "build": "npm run build --workspaces",
@@ -30,11 +31,20 @@
     "db:summary": "npm run db:summary --workspace=app/backend",
     "check:image-sizes": "node scripts/check-image-sizes.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "test:i18n": "vitest run app/frontend/src/shared/i18n/i18n.test.ts"
+    "test:i18n": "vitest run app/frontend/src/shared/i18n/i18n.test.ts",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "check": "npm run typecheck && npm run check:boundaries --workspace=app/frontend && npm run test:unit:frontend && npm run test:api"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/multer": "2.2.0",
     "concurrently": "9.1.2",
-    "typescript": "^5.8.2"
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.6",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.70.0"
   }
 }

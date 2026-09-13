@@ -25,7 +25,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     expect(forbiddenRes.status).toBe(403);
 
     // Admin lists accounts with pagination
-    const listRes = await request(app).get('/api/v1/accounts?page=1&pageSize=2').set('Cookie', adminCookie);
+    const listRes = await request(app)
+      .get('/api/v1/accounts?page=1&pageSize=2')
+      .set('Cookie', adminCookie);
     expect(listRes.status).toBe(200);
     expect(listRes.body.data).toHaveLength(2);
     expect(listRes.body.total).toBeGreaterThanOrEqual(3);
@@ -128,7 +130,11 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     }
 
     // Search queries for email: exact, lowercase, uppercase
-    const emailQueries = ['Example.User@domain.com', 'example.user@domain.com', 'EXAMPLE.USER@DOMAIN.COM'];
+    const emailQueries = [
+      'Example.User@domain.com',
+      'example.user@domain.com',
+      'EXAMPLE.USER@DOMAIN.COM',
+    ];
     for (const q of emailQueries) {
       const res = await request(app)
         .get(`/api/v1/accounts?q=${encodeURIComponent(q)}`)
@@ -159,7 +165,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
 
   test('ACC-004 & ACC-005: Account status transitions (DISABLED <-> ACTIVE)', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // 1. Disable active account
     const disableRes = await request(app)
@@ -181,7 +189,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
 
   test('ACC-006: Soft-delete account is idempotent and preserves integrity', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // First delete
     const del1 = await request(app).delete(`/api/v1/accounts/${ctv.id}`).set('Cookie', adminCookie);
@@ -198,7 +208,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
   test('disabling and soft-deleting an account preserves schedule and shifts and revokes sessions', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Seed a schedule for this CTV
     await prisma.schedule.upsert({
@@ -207,7 +219,10 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
         accountId: ctv.id,
         roomCode: 'ROOM_1',
         shifts: {
-          create: [{ weekday: 1, period: 'MORNING' }, { weekday: 3, period: 'AFTERNOON' }],
+          create: [
+            { weekday: 1, period: 'MORNING' },
+            { weekday: 3, period: 'AFTERNOON' },
+          ],
         },
       },
       update: {},
@@ -233,7 +248,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     expect(postDisableReq.status).toBe(401);
 
     // 2. Soft-delete account
-    const delRes = await request(app).delete(`/api/v1/accounts/${ctv.id}`).set('Cookie', adminCookie);
+    const delRes = await request(app)
+      .delete(`/api/v1/accounts/${ctv.id}`)
+      .set('Cookie', adminCookie);
     expect(delRes.status).toBe(200);
 
     // Verify schedule still exists after soft-delete
@@ -247,12 +264,17 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
 
   test('ACC-012: Save admin notes increments version and preserves notes', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     const notesRes = await request(app)
       .patch(`/api/v1/accounts/${ctv.id}/notes`)
       .set('Cookie', adminCookie)
-      .send({ adminNotes: 'Special performance review: Outstanding', expectedVersion: ctv.version });
+      .send({
+        adminNotes: 'Special performance review: Outstanding',
+        expectedVersion: ctv.version,
+      });
     expect(notesRes.status).toBe(200);
     expect(notesRes.body.data.adminNotes).toBe('Special performance review: Outstanding');
     expect(notesRes.body.data.version).toBe(ctv.version + 1);
@@ -260,20 +282,19 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
 
   test('PROF-001..005 & RGR-13: Profile update, date of birth handling, and empty state validation', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Update profile fields
-    const patchRes = await request(app)
-      .patch('/api/v1/users/me')
-      .set('Cookie', ctvCookie)
-      .send({
-        displayName: 'CTV Renamed',
-        phone: '0988776655',
-        dateOfBirth: '2000-05-15',
-        gender: 'FEMALE',
-        address: '123 Test St, District 1, HCMC',
-        expectedVersion: ctv.version,
-      });
+    const patchRes = await request(app).patch('/api/v1/users/me').set('Cookie', ctvCookie).send({
+      displayName: 'CTV Renamed',
+      phone: '0988776655',
+      dateOfBirth: '2000-05-15',
+      gender: 'FEMALE',
+      address: '123 Test St, District 1, HCMC',
+      expectedVersion: ctv.version,
+    });
     expect(patchRes.status).toBe(200);
     expect(patchRes.body.user.displayName).toBe('CTV Renamed');
     expect(patchRes.body.user.phone).toBe('0988776655');
@@ -298,7 +319,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     const avatar1Id = upAvatar.body.file.fileId;
 
     // 2. Stream avatar
-    const stream1 = await request(app).get(`/api/v1/files/${avatar1Id}/content`).set('Cookie', ctvCookie);
+    const stream1 = await request(app)
+      .get(`/api/v1/files/${avatar1Id}/content`)
+      .set('Cookie', ctvCookie);
     expect(stream1.status).toBe(200);
     expect(stream1.headers['content-type']).toContain('image/png');
 
@@ -311,7 +334,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     const cvId = upCv.body.file.fileId;
 
     // 4. Stream CV
-    const streamCv = await request(app).get(`/api/v1/files/${cvId}/content`).set('Cookie', ctvCookie);
+    const streamCv = await request(app)
+      .get(`/api/v1/files/${cvId}/content`)
+      .set('Cookie', ctvCookie);
     expect(streamCv.status).toBe(200);
     expect(streamCv.headers['content-type']).toContain('application/pdf');
 
@@ -329,7 +354,9 @@ describe('Phase B — Account Administration & Profiles/Files Suite (ACC-001..01
     expect(delCv.status).toBe(204);
 
     // 7. Deleted CV is no longer accessible
-    const streamDeleted = await request(app).get(`/api/v1/files/${cvId}/content`).set('Cookie', ctvCookie);
+    const streamDeleted = await request(app)
+      .get(`/api/v1/files/${cvId}/content`)
+      .set('Cookie', ctvCookie);
     expect(streamDeleted.status).toBe(403);
   });
 });

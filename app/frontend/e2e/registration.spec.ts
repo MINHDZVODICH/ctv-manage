@@ -43,7 +43,9 @@ test('người dùng gửi được yêu cầu đăng ký kèm CCCD và CV', asy
   );
   await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Gửi yêu cầu đăng ký thành công!' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Gửi yêu cầu đăng ký thành công!' }),
+  ).toBeVisible();
   const responseBody = await (await registrationResponse).json();
   expect(responseBody.request.files.map((file: { category: string }) => file.category)).toEqual(
     expect.arrayContaining(['CCCD_FRONT', 'CCCD_BACK', 'CV']),
@@ -91,7 +93,9 @@ async function checkContrastRatio(locator: import('@playwright/test').Locator): 
   });
 }
 
-test('giao diện đăng ký ở chế độ dark mode đảm bảo độ tương phản tiêu đề và các nút upload', async ({ page }) => {
+test('giao diện đăng ký ở chế độ dark mode đảm bảo độ tương phản tiêu đề và các nút upload', async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     localStorage.setItem('ctv_sys_dark_mode', 'true');
   });
@@ -117,7 +121,9 @@ test('giao diện đăng ký ở chế độ dark mode đảm bảo độ tươn
   expect(cvRatio).toBeGreaterThanOrEqual(4.5);
 });
 
-test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và biến mất khi người dùng nhấn vào ô lỗi', async ({ page }) => {
+test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và biến mất khi người dùng nhấn vào ô lỗi', async ({
+  page,
+}) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
   await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
@@ -209,10 +215,10 @@ test('người dùng gửi yêu cầu đăng ký thành công mà không cần s
   );
   await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Gửi yêu cầu đăng ký thành công!' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Gửi yêu cầu đăng ký thành công!' }),
+  ).toBeVisible();
   const responseBody = await (await registrationResponse).json();
   expect(responseBody.request.displayName).toBe('Đăng ký Không SĐT');
   expect(responseBody.request.phone).toBeNull();
 });
-
-

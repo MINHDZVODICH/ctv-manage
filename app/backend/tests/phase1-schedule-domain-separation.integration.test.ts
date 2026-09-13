@@ -29,9 +29,7 @@ describe('Phase 1 Contract: Weekly Schedule vs Dated History Separation', () => 
     expect(putRes.status).toBe(200);
 
     // Read weekly schedule
-    const getRes = await request(app)
-      .get('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie);
+    const getRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
     expect(getRes.status).toBe(200);
 
     const schedule = getRes.body.data;
@@ -156,7 +154,9 @@ describe('Phase 1 Contract: Weekly Schedule vs Dated History Separation', () => 
     expect(resJuly.status).toBe(200);
     const julyEntries = resJuly.body.data.entries;
     expect(julyEntries.every((e: any) => e.workDate.startsWith('2026-07'))).toBe(true);
-    expect(julyEntries.some((e: any) => e.workDate === '2026-07-15' && e.period === 'MORNING')).toBe(true);
+    expect(
+      julyEntries.some((e: any) => e.workDate === '2026-07-15' && e.period === 'MORNING'),
+    ).toBe(true);
     expect(julyEntries.some((e: any) => e.workDate === '2026-08-20')).toBe(false);
 
     // Query month 2026-08
@@ -166,7 +166,9 @@ describe('Phase 1 Contract: Weekly Schedule vs Dated History Separation', () => 
     expect(resAugust.status).toBe(200);
     const augEntries = resAugust.body.data.entries;
     expect(augEntries.every((e: any) => e.workDate.startsWith('2026-08'))).toBe(true);
-    expect(augEntries.some((e: any) => e.workDate === '2026-08-20' && e.period === 'AFTERNOON')).toBe(true);
+    expect(
+      augEntries.some((e: any) => e.workDate === '2026-08-20' && e.period === 'AFTERNOON'),
+    ).toBe(true);
     expect(augEntries.some((e: any) => e.workDate === '2026-07-15')).toBe(false);
   });
 });

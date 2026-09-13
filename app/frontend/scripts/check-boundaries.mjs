@@ -65,7 +65,8 @@ export function extractImportsWithRegex(content) {
     .replace(/\/\/.*$/gm, '');
 
   const imports = [];
-  const regex = /(?:^|\n)\s*(?:import|export)\s+(?:(?:type\s+)?(?:[\w*\s{},$]+|(?:\*\s+as\s+[\w$]+))\s+from\s+)?['"]([^'"]+)['"]/g;
+  const regex =
+    /(?:^|\n)\s*(?:import|export)\s+(?:(?:type\s+)?(?:[\w*\s{},$]+|(?:\*\s+as\s+[\w$]+))\s+from\s+)?['"]([^'"]+)['"]/g;
   let m;
   while ((m = regex.exec(clean)) !== null) {
     const prefix = clean.substring(0, m.index);
@@ -374,7 +375,7 @@ export function runSelfTest(srcDir) {
     } else {
       failed++;
       console.error(
-        `Self-test failure for (${tc.source} -> '${tc.specifier}'): expected rule '${tc.expectedRule}', got '${actualRule}'`
+        `Self-test failure for (${tc.source} -> '${tc.specifier}'): expected rule '${tc.expectedRule}', got '${actualRule}'`,
       );
     }
   }

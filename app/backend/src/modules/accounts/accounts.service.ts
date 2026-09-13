@@ -8,7 +8,6 @@ import { parseAndValidateDateOfBirth } from '../../shared/dateValidation.js';
 // helpers
 // ---------------------------------------------------------------------------
 
-
 function mapAccountFiles(a: any) {
   return (a.accountFiles ?? [])
     .filter((af: any) => !af.deletedAt)
@@ -93,7 +92,9 @@ export interface ListAccountsParams {
   pageSize?: number;
 }
 
-export async function listAccounts(params: ListAccountsParams): Promise<{ data: any[]; total: number }> {
+export async function listAccounts(
+  params: ListAccountsParams,
+): Promise<{ data: any[]; total: number }> {
   const page = params.page && params.page >= 1 ? Math.floor(params.page) : 1;
   const pageSize = params.pageSize && params.pageSize >= 1 ? Math.floor(params.pageSize) : 5;
 
@@ -194,7 +195,11 @@ export async function updateAccount(accountId: string, payload: UpdateAccountPay
 // updateNotes
 // ---------------------------------------------------------------------------
 
-export async function updateNotes(accountId: string, adminNotes: string | null, expectedVersion?: number) {
+export async function updateNotes(
+  accountId: string,
+  adminNotes: string | null,
+  expectedVersion?: number,
+) {
   const account = await prisma.account.findFirst({ where: { id: accountId, deletedAt: null } });
   if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
 
@@ -214,7 +219,11 @@ export async function updateNotes(accountId: string, adminNotes: string | null, 
 // changeStatus
 // ---------------------------------------------------------------------------
 
-export async function changeStatus(accountId: string, status: AccountStatus, expectedVersion?: number) {
+export async function changeStatus(
+  accountId: string,
+  status: AccountStatus,
+  expectedVersion?: number,
+) {
   return await prisma.$transaction(async (tx) => {
     const account = await tx.account.findFirst({ where: { id: accountId, deletedAt: null } });
     if (!account) throw Errors.notFound('Không tìm thấy tài khoản');
@@ -277,7 +286,11 @@ export async function softDelete(accountId: string) {
 // resetPassword
 // ---------------------------------------------------------------------------
 
-export async function resetPassword(accountId: string, newPassword: string, mustChangePassword?: boolean) {
+export async function resetPassword(
+  accountId: string,
+  newPassword: string,
+  mustChangePassword?: boolean,
+) {
   const passwordHash = await argon2.hash(newPassword);
   const now = new Date();
 

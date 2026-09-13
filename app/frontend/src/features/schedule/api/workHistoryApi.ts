@@ -3,7 +3,9 @@ import type { HistoryResponse } from '../types';
 
 export const workHistoryApi = {
   getMyWorkHistory: async (month: string): Promise<HistoryResponse> => {
-    return apiGet<HistoryResponse>(`/api/v1/users/me/work-history?month=${encodeURIComponent(month)}`);
+    return apiGet<HistoryResponse>(
+      `/api/v1/users/me/work-history?month=${encodeURIComponent(month)}`,
+    );
   },
 
   getWorkHistory: async (month: string, accountId?: string): Promise<HistoryResponse> => {

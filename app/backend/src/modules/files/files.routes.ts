@@ -29,5 +29,16 @@ myFileRouter.delete('/:category', auth, filesController.deleteMyFile);
 
 // Mounted at /api/v1/accounts/:accountId/files  (mergeParams to read parent :accountId)
 export const accountFileRouter = Router({ mergeParams: true });
-accountFileRouter.put('/:category', auth, requireRole('ADMIN'), uploadAccountRateLimiter, ...filesController.putAccountFile);
-accountFileRouter.delete('/:category', auth, requireRole('ADMIN'), filesController.deleteAccountFile);
+accountFileRouter.put(
+  '/:category',
+  auth,
+  requireRole('ADMIN'),
+  uploadAccountRateLimiter,
+  ...filesController.putAccountFile,
+);
+accountFileRouter.delete(
+  '/:category',
+  auth,
+  requireRole('ADMIN'),
+  filesController.deleteAccountFile,
+);

@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import * as profileApi from '../api/profileApi';
-import { UserAccount } from '../../../shared/types';
-import { ProfileFileKind } from '../types';
+import type { UserAccount } from '../../../shared/types';
+import type { UpdateProfileInput, ProfileFileKind } from '../types';
 import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
+import { normalizeErrorMessage } from '../../../shared/api/errors';
 
 interface UseProfileOptions {
   onSuccess?: (msg: string) => void;
   onError?: (msg: string) => void;
-  onRefreshUser?: () => Promise<any>;
+  onRefreshUser?: () => Promise<void>;
 }
 
 export const useProfile = (options?: UseProfileOptions) => {
@@ -20,15 +21,15 @@ export const useProfile = (options?: UseProfileOptions) => {
       setLoading(true);
       setError(null);
       try {
-        const payload: any = {};
+        const payload: UpdateProfileInput = {};
         if (updated.name !== undefined) payload.displayName = updated.name;
         if (updated.phone !== undefined) payload.phone = updated.phone;
         if (updated.address !== undefined) payload.address = updated.address;
-        if ((updated as any).gender !== undefined) payload.gender = (updated as any).gender;
-        if ((updated as any).dob !== undefined) payload.dateOfBirth = (updated as any).dob;
+        if (updated.gender !== undefined) payload.gender = updated.gender;
+        if (updated.dob !== undefined) payload.dateOfBirth = updated.dob;
 
         const meRes = await profileApi.getMyProfile();
-        const version = meRes.user?.version ?? meRes.data?.version;
+        const version = meRes.user?.version;
         if (version !== undefined) {
           payload.expectedVersion = version;
         }
@@ -39,8 +40,8 @@ export const useProfile = (options?: UseProfileOptions) => {
         }
         options?.onSuccess?.(t('profile.update_success'));
         return true;
-      } catch (err: any) {
-        const msg = err.message ?? t('profile.update_failed');
+      } catch (err: unknown) {
+        const msg = normalizeErrorMessage(err, t('profile.update_failed'));
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -48,7 +49,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options, t]
+    [options, t],
   );
 
   const updateAvatar = useCallback(
@@ -62,14 +63,15 @@ export const useProfile = (options?: UseProfileOptions) => {
         } else {
           const blob = await (await fetch(dataUrl)).blob();
           await profileApi.uploadMyFile('AVATAR', blob, 'avatar.png');
-          options?.onSuccess?.(t('profile.update_success'));
+          options?.onSuccess?.(t('profile.avatar_update_success'));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
-      } catch (err: any) {
-        const msg = err.message ?? (dataUrl ? t('errors.save_failed') : t('errors.delete_failed'));
+      } catch (err: unknown) {
+        const defaultMsg = dataUrl ? t('errors.save_failed') : t('errors.delete_failed');
+        const msg = normalizeErrorMessage(err, defaultMsg);
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -77,7 +79,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options, t]
+    [options, t],
   );
 
   const updateCccd = useCallback(
@@ -91,14 +93,15 @@ export const useProfile = (options?: UseProfileOptions) => {
         } else {
           const blob = await (await fetch(dataUrl)).blob();
           await profileApi.uploadMyFile(kind, blob, `${kind}.png`);
-          options?.onSuccess?.(t('profile.update_success'));
+          options?.onSuccess?.(t('profile.cccd_update_success'));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
-      } catch (err: any) {
-        const msg = err.message ?? (dataUrl ? t('errors.save_failed') : t('errors.delete_failed'));
+      } catch (err: unknown) {
+        const defaultMsg = dataUrl ? t('errors.save_failed') : t('errors.delete_failed');
+        const msg = normalizeErrorMessage(err, defaultMsg);
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -106,7 +109,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options, t]
+    [options, t],
   );
 
   const updateCv = useCallback(
@@ -120,14 +123,15 @@ export const useProfile = (options?: UseProfileOptions) => {
         } else {
           const blob = await (await fetch(cvData.cvFile)).blob();
           await profileApi.uploadMyFile('CV', blob, cvData.cvFileName);
-          options?.onSuccess?.(t('app.file_uploaded'));
+          options?.onSuccess?.(t('profile.cv_update_success', { fileName: cvData.cvFileName }));
         }
         if (options?.onRefreshUser) {
           await options.onRefreshUser();
         }
         return true;
-      } catch (err: any) {
-        const msg = err.message ?? (cvData ? t('errors.save_failed') : t('errors.delete_failed'));
+      } catch (err: unknown) {
+        const defaultMsg = cvData ? t('errors.save_failed') : t('errors.delete_failed');
+        const msg = normalizeErrorMessage(err, defaultMsg);
         setError(msg);
         options?.onError?.(msg);
         return false;
@@ -135,7 +139,7 @@ export const useProfile = (options?: UseProfileOptions) => {
         setLoading(false);
       }
     },
-    [options, t]
+    [options, t],
   );
 
   return {

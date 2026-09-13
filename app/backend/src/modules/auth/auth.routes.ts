@@ -3,10 +3,11 @@ import * as authController from './auth.controller.js';
 import { auth } from '../../middleware/auth.js';
 import { createRateLimiter } from '../../middleware/rateLimiter.js';
 import { normalizeEmail } from '../../shared/crypto.js';
+import { config } from '../../config.js';
 
 const router = Router();
 
-const isE2E = process.env.E2E_TEST === 'true';
+const isE2E = config.E2E_TEST;
 
 export const loginIpRateLimiter = createRateLimiter({
   scope: 'LOGIN_IP',
@@ -27,13 +28,7 @@ export const loginAccountRateLimiter = createRateLimiter({
 });
 
 // POST /  -> login  (mounted at /api/v1/auth/sessions)
-router.post(
-  '/',
-  loginIpRateLimiter,
-  express.json(),
-  loginAccountRateLimiter,
-  authController.login,
-);
+router.post('/', loginIpRateLimiter, express.json(), loginAccountRateLimiter, authController.login);
 
 // DELETE /current or /me -> logout
 router.delete('/current', authController.logout);

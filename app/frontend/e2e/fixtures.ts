@@ -15,12 +15,16 @@ async function login(page: Page, role: keyof typeof credentials) {
   await page.goto('/');
   await page.locator('input[type="email"]').fill(account.email);
   await page.locator('input[type="password"]').fill(account.password);
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await page.getByRole('button', { name: /Đăng nhập|Log In/i }).click();
   if (role === 'admin') {
-    await expect(page.getByRole('heading', { name: /Quản lý tài khoản|Account List/ })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /Quản lý tài khoản|Account List/ }),
+    ).toBeVisible();
   } else {
     await expect(
-      page.getByRole('button', { name: /Đăng ký lịch làm việc|Cập nhật|Register Shift Schedule|Update/ }),
+      page.getByRole('button', {
+        name: /Đăng ký lịch làm việc|Cập nhật|Register Shift Schedule|Update/,
+      }),
     ).toBeVisible();
   }
 }

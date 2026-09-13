@@ -29,10 +29,7 @@ export interface UpdateMyProfilePayload {
   expectedVersion?: number;
 }
 
-export async function updateMyProfile(
-  accountId: string,
-  payload: UpdateMyProfilePayload,
-) {
+export async function updateMyProfile(accountId: string, payload: UpdateMyProfilePayload) {
   const account = await prisma.account.findUnique({
     where: { id: accountId },
   });
@@ -41,11 +38,12 @@ export async function updateMyProfile(
   }
 
   // Optimistic concurrency check
-  if (
-    payload.expectedVersion !== undefined &&
-    payload.expectedVersion !== account.version
-  ) {
-    throw new AppError(409, 'VERSION_CONFLICT', 'Dữ liệu đã được cập nhật bởi phiên khác, vui lòng tải lại');
+  if (payload.expectedVersion !== undefined && payload.expectedVersion !== account.version) {
+    throw new AppError(
+      409,
+      'VERSION_CONFLICT',
+      'Dữ liệu đã được cập nhật bởi phiên khác, vui lòng tải lại',
+    );
   }
 
   const data: Prisma.AccountUpdateInput = {

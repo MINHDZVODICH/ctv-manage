@@ -3,9 +3,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
-import {
-  snapshotTodayWorkHistory,
-} from '../src/modules/schedule/schedule.service.js';
+import { snapshotTodayWorkHistory } from '../src/modules/schedule/schedule.service.js';
 
 const app = createApp();
 
@@ -21,7 +19,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
 
   test('SCH-001 & SCH-005: Schedule registration saves schedule and shifts in database', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Register Mon Morning + Wed Afternoon in ROOM_1
     const regRes = await request(app)
@@ -78,7 +78,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
 
   test('SCH-006 & SCH-008: Updating schedule updates pattern and shifts', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // 1. Initial registration: Monday Morning
     const initRes = await request(app)
@@ -171,7 +173,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
   });
 
   test('HIST-001..005: Work history daily synchronization is idempotent and records snapshots', async () => {
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
 
     // 1. Seed history record
@@ -216,7 +220,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
   test('SYNC-001..004: Cross-view synchronization for Schedule, Shift, and History (4 weekly views + 3 history views)', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // 1. CTV registers Buồng 1 + T2 Morning + T3 Afternoon
     const regRes = await request(app)
@@ -252,17 +258,19 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .get('/api/v1/schedule/weekly-summary')
       .set('Cookie', adminCookie);
     expect(weeklyRes.status).toBe(200);
-    const monCell = weeklyRes.body.data.cells.find((c: any) => c.weekday === 1 && c.period === 'MORNING');
+    const monCell = weeklyRes.body.data.cells.find(
+      (c: any) => c.weekday === 1 && c.period === 'MORNING',
+    );
     expect(monCell.count).toBe(1);
     expect(monCell.shiftAssignments[0].roomCode).toBe('ROOM_1');
-    const tueCell = weeklyRes.body.data.cells.find((c: any) => c.weekday === 2 && c.period === 'AFTERNOON');
+    const tueCell = weeklyRes.body.data.cells.find(
+      (c: any) => c.weekday === 2 && c.period === 'AFTERNOON',
+    );
     expect(tueCell.count).toBe(1);
     expect(tueCell.shiftAssignments[0].roomCode).toBe('ROOM_1');
 
     // 5. View 4: Backward-compatible summary
-    const compatRes = await request(app)
-      .get('/api/v1/schedule-summary')
-      .set('Cookie', adminCookie);
+    const compatRes = await request(app).get('/api/v1/schedule-summary').set('Cookie', adminCookie);
     expect(compatRes.status).toBe(200);
     expect(compatRes.body.data.cells).toHaveLength(10);
 
@@ -276,7 +284,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .set('Cookie', ctvCookie);
     expect(ctvHistBefore.status).toBe(200);
     // 2026-09-02 must NOT be recorded before 17:30
-    const todayEntriesBefore = (ctvHistBefore.body.data.entries ?? []).filter((e: any) => e.workDate === '2026-09-02');
+    const todayEntriesBefore = (ctvHistBefore.body.data.entries ?? []).filter(
+      (e: any) => e.workDate === '2026-09-02',
+    );
     expect(todayEntriesBefore).toHaveLength(0);
 
     // 7. Add Wednesday shift for CTV and test History Views after 17:30
@@ -294,7 +304,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       });
 
     // The update happened before the simulated cutoff.
-    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T10:15:00Z') } });
+    await prisma.workHistorySource.updateMany({
+      data: { effectiveAt: new Date('2026-09-02T10:15:00Z') },
+    });
     // Run snapshot at 18:00 Asia/Bangkok on 2026-09-02
     const afterCutoff = new Date('2026-09-02T11:00:00.000Z');
     await snapshotTodayWorkHistory(afterCutoff);
@@ -304,7 +316,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
     expect(ctvHistAfter.status).toBe(200);
-    const ctvTodayEntries = (ctvHistAfter.body.data.entries ?? []).filter((e: any) => e.workDate === '2026-09-02');
+    const ctvTodayEntries = (ctvHistAfter.body.data.entries ?? []).filter(
+      (e: any) => e.workDate === '2026-09-02',
+    );
     expect(ctvTodayEntries).toHaveLength(1);
     expect(ctvTodayEntries[0].workDate).toBe('2026-09-02');
     expect(ctvTodayEntries[0].period).toBe('MORNING');
@@ -316,7 +330,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .get(`/api/v1/work-history?month=2026-09&accountId=${ctv.id}`)
       .set('Cookie', adminCookie);
     expect(adminHistCtv.status).toBe(200);
-    const adminTodayCells = adminHistCtv.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    const adminTodayCells = adminHistCtv.body.data.cells.filter(
+      (c: any) => c.workDate === '2026-09-02',
+    );
     expect(adminTodayCells).toHaveLength(1);
     expect(adminTodayCells[0].workDate).toBe('2026-09-02');
     expect(adminTodayCells[0].shiftAssignments[0].roomCode).toBe('ROOM_1');
@@ -326,7 +342,9 @@ describe('Phase B — Schedule, Shifts, Cancellations & History Suite (SCH-001..
       .get('/api/v1/work-history?month=2026-09')
       .set('Cookie', adminCookie);
     expect(adminHistSummary.status).toBe(200);
-    const summaryTodayCells = adminHistSummary.body.data.cells.filter((c: any) => c.workDate === '2026-09-02');
+    const summaryTodayCells = adminHistSummary.body.data.cells.filter(
+      (c: any) => c.workDate === '2026-09-02',
+    );
     expect(summaryTodayCells).toHaveLength(1);
     expect(summaryTodayCells[0].workDate).toBe('2026-09-02');
     expect(summaryTodayCells[0].shiftAssignments[0].displayName).toBe('CTV Active');

@@ -97,7 +97,12 @@ const shutdown = async (signal: string) => {
     logger.error({ err }, 'Error during graceful shutdown');
     try {
       await prisma.$disconnect();
-    } catch {}
+    } catch (disconnectErr) {
+      logger.error(
+        { err: disconnectErr },
+        'Failed to disconnect database during shutdown error handling',
+      );
+    }
     clearTimeout(forceExitTimer);
     process.exit(1);
   }

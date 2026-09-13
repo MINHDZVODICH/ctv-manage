@@ -22,7 +22,10 @@ export async function resetDatabase() {
   await prisma.registrationRequest.deleteMany();
   await prisma.account.deleteMany();
 
-  const uploadRoot = path.resolve(process.cwd(), process.env.FILE_STORAGE_ROOT ?? '.acceptance-uploads');
+  const uploadRoot = path.resolve(
+    process.cwd(),
+    process.env.FILE_STORAGE_ROOT ?? '.acceptance-uploads',
+  );
   try {
     const entries = await fs.readdir(uploadRoot);
     for (const entry of entries) {
@@ -83,7 +86,9 @@ export async function seedActors() {
 export async function loginCookie(app: Express, email: string, password = TEST_PASSWORD) {
   const response = await request(app).post('/api/v1/auth/sessions').send({ email, password });
   if (response.status !== 201) {
-    throw new Error(`Login failed for ${email}: ${response.status} ${JSON.stringify(response.body)}`);
+    throw new Error(
+      `Login failed for ${email}: ${response.status} ${JSON.stringify(response.body)}`,
+    );
   }
   const setCookie = response.headers['set-cookie'];
   const raw = Array.isArray(setCookie) ? setCookie[0] : setCookie;
@@ -92,8 +97,9 @@ export async function loginCookie(app: Express, email: string, password = TEST_P
 }
 
 export const validPng = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
 ]);
 
-export const validPdf = Buffer.from('%PDF-1.4\n%âãÏÓ\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
+export const validPdf = Buffer.from(
+  '%PDF-1.4\n%âãÏÓ\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n',
+);

@@ -1,22 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ShiftSlot, UserAccount } from "../../../shared/types";
-import * as api from "../../../shared/api";
-import {
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ShiftSlot, UserAccount } from '../../../shared/types';
+import * as api from '../../../shared/api';
+import type {
   ApiHistoryEntry,
   ApiSummaryCell,
-  historyEntriesToSlots,
-  summaryToSlots,
-  scheduleToPattern,
-} from "../../../shared/mappers";
+  ApiScheduleData,
+  ScheduleResponse,
+} from '../../../shared/mappers';
+import { historyEntriesToSlots, summaryToSlots, scheduleToPattern } from '../../../shared/mappers';
+import { normalizeErrorMessage, getApiErrorCode } from '../../../shared/api/errors';
 import {
   formatRoomDisplay,
   formatRoomLabel,
   ROOM_OPTIONS,
   roomLabelToCode,
-} from "../../../shared/utils/rooms";
-import { getMsUntilPostCutoffRefresh } from "../../../shared/utils/scheduleSelectors";
-import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
-import { formatDateLocale } from "../../../shared/i18n";
+} from '../../../shared/utils/rooms';
+import { getMsUntilPostCutoffRefresh } from '../../../shared/utils/scheduleSelectors';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
+import { formatDateLocale } from '../../../shared/i18n';
 
 interface CTVScheduleWorkspaceProps {
   currentUser: UserAccount;
@@ -24,18 +25,18 @@ interface CTVScheduleWorkspaceProps {
   onReload?: () => void | Promise<void>;
 }
 
-type CalendarView = "week" | "month";
-type ShiftType = "morning" | "afternoon";
+type CalendarView = 'week' | 'month';
+type ShiftType = 'morning' | 'afternoon';
 type WeeklyPattern = Record<number, ShiftType[]>;
 
-const APP_TIME_ZONE = "Asia/Bangkok";
+const APP_TIME_ZONE = 'Asia/Bangkok';
 
 const WEEKDAYS = [
-  { index: 0, shortKey: "schedule.mon_short", i18nKey: "schedule.monday" },
-  { index: 1, shortKey: "schedule.tue_short", i18nKey: "schedule.tuesday" },
-  { index: 2, shortKey: "schedule.wed_short", i18nKey: "schedule.wednesday" },
-  { index: 3, shortKey: "schedule.thu_short", i18nKey: "schedule.thursday" },
-  { index: 4, shortKey: "schedule.fri_short", i18nKey: "schedule.friday" },
+  { index: 0, shortKey: 'schedule.mon_short', i18nKey: 'schedule.monday' },
+  { index: 1, shortKey: 'schedule.tue_short', i18nKey: 'schedule.tuesday' },
+  { index: 2, shortKey: 'schedule.wed_short', i18nKey: 'schedule.wednesday' },
+  { index: 3, shortKey: 'schedule.thu_short', i18nKey: 'schedule.thursday' },
+  { index: 4, shortKey: 'schedule.fri_short', i18nKey: 'schedule.friday' },
 ] as const;
 
 const SHIFT_OPTIONS: Array<{
@@ -45,18 +46,18 @@ const SHIFT_OPTIONS: Array<{
   surface: string;
 }> = [
   {
-    type: "morning",
-    i18nKey: "schedule.morning_shift",
-    icon: "light_mode",
+    type: 'morning',
+    i18nKey: 'schedule.morning_shift',
+    icon: 'light_mode',
     surface:
-      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/35 dark:text-amber-300 dark:border-amber-800",
+      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/35 dark:text-amber-300 dark:border-amber-800',
   },
   {
-    type: "afternoon",
-    i18nKey: "schedule.afternoon_shift",
-    icon: "wb_twilight",
+    type: 'afternoon',
+    i18nKey: 'schedule.afternoon_shift',
+    icon: 'wb_twilight',
     surface:
-      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/35 dark:text-purple-300 dark:border-purple-800",
+      'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/35 dark:text-purple-300 dark:border-purple-800',
   },
 ];
 
@@ -75,11 +76,11 @@ const startOfDay = (date: Date) => {
 };
 
 const getCurrentCalendarDate = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: APP_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
@@ -106,18 +107,18 @@ const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(
 
 const toISODate = (date: Date) => {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
 const parseISODate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
+  const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
 
 const formatShortDate = (date: Date) =>
-  `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+  `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
 
 const formatCalendarDate = (date: Date) => `${date.getDate()}/${date.getMonth() + 1}`;
 
@@ -128,26 +129,30 @@ interface ShiftBadgeProps {
 
 const ShiftBadge: React.FC<ShiftBadgeProps> = ({ shiftType, ariaLabel }) => {
   const { t } = useSystemSettings();
-  const isMorning = shiftType === "morning";
+  const isMorning = shiftType === 'morning';
   return (
     <div
       className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold shadow-2xs select-none ${
         isMorning
-          ? "border-amber-200/90 bg-amber-50 text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200"
-          : "border-purple-200/90 bg-purple-50 text-purple-900 dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-200"
+          ? 'border-amber-200/90 bg-amber-50 text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200'
+          : 'border-purple-200/90 bg-purple-50 text-purple-900 dark:border-purple-800/50 dark:bg-purple-950/40 dark:text-purple-200'
       }`}
       aria-label={ariaLabel}
     >
       <span
         className={`material-symbols-outlined text-[18px] ${
-          isMorning ? "text-amber-700 dark:text-amber-400" : "text-purple-700 dark:text-purple-400"
+          isMorning ? 'text-amber-700 dark:text-amber-400' : 'text-purple-700 dark:text-purple-400'
         }`}
         aria-hidden="true"
       >
-        {isMorning ? "wb_sunny" : "wb_twilight"}
+        {isMorning ? 'wb_sunny' : 'wb_twilight'}
       </span>
-      <span className={isMorning ? "text-amber-900 dark:text-amber-100" : "text-purple-900 dark:text-purple-100"}>
-        {isMorning ? t("schedule.morning_shift") : t("schedule.afternoon_shift")}
+      <span
+        className={
+          isMorning ? 'text-amber-900 dark:text-amber-100' : 'text-purple-900 dark:text-purple-100'
+        }
+      >
+        {isMorning ? t('schedule.morning_shift') : t('schedule.afternoon_shift')}
       </span>
     </div>
   );
@@ -163,21 +168,33 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const { t, language } = useSystemSettings();
   const today = useMemo(() => startOfDay(getCurrentCalendarDate()), []);
   const todayISO = toISODate(today);
+  const effectiveTodayISO = useMemo(() => {
+    const d = new Date(today);
+    const day = d.getDay();
+    if (day === 0) {
+      d.setDate(d.getDate() - 2);
+    } else if (day === 6) {
+      d.setDate(d.getDate() - 1);
+    }
+    return toISODate(d);
+  }, [today]);
   const registrationStartDate = useMemo(() => getRegistrationStartDate(today), [today]);
   const registrationTriggerRef = useRef<HTMLButtonElement>(null);
   const registrationDialogRef = useRef<HTMLDivElement>(null);
   const registrationRoomRef = useRef<HTMLSelectElement>(null);
 
-  const [calendarView, setCalendarView] = useState<CalendarView>("week");
+  const [calendarView, setCalendarView] = useState<CalendarView>('week');
   const [calendarDate, setCalendarDate] = useState(today);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentRegistrationVersion, setCurrentRegistrationVersion] = useState<number | undefined>(undefined);
+  const [currentRegistrationVersion, setCurrentRegistrationVersion] = useState<number | undefined>(
+    undefined,
+  );
 
   const [weeklyPattern, setWeeklyPattern] = useState<WeeklyPattern>(createEmptyWeeklyPattern);
   const [registrationPattern, setRegistrationPattern] =
     useState<WeeklyPattern>(createEmptyWeeklyPattern);
-  const [room, setRoom] = useState<string>("");
+  const [room, setRoom] = useState<string>('');
   const [modalRoom, setModalRoom] = useState<string>(ROOM_OPTIONS[0]);
   const [historyShifts, setHistoryShifts] = useState<ShiftSlot[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -188,17 +205,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     return Object.values(weeklyPattern).some((shifts) => Boolean(shifts && shifts.length > 0));
   }, [weeklyPattern]);
 
-  const applyRegistration = useCallback((registration: any) => {
+  const applyRegistration = useCallback((registration: ApiScheduleData | null | undefined) => {
     if (!registration || (!registration.id && !registration.shifts && !registration.patternSlots)) {
       setWeeklyPattern(createEmptyWeeklyPattern());
-      setRoom("");
+      setRoom('');
       setModalRoom(ROOM_OPTIONS[0]);
       setCurrentRegistrationVersion(undefined);
       return;
     }
 
     const nextPattern = scheduleToPattern(registration.shifts || registration.patternSlots);
-    const nextRoom = formatRoomLabel(registration.roomCode) || "";
+    const nextRoom = formatRoomLabel(registration.roomCode) || '';
     setWeeklyPattern(nextPattern);
     setRoom(nextRoom);
     setModalRoom(nextRoom || ROOM_OPTIONS[0]);
@@ -206,15 +223,24 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   }, []);
 
   const loadCurrentRegistration = useCallback(async () => {
-    const response: any = await api.apiGet("/api/v1/users/me/schedule");
-    applyRegistration(response?.data ?? response);
+    const response = await api.apiGet<ScheduleResponse | { data: ApiScheduleData | null }>(
+      '/api/v1/users/me/schedule',
+    );
+    const reg =
+      'data' in response && response.data !== undefined
+        ? response.data
+        : (response as unknown as ApiScheduleData);
+    applyRegistration(reg);
   }, [applyRegistration]);
 
-  const closeRegistration = useCallback((force = false) => {
-    if (isSubmitting && !force) return;
-    setIsRegistrationOpen(false);
-    window.requestAnimationFrame(() => registrationTriggerRef.current?.focus());
-  }, [isSubmitting]);
+  const closeRegistration = useCallback(
+    (force = false) => {
+      if (isSubmitting && !force) return;
+      setIsRegistrationOpen(false);
+      window.requestAnimationFrame(() => registrationTriggerRef.current?.focus());
+    },
+    [isSubmitting],
+  );
 
   useEffect(() => {
     void loadCurrentRegistration().catch(() => {
@@ -226,7 +252,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   const historyRequestSequence = useRef(0);
 
   const fetchWorkHistory = useCallback(async () => {
-    const month = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, "0")}`;
+    const month = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}`;
     historyRequestController.current?.abort();
     const controller = new AbortController();
     const sequence = ++historyRequestSequence.current;
@@ -236,10 +262,11 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     setHistoryError(false);
 
     try {
-      const response: any = await api.apiGet(
-        `/api/v1/users/me/work-history?month=${month}`,
-        { signal: controller.signal },
-      );
+      const response = await api.apiGet<{
+        data?: { entries?: ApiHistoryEntry[]; cells?: ApiSummaryCell[] };
+        entries?: ApiHistoryEntry[];
+        cells?: ApiSummaryCell[];
+      }>(`/api/v1/users/me/work-history?month=${month}`, { signal: controller.signal });
       if (sequence !== historyRequestSequence.current) return;
       const entries: ApiHistoryEntry[] | undefined = response.data?.entries ?? response.entries;
       if (Array.isArray(entries)) {
@@ -262,35 +289,35 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
   }, [calendarDate]);
 
   useEffect(() => {
-    if (calendarView === "month") {
+    if (calendarView === 'month') {
       void fetchWorkHistory();
     }
     return () => historyRequestController.current?.abort();
   }, [calendarDate, calendarView, fetchWorkHistory, historyRetryKey]);
 
   useEffect(() => {
-    if (calendarView !== "month") return;
+    if (calendarView !== 'month') return;
 
     const handleFocus = () => {
       void fetchWorkHistory();
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === 'visible') {
         void fetchWorkHistory();
       }
     };
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [calendarView, fetchWorkHistory]);
 
   useEffect(() => {
-    if (calendarView !== "month") return;
+    if (calendarView !== 'month') return;
     const delay = getMsUntilPostCutoffRefresh();
     if (delay === null) return;
 
@@ -306,12 +333,12 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     registrationRoomRef.current?.focus();
 
     const handleDialogKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         closeRegistration();
         return;
       }
-      if (event.key !== "Tab") return;
+      if (event.key !== 'Tab') return;
 
       const focusable = Array.from(
         registrationDialogRef.current?.querySelectorAll<HTMLElement>(
@@ -330,8 +357,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
       }
     };
 
-    window.addEventListener("keydown", handleDialogKeyDown);
-    return () => window.removeEventListener("keydown", handleDialogKeyDown);
+    window.addEventListener('keydown', handleDialogKeyDown);
+    return () => window.removeEventListener('keydown', handleDialogKeyDown);
   }, [closeRegistration, isRegistrationOpen]);
 
   const hasVisibleShift = (dayIndex: number, shiftType: ShiftType) =>
@@ -346,8 +373,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
   const monthStart = startOfMonth(calendarDate);
   const formatMonthLabel = (date: Date) => {
-    const formatted = formatDateLocale(date, language, { month: "long", year: "numeric" });
-    return formatted ? formatted.charAt(0).toUpperCase() + formatted.slice(1) : "";
+    const formatted = formatDateLocale(date, language, { month: 'long', year: 'numeric' });
+    return formatted ? formatted.charAt(0).toUpperCase() + formatted.slice(1) : '';
   };
   const monthWeeks: Array<Array<Date | null>> = [];
   let currentMonthWeek: Array<Date | null> = [null, null, null, null, null];
@@ -408,43 +435,54 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
     const slots: { weekday: number; period: string }[] = [];
     for (let d = 0; d < 5; d++) {
       for (const p of registrationPattern[d] || []) {
-        slots.push({ weekday: d + 1, period: p === "morning" ? "MORNING" : "AFTERNOON" });
+        slots.push({ weekday: d + 1, period: p === 'morning' ? 'MORNING' : 'AFTERNOON' });
       }
     }
 
     const roomCode = roomLabelToCode(modalRoom);
     if (!roomCode) {
-      onShowToast(t("schedule.select_room_error"));
+      onShowToast(t('schedule.select_room_error'));
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response: any = await api.apiPut("/api/v1/users/me/schedule", {
-        roomCode,
-        slots,
-        expectedVersion: currentRegistrationVersion,
-      });
-      const savedRegistration = response?.data ?? response;
+      const response = await api.apiPut<ScheduleResponse | { data: ApiScheduleData }>(
+        '/api/v1/users/me/schedule',
+        {
+          roomCode,
+          slots,
+          expectedVersion: currentRegistrationVersion,
+        },
+      );
+      const savedRegistration =
+        'data' in response && response.data !== undefined
+          ? response.data
+          : (response as unknown as ApiScheduleData);
       applyRegistration(savedRegistration);
-      setCalendarView("week");
+      setCalendarView('week');
       closeRegistration(true);
       if (onReload) {
         try {
           await onReload();
         } catch {
-          onShowToast(t("schedule.save_reload_failed"));
+          onShowToast(t('schedule.save_reload_failed'));
           return;
         }
       }
-      onShowToast(currentRegistrationVersion !== undefined ? t("schedule.update_success") : t("schedule.register_success"));
-    } catch (err: any) {
-      if (err.code === "VERSION_CONFLICT") {
+      onShowToast(
+        currentRegistrationVersion !== undefined
+          ? t('schedule.update_success')
+          : t('schedule.register_success'),
+      );
+    } catch (err: unknown) {
+      const code = getApiErrorCode(err);
+      if (code === 'VERSION_CONFLICT') {
         await loadCurrentRegistration().catch(() => undefined);
-        onShowToast(t("schedule.version_conflict_reload"));
+        onShowToast(t('schedule.version_conflict_reload'));
         return;
       }
-      onShowToast(err.message || t("schedule.register_failed"));
+      onShowToast(normalizeErrorMessage(err, t('schedule.register_failed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -458,7 +496,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
               calendar_month
             </span>
-            {t("nav_schedule")}
+            {t('nav_schedule')}
           </div>
           <button
             ref={registrationTriggerRef}
@@ -470,8 +508,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               edit_calendar
             </span>
             {currentRegistrationVersion !== undefined || hasWeeklyShifts
-              ? t("schedule.update")
-              : t("schedule.register_shift_schedule")}
+              ? t('schedule.update')
+              : t('schedule.register_shift_schedule')}
           </button>
         </div>
       </section>
@@ -481,9 +519,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
           <div
             className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900"
             role="group"
-            aria-label={t("schedule.calendar_view_mode")}
+            aria-label={t('schedule.calendar_view_mode')}
           >
-            {(["week", "month"] as CalendarView[]).map((view) => (
+            {(['week', 'month'] as CalendarView[]).map((view) => (
               <button
                 key={view}
                 type="button"
@@ -491,11 +529,11 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 aria-pressed={calendarView === view}
                 className={`min-h-11 rounded-lg px-4 text-xs font-bold transition-colors duration-200 cursor-pointer ${
                   calendarView === view
-                    ? "bg-accent text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}
               >
-                {view === "week" ? t("weekly_schedule") : t("work_history")}
+                {view === 'week' ? t('weekly_schedule') : t('work_history')}
               </button>
             ))}
           </div>
@@ -508,12 +546,14 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
               >
                 door_front
               </span>
-              <span className="font-bold text-slate-900 dark:text-slate-100">{formatRoomDisplay(room, t("schedule.room_prefix"))}</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100">
+                {formatRoomDisplay(room, t('schedule.room_prefix'))}
+              </span>
             </div>
           </div>
         </div>
 
-        {calendarView === "week" ? (
+        {calendarView === 'week' ? (
           <div className="space-y-4 p-4 sm:p-5" data-testid="weekly-schedule">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <span
@@ -523,7 +563,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 calendar_month
               </span>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{t("weekly_schedule")}</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {t('weekly_schedule')}
+                </h3>
               </div>
             </div>
 
@@ -544,8 +586,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 {/* Day Cards */}
                 <div className="grid grid-cols-5 gap-3">
                   {WEEKDAYS.map((weekday) => {
-                    const morningShift = hasVisibleShift(weekday.index, "morning");
-                    const afternoonShift = hasVisibleShift(weekday.index, "afternoon");
+                    const morningShift = hasVisibleShift(weekday.index, 'morning');
+                    const afternoonShift = hasVisibleShift(weekday.index, 'afternoon');
 
                     return (
                       <div
@@ -556,7 +598,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                           {morningShift ? (
                             <ShiftBadge
                               shiftType="morning"
-                              ariaLabel={`${t("schedule.morning_shift")}, ${t(weekday.i18nKey)}`}
+                              ariaLabel={`${t('schedule.morning_shift')}, ${t(weekday.i18nKey)}`}
                             />
                           ) : afternoonShift ? (
                             <div className="h-[38px]" aria-hidden="true" />
@@ -565,7 +607,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                           {afternoonShift ? (
                             <ShiftBadge
                               shiftType="afternoon"
-                              ariaLabel={`${t("schedule.afternoon_shift")}, ${t(weekday.i18nKey)}`}
+                              ariaLabel={`${t('schedule.afternoon_shift')}, ${t(weekday.i18nKey)}`}
                             />
                           ) : morningShift ? (
                             <div className="h-[38px]" aria-hidden="true" />
@@ -589,7 +631,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   calendar_month
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  {t("work_history")}
+                  {t('work_history')}
                 </h3>
               </div>
               {isHistoryLoading && (
@@ -604,19 +646,19 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   >
                     progress_activity
                   </span>
-                  <span>{t("loading")}</span>
+                  <span>{t('loading')}</span>
                 </div>
               )}
               <div
                 className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900"
                 role="group"
-                aria-label={t("month_navigation")}
+                aria-label={t('month_navigation')}
               >
                 <button
                   type="button"
                   onClick={() => changeMonth(-1)}
                   className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                  aria-label={t("previous_month")}
+                  aria-label={t('previous_month')}
                 >
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                     chevron_left
@@ -632,7 +674,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                   type="button"
                   onClick={() => changeMonth(1)}
                   className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                  aria-label={t("next_month")}
+                  aria-label={t('next_month')}
                 >
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
                     chevron_right
@@ -642,14 +684,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
             </div>
 
             {historyError && (
-              <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
-                <span>{t("work_history_load_error")}</span>
+              <div
+                role="alert"
+                className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+              >
+                <span>{t('work_history_load_error')}</span>
                 <button
                   type="button"
                   onClick={() => setHistoryRetryKey((current) => current + 1)}
                   className="min-h-11 rounded-xl border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900 cursor-pointer"
                 >
-                  {t("retry")}
+                  {t('retry')}
                 </button>
               </div>
             )}
@@ -682,17 +727,17 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                         }
 
                         const dateISO = toISODate(date);
-                        const isToday = dateISO === todayISO;
-                        const morningShift = getHistoryShift(date, "morning");
-                        const afternoonShift = getHistoryShift(date, "afternoon");
+                        const isToday = dateISO === todayISO || dateISO === effectiveTodayISO;
+                        const morningShift = getHistoryShift(date, 'morning');
+                        const afternoonShift = getHistoryShift(date, 'afternoon');
 
                         return (
                           <div
                             key={dateISO}
                             className={`flex min-h-[110px] flex-col rounded-2xl border-2 p-3 shadow-2xs transition-colors ${
                               isToday
-                                ? "border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25"
-                                : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                                ? 'border-accent bg-blue-50/30 dark:border-accent dark:bg-blue-950/25'
+                                : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
                             }`}
                           >
                             <div className="flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 pb-1.5 mb-2">
@@ -700,7 +745,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                 <span>{formatShortDate(date)}</span>
                                 {isToday && (
                                   <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                    {t("today")}
+                                    {t('today')}
                                   </span>
                                 )}
                               </span>
@@ -711,7 +756,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                 <ShiftBadge
                                   key={`${dateISO}-morning`}
                                   shiftType="morning"
-                                  ariaLabel={`${t("schedule.morning_shift")}, ${formatShortDate(date)}`}
+                                  ariaLabel={`${t('schedule.morning_shift')}, ${formatShortDate(date)}`}
                                 />
                               ) : afternoonShift ? (
                                 <div className="h-[38px]" aria-hidden="true" />
@@ -721,7 +766,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                 <ShiftBadge
                                   key={`${dateISO}-afternoon`}
                                   shiftType="afternoon"
-                                  ariaLabel={`${t("schedule.afternoon_shift")}, ${formatShortDate(date)}`}
+                                  ariaLabel={`${t('schedule.afternoon_shift')}, ${formatShortDate(date)}`}
                                 />
                               ) : morningShift ? (
                                 <div className="h-[38px]" aria-hidden="true" />
@@ -743,9 +788,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm"
           role="presentation"
-          onMouseDown={(event) =>
-            event.target === event.currentTarget && closeRegistration()
-          }
+          onMouseDown={(event) => event.target === event.currentTarget && closeRegistration()}
         >
           <div
             ref={registrationDialogRef}
@@ -762,15 +805,15 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     className="text-xl font-bold text-slate-950 dark:text-white"
                   >
                     {currentRegistrationVersion !== undefined || hasWeeklyShifts
-                      ? t("schedule.update_schedule")
-                      : t("schedule.register_shift_schedule")}
+                      ? t('schedule.update_schedule')
+                      : t('schedule.register_shift_schedule')}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => closeRegistration()}
                   disabled={isSubmitting}
-                  aria-label={t("schedule.close_window")}
+                  aria-label={t('schedule.close_window')}
                   className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   <span className="material-symbols-outlined" aria-hidden="true">
@@ -785,7 +828,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     htmlFor="modal-room-select"
                     className="block text-sm font-bold text-slate-900 dark:text-white mb-1.5"
                   >
-                    {t("schedule.room")}
+                    {t('schedule.room')}
                   </label>
                   <div className="relative">
                     <select
@@ -798,7 +841,7 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                     >
                       {ROOM_OPTIONS.map((r) => (
                         <option key={r} value={r}>
-                          {formatRoomDisplay(r, t("schedule.room_prefix"))}
+                          {formatRoomDisplay(r, t('schedule.room_prefix'))}
                         </option>
                       ))}
                     </select>
@@ -807,13 +850,13 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
 
                 <fieldset>
                   <legend className="text-sm font-bold text-slate-900 dark:text-white">
-                    {t("schedule.weekly_shift_pattern")}
+                    {t('schedule.weekly_shift_pattern')}
                   </legend>
                   <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
                     <div className="min-w-[500px]">
                       <div className="grid grid-cols-[120px_repeat(5,1fr)] bg-slate-50 dark:bg-slate-900/40">
                         <div className="border-r border-slate-200 p-2 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300 flex items-center justify-center">
-                          {t("schedule.shift_per_day")}
+                          {t('schedule.shift_per_day')}
                         </div>
                         {WEEKDAYS.map((day) => (
                           <div
@@ -842,7 +885,9 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                           </div>
                           {WEEKDAYS.map((day) => {
                             const firstDate = getFirstRegistrationDate(day.index);
-                            const selected = (registrationPattern[day.index] || []).includes(shiftOption.type);
+                            const selected = (registrationPattern[day.index] || []).includes(
+                              shiftOption.type,
+                            );
                             return (
                               <div
                                 key={day.index}
@@ -853,20 +898,20 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                                   onClick={() => togglePattern(day.index, shiftOption.type)}
                                   disabled={isSubmitting}
                                   aria-pressed={selected}
-                                  aria-label={`${selected ? t("schedule.deselect") : t("schedule.select")} ${shiftOption.type === "morning" ? t("schedule.morning") : t("schedule.afternoon")} ${t(day.i18nKey)}${firstDate ? `, ${t("schedule.first_date")} ${formatCalendarDate(firstDate)}` : ""}`}
+                                  aria-label={`${selected ? t('schedule.deselect') : t('schedule.select')} ${shiftOption.type === 'morning' ? t('schedule.morning_aria') : t('schedule.afternoon_aria')} ${t(day.i18nKey)}${firstDate ? `, ${t('schedule.first_date')} ${formatCalendarDate(firstDate)}` : ''}`}
                                   className={[
-                                    "flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer",
-                                    "disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-300 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-600",
+                                    'flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer',
+                                    'disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-300 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-600',
                                     selected
-                                      ? "border-blue-700 bg-blue-700 text-white shadow-xs"
-                                      : "border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:text-blue-300",
-                                  ].join(" ")}
+                                      ? 'border-blue-700 bg-blue-700 text-white shadow-xs'
+                                      : 'border-slate-200 bg-white text-slate-400 hover:border-blue-300 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:text-blue-300',
+                                  ].join(' ')}
                                 >
                                   <span
                                     className="material-symbols-outlined text-[18px]"
                                     aria-hidden="true"
                                   >
-                                    {selected ? "check" : "add"}
+                                    {selected ? 'check' : 'add'}
                                   </span>
                                 </button>
                               </div>
@@ -887,12 +932,15 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                 >
                   {isSubmitting ? (
                     <>
-                      <span className="material-symbols-outlined animate-spin text-[19px]" aria-hidden="true">
+                      <span
+                        className="material-symbols-outlined animate-spin text-[19px]"
+                        aria-hidden="true"
+                      >
                         progress_activity
                       </span>
                       {currentRegistrationVersion !== undefined || hasWeeklyShifts
-                        ? t("schedule.saving")
-                        : t("schedule.registering")}
+                        ? t('schedule.saving')
+                        : t('schedule.registering')}
                     </>
                   ) : (
                     <>
@@ -900,8 +948,8 @@ export const CTVScheduleWorkspace: React.FC<CTVScheduleWorkspaceProps> = ({
                         event_available
                       </span>
                       {currentRegistrationVersion !== undefined || hasWeeklyShifts
-                        ? t("save")
-                        : t("schedule.register")}
+                        ? t('save')
+                        : t('schedule.register')}
                     </>
                   )}
                 </button>

@@ -38,7 +38,11 @@ function createMockSupabaseClient() {
     },
     storage: {
       from: (_bucket: string) => ({
-        upload: async (path: string, buffer: Buffer, options?: { contentType?: string; upsert?: boolean }) => {
+        upload: async (
+          path: string,
+          buffer: Buffer,
+          options?: { contentType?: string; upsert?: boolean },
+        ) => {
           if (failNextUpload) {
             failNextUpload = false;
             return { data: null, error: new Error('Simulated Supabase storage upload error') };
@@ -185,7 +189,9 @@ describe('Storage Configuration and Drivers (A3, A4, A12)', () => {
 
     it('computes sha256 checksum correctly', () => {
       const buf = Buffer.from('test sha256', 'utf-8');
-      expect(sha256Of(buf)).toBe('c71d137da140c5afefd7db8e7a255df45c2ac46064e934416dc04020a91f3fd2');
+      expect(sha256Of(buf)).toBe(
+        'c71d137da140c5afefd7db8e7a255df45c2ac46064e934416dc04020a91f3fd2',
+      );
     });
 
     it('sniffs mime types correctly', () => {
@@ -286,7 +292,9 @@ describe('Storage Configuration and Drivers (A3, A4, A12)', () => {
           .attach('file', validPng, { filename: 'avatar.png', contentType: 'image/png' });
 
         if (uploadRes.status !== 201) {
-          throw new Error(`Upload failed for driver ${driver}: status=${uploadRes.status} body=${JSON.stringify(uploadRes.body)}`);
+          throw new Error(
+            `Upload failed for driver ${driver}: status=${uploadRes.status} body=${JSON.stringify(uploadRes.body)}`,
+          );
         }
         expect(uploadRes.status).toBe(201);
         const { fileId, originalName, mimeType, sizeBytes } = uploadRes.body.file;
@@ -373,7 +381,10 @@ describe('Storage Configuration and Drivers (A3, A4, A12)', () => {
         const fakeImageRes = await request(app)
           .put('/api/v1/users/me/files/AVATAR')
           .set('Cookie', ownerCookie)
-          .attach('file', Buffer.from('plain text pretend png'), { filename: 'fake.png', contentType: 'image/png' });
+          .attach('file', Buffer.from('plain text pretend png'), {
+            filename: 'fake.png',
+            contentType: 'image/png',
+          });
         expect(fakeImageRes.status).toBe(400);
         expect(fakeImageRes.body.error.code).toBe('INVALID_FILE_TYPE');
 
@@ -381,7 +392,10 @@ describe('Storage Configuration and Drivers (A3, A4, A12)', () => {
         const badMimeRes = await request(app)
           .put('/api/v1/users/me/files/CV')
           .set('Cookie', ownerCookie)
-          .attach('file', Buffer.from('hello plain'), { filename: 'cv.txt', contentType: 'text/plain' });
+          .attach('file', Buffer.from('hello plain'), {
+            filename: 'cv.txt',
+            contentType: 'text/plain',
+          });
         expect(badMimeRes.status).toBe(400);
       });
 

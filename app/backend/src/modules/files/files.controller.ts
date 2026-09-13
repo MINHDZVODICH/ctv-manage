@@ -48,7 +48,10 @@ export async function getContent(req: Request, res: Response, next: NextFunction
     const buffer = await downloadFile(info.storageKey);
     res.setHeader('Content-Type', info.mimeType);
     res.setHeader('Content-Length', String(info.sizeBytes));
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(info.originalName)}`);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename*=UTF-8''${encodeURIComponent(info.originalName)}`,
+    );
     res.send(buffer);
   } catch (e) {
     next(e);

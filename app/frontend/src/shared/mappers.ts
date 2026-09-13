@@ -86,7 +86,13 @@ export interface ApiRegistrationRequest {
   approvedAccountId?: string | null;
   submittedAt?: string | null;
   reviewedAt?: string | null;
-  files?: { category: string; fileId: string; originalName: string; mimeType: string; sizeBytes: number }[];
+  files?: {
+    category: string;
+    fileId: string;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+  }[];
 }
 
 export interface ApiMyShift {
@@ -103,7 +109,14 @@ export interface ApiMyShift {
 
 export interface ApiShiftDetail {
   shift: { id: string; workDate: string; period: string };
-  assignments: { id: string; accountId: string; displayName: string; phone?: string | null; roomCode?: string | null; status: string }[];
+  assignments: {
+    id: string;
+    accountId: string;
+    displayName: string;
+    phone?: string | null;
+    roomCode?: string | null;
+    status: string;
+  }[];
 }
 
 export interface ApiScheduleRegistration {
@@ -142,7 +155,12 @@ export function fileUrl(fileId: string): string {
 }
 
 function initialsOf(name: string): string {
-  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
 function formatDateVN(iso?: string | null): string {
@@ -210,7 +228,10 @@ export function accountsToUserAccounts(rows: ApiAccountRow[]): UserAccount[] {
 // Registration request -> RegistrationRequest
 // ---------------------------------------------------------------------------
 
-export function requestToRegistrationRequest(r: ApiRegistrationRequest, index = 0): RegistrationRequest {
+export function requestToRegistrationRequest(
+  r: ApiRegistrationRequest,
+  index = 0,
+): RegistrationRequest {
   const files = r.files ?? [];
   const front = files.find((f) => f.category === 'CCCD_FRONT');
   const back = files.find((f) => f.category === 'CCCD_BACK');
@@ -236,7 +257,9 @@ export function requestToRegistrationRequest(r: ApiRegistrationRequest, index = 
   };
 }
 
-export function requestsToRegistrationRequests(rows: ApiRegistrationRequest[]): RegistrationRequest[] {
+export function requestsToRegistrationRequests(
+  rows: ApiRegistrationRequest[],
+): RegistrationRequest[] {
   return rows.map((r, i) => requestToRegistrationRequest(r, i));
 }
 
@@ -269,7 +292,7 @@ export function weeklyScheduleToSlots(
 ): ShiftSlot[] {
   if (!schedule || !Array.isArray(schedule.shifts)) return [];
   return schedule.shifts.map((s) => {
-    const dayIndex = (s.weekday >= 1 && s.weekday <= 5) ? s.weekday - 1 : 0;
+    const dayIndex = s.weekday >= 1 && s.weekday <= 5 ? s.weekday - 1 : 0;
     const shiftType = mapPeriodToShiftType(s.period);
     const me: AssignedCTV = {
       id: currentUser.id,
@@ -307,7 +330,7 @@ export function myShiftsToSlots(
   const seen = new Set<string>();
   for (const s of shifts) {
     const weekday = s.weekday ?? (s.workDate ? dayIndexFromYmd(s.workDate) + 1 : 1);
-    const dayIndex = (weekday >= 1 && weekday <= 5) ? weekday - 1 : 0;
+    const dayIndex = weekday >= 1 && weekday <= 5 ? weekday - 1 : 0;
     const period = s.period ?? s.shift?.period ?? 'MORNING';
     const key = `${dayIndex}:${period}`;
     if (seen.has(key)) continue;
@@ -363,7 +386,11 @@ export function scheduleToPattern(
   let slots: ApiScheduleSlot[] = [];
   if (Array.isArray(slotsOrData)) {
     slots = slotsOrData;
-  } else if ('data' in slotsOrData && slotsOrData.data && Array.isArray((slotsOrData.data as ApiScheduleData).shifts)) {
+  } else if (
+    'data' in slotsOrData &&
+    slotsOrData.data &&
+    Array.isArray((slotsOrData.data as ApiScheduleData).shifts)
+  ) {
     slots = (slotsOrData.data as ApiScheduleData).shifts;
   } else if ('shifts' in slotsOrData && Array.isArray(slotsOrData.shifts)) {
     slots = slotsOrData.shifts;
@@ -400,9 +427,10 @@ export const scheduleToWeeklyPattern = scheduleToPattern;
 export function summaryToSlots(cells: ApiWeeklySummaryCell[]): ShiftSlot[] {
   return (cells ?? []).map((cell) => {
     const shiftType = mapPeriodToShiftType(cell.period);
-    const dayIndex = typeof cell.weekday === 'number' && cell.weekday >= 1 && cell.weekday <= 5
-      ? cell.weekday - 1
-      : 0;
+    const dayIndex =
+      typeof cell.weekday === 'number' && cell.weekday >= 1 && cell.weekday <= 5
+        ? cell.weekday - 1
+        : 0;
     const dayName = DAY_NAMES[dayIndex] ?? '';
 
     return {

@@ -1,7 +1,10 @@
 export * from './types';
+export * from './types/schedule.dto';
+export * from './mappers/schedule.mapper';
 export * from './api/scheduleApi';
 export * from './api/workHistoryApi';
 export * from './hooks/useSchedule';
+export * from './hooks/useScheduleDashboard';
 export * from './hooks/useWeeklySummary';
 export * from './hooks/useWorkHistory';
 export { CTVScheduleWorkspace } from './components/CTVScheduleWorkspace';

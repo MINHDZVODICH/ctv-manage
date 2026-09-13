@@ -124,10 +124,20 @@ export async function runAcceptanceSeed(options: SeedAcceptanceOptions = {}): Pr
 
     await prisma.registrationRequest.create({
       data: {
-        email: 'pending.acceptance@ctv.local',
+        email: 'approve.candidate@ctv.local',
         passwordHash,
         displayName: 'Hồ sơ chờ duyệt',
         phone: '0900000004',
+        status: 'PENDING',
+      },
+    });
+
+    await prisma.registrationRequest.create({
+      data: {
+        email: 'pending.acceptance@ctv.local',
+        passwordHash,
+        displayName: 'Ứng viên chờ duyệt',
+        phone: '0900000006',
         status: 'PENDING',
       },
     });
@@ -142,7 +152,9 @@ export async function runAcceptanceSeed(options: SeedAcceptanceOptions = {}): Pr
 
 const isDirectRun =
   typeof process !== 'undefined' &&
-  Boolean(process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/seed-acceptance.ts'));
+  Boolean(
+    process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/seed-acceptance.ts'),
+  );
 
 if (isDirectRun) {
   runAcceptanceSeed().catch((error) => {

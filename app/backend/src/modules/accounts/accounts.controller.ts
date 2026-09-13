@@ -126,7 +126,11 @@ export async function postPasswordReset(req: Request, res: Response, next: NextF
   try {
     const { id } = idParamSchema.parse(req.params);
     const body = passwordResetBodySchema.parse(req.body);
-    const result = await accountsService.resetPassword(id, body.newPassword, body.mustChangePassword);
+    const result = await accountsService.resetPassword(
+      id,
+      body.newPassword,
+      body.mustChangePassword,
+    );
     res.json({ data: result });
   } catch (e) {
     next(e);

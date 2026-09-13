@@ -1,7 +1,9 @@
 import { test, expect } from './fixtures';
 
 test.describe('Registration validation and English translations', () => {
-  test('Lỗi mật khẩu dưới 6 ký tự hiển thị ở ô Mật khẩu và KHÔNG hiển thị ở ô Họ và tên', async ({ page }) => {
+  test('Lỗi mật khẩu dưới 6 ký tự hiển thị ở ô Mật khẩu và KHÔNG hiển thị ở ô Họ và tên', async ({
+    page,
+  }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Tạo tài khoản mới' }).click();
     await expect(page.getByRole('heading', { name: 'Đăng ký tài khoản' })).toBeVisible();
@@ -29,14 +31,19 @@ test.describe('Registration validation and English translations', () => {
     await expect(nameContainer.getByText('Vui lòng nhập họ và tên!')).toHaveCount(0);
   });
 
-  test('Khi chuyển ngôn ngữ sang Tiếng Anh, các modal được dịch đầy đủ', async ({ page, loginAs }) => {
+  test('Khi chuyển ngôn ngữ sang Tiếng Anh, các modal được dịch đầy đủ', async ({
+    page,
+    loginAs,
+  }) => {
     await loginAs('ctv');
 
     // 1. Mở Cài đặt hệ thống từ Sidebar user menu và chuyển sang Tiếng Anh
     await page.locator('aside').getByRole('button').last().click();
     await page.getByRole('menuitem', { name: /Cài đặt hệ thống|System Settings/i }).click();
     const settingsModal = page.locator('div.fixed.inset-0').last();
-    await expect(settingsModal.getByRole('heading', { name: /Cài đặt hệ thống|System Settings/i })).toBeVisible();
+    await expect(
+      settingsModal.getByRole('heading', { name: /Cài đặt hệ thống|System Settings/i }),
+    ).toBeVisible();
 
     // Chọn ngôn ngữ Tiếng Anh
     await settingsModal.getByText('Tiếng Việt').last().click();
@@ -50,13 +57,17 @@ test.describe('Registration validation and English translations', () => {
     await settingsModal.locator('button:has(.material-symbols-outlined:text("close"))').click();
 
     // 2. Kiểm tra Modal Đăng ký/Cập nhật lịch làm việc (Shift Schedule)
-    const scheduleBtn = page.getByRole('button', { name: /Update|Register Shift Schedule|Đăng ký lịch làm việc|Cập nhật lịch làm việc/i });
+    const scheduleBtn = page.getByRole('button', {
+      name: /Update|Register Shift Schedule|Đăng ký lịch làm việc|Cập nhật lịch làm việc/i,
+    });
     await scheduleBtn.click();
 
     const scheduleModal = page.getByRole('dialog');
     await expect(scheduleModal).toBeVisible();
     // Tiêu đề tiếng Anh
-    await expect(scheduleModal.getByText(/Update Shift Schedule|Register Shift Schedule/)).toBeVisible();
+    await expect(
+      scheduleModal.getByText(/Update Shift Schedule|Register Shift Schedule/),
+    ).toBeVisible();
     // Label buồng làm việc tiếng Anh
     await expect(scheduleModal.getByText('Workroom', { exact: true })).toBeVisible();
     // Options buồng làm việc tiếng Anh
@@ -76,7 +87,9 @@ test.describe('Registration validation and English translations', () => {
     // 3. Vào Thông tin tài khoản (Personal Profile) qua Sidebar user menu
     await page.locator('aside').getByRole('button').last().click();
     await page.getByRole('menuitem', { name: /Personal Profile|Hồ sơ cá nhân/i }).click();
-    await expect(page.getByRole('heading', { name: /Account Information|Thông tin tài khoản/i, level: 2 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /Account Information|Thông tin tài khoản/i, level: 2 }),
+    ).toBeVisible();
 
     // Mở Change Password modal
     await page.getByRole('button', { name: /Change Password|Đổi mật khẩu/i }).click();
@@ -85,7 +98,9 @@ test.describe('Registration validation and English translations', () => {
     await expect(pwdModal.getByText('Current Password', { exact: true })).toBeVisible();
     await expect(pwdModal.getByText('New Password', { exact: true })).toBeVisible();
     await expect(pwdModal.getByText('Confirm New Password', { exact: true })).toBeVisible();
-    await expect(pwdModal.getByRole('button', { name: 'Change Password', exact: true })).toBeVisible();
+    await expect(
+      pwdModal.getByRole('button', { name: 'Change Password', exact: true }),
+    ).toBeVisible();
 
     // Đóng Change Password modal
     await pwdModal.locator('button:has(.material-symbols-outlined:text("close"))').click();
@@ -93,7 +108,9 @@ test.describe('Registration validation and English translations', () => {
     // Mở Edit Profile modal
     await page.getByRole('button', { name: /Edit Profile/i }).click();
     const editModal = page.locator('div.fixed.inset-0').last();
-    await expect(editModal.getByRole('heading', { name: /Edit Personal Information/i })).toBeVisible();
+    await expect(
+      editModal.getByRole('heading', { name: /Edit Personal Information/i }),
+    ).toBeVisible();
     await expect(editModal.getByText('Full Name')).toBeVisible();
     await expect(editModal.getByText('Phone Number')).toBeVisible();
     await expect(editModal.getByText('Date of Birth')).toBeVisible();
@@ -106,7 +123,9 @@ test.describe('Registration validation and English translations', () => {
     await editModal.getByRole('button', { name: 'Cancel' }).click();
   });
 
-  test('Login and registration forms have no placeholders on any text/password fields, and Date of Birth starts empty (--)', async ({ page }) => {
+  test('Login and registration forms have no placeholders on any text/password fields, and Date of Birth starts empty (--)', async ({
+    page,
+  }) => {
     await page.goto('/');
 
     // 1. Check Login form placeholders
@@ -140,7 +159,9 @@ test.describe('Registration validation and English translations', () => {
     await expect(selects.nth(2)).toHaveValue('');
   });
 
-  test('Pending account shows awaiting approval notice on login with valid password, and English branding displays Academy of Military Science and Technology', async ({ page }) => {
+  test('Pending account shows awaiting approval notice on login with valid password, and English branding displays Academy of Military Science and Technology', async ({
+    page,
+  }) => {
     await page.goto('/');
 
     // 1. Check Vietnamese pending notice
@@ -169,4 +190,3 @@ test.describe('Registration validation and English translations', () => {
     await expect(page.getByText('The account is awaiting approval')).toBeVisible();
   });
 });
-

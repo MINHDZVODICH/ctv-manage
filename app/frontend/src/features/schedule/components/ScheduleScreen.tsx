@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { ShiftSlot, UserAccount, AssignedCTV } from "../../../shared/types";
-import { CTVScheduleWorkspace } from "./CTVScheduleWorkspace";
-import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
+import React, { useState } from 'react';
+import type { ShiftSlot, UserAccount, AssignedCTV } from '../../../shared/types';
+import { CTVScheduleWorkspace } from './CTVScheduleWorkspace';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
 
 interface ScheduleScreenProps {
   shifts: ShiftSlot[];
@@ -11,61 +11,58 @@ interface ScheduleScreenProps {
   onReload?: () => void | Promise<void>;
   onViewAccountDetail?: (account: UserAccount) => void;
   currentUser?: UserAccount;
-  userRole?: "Admin" | "Cộng tác viên";
+  userRole?: 'Admin' | 'Cộng tác viên';
 }
 
-type ViewMode = "my_schedule" | "grid" | "ctv";
+type ViewMode = 'my_schedule' | 'grid' | 'ctv';
 
 const WEEKDAY_KEYS = [
-  "schedule.monday",
-  "schedule.tuesday",
-  "schedule.wednesday",
-  "schedule.thursday",
-  "schedule.friday",
-  "schedule.saturday",
-  "schedule.sunday",
+  'schedule.monday',
+  'schedule.tuesday',
+  'schedule.wednesday',
+  'schedule.thursday',
+  'schedule.friday',
+  'schedule.saturday',
+  'schedule.sunday',
 ] as const;
 
 const getWeekdayLabel = (dayIndex: number, t: (key: string) => string): string => {
   const key = WEEKDAY_KEYS[dayIndex];
-  return key ? t(key) : "";
+  return key ? t(key) : '';
 };
 
 const getShiftTypeLabel = (
-  shiftType: "morning" | "afternoon" | "evening",
+  shiftType: 'morning' | 'afternoon' | 'evening',
   t: (key: string) => string,
 ): string => {
   switch (shiftType) {
-    case "morning":
-      return t("schedule.morning");
-    case "afternoon":
-      return t("schedule.afternoon");
-    case "evening":
-      return t("schedule.evening");
+    case 'morning':
+      return t('schedule.morning');
+    case 'afternoon':
+      return t('schedule.afternoon');
+    case 'evening':
+      return t('schedule.evening');
   }
 };
 
-const getShiftStatusLabel = (
-  status: string | undefined,
-  t: (key: string) => string,
-): string => {
+const getShiftStatusLabel = (status: string | undefined, t: (key: string) => string): string => {
   switch (status) {
-    case "Đã duyệt":
-      return t("status_approved");
-    case "Chờ duyệt":
-      return t("status_pending");
-    case "Xin nghỉ":
-      return t("schedule.status_leave");
+    case 'Đã duyệt':
+      return t('status_approved');
+    case 'Chờ duyệt':
+      return t('status_pending');
+    case 'Xin nghỉ':
+      return t('schedule.status_leave');
     default:
-      return t("schedule.status_assigned");
+      return t('schedule.status_assigned');
   }
 };
 
 const LEAVE_REASONS = [
-  { key: "personal", labelKey: "schedule.leave_reason_personal" },
-  { key: "sick", labelKey: "schedule.leave_reason_sick" },
-  { key: "study", labelKey: "schedule.leave_reason_study" },
-  { key: "emergency", labelKey: "schedule.leave_reason_emergency" },
+  { key: 'personal', labelKey: 'schedule.leave_reason_personal' },
+  { key: 'sick', labelKey: 'schedule.leave_reason_sick' },
+  { key: 'study', labelKey: 'schedule.leave_reason_study' },
+  { key: 'emergency', labelKey: 'schedule.leave_reason_emergency' },
 ] as const;
 
 export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
@@ -76,65 +73,65 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   onReload,
   onViewAccountDetail,
   currentUser,
-  userRole = "Admin",
+  userRole = 'Admin',
 }) => {
   const { t } = useSystemSettings();
-  const isCTV = userRole === "Cộng tác viên";
-  const [viewMode, setViewMode] = useState<ViewMode>(isCTV ? "my_schedule" : "grid");
+  const isCTV = userRole === 'Cộng tác viên';
+  const [viewMode, setViewMode] = useState<ViewMode>(isCTV ? 'my_schedule' : 'grid');
   const [isGateOpen, setIsGateOpen] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<
-    "all" | "morning" | "afternoon" | "evening"
-  >("all");
+    'all' | 'morning' | 'afternoon' | 'evening'
+  >('all');
   const [pendingOnlyFilter, setPendingOnlyFilter] = useState(false);
 
   // Active CTV user object fallback
-  const ctvUser = currentUser || accounts.find((a) => a.role === "Cộng tác viên") || accounts[0];
+  const ctvUser = currentUser || accounts.find((a) => a.role === 'Cộng tác viên') || accounts[0];
 
   // Days of current week (Monday to Friday)
   const daysHeader = [
-    { index: 0, i18nKey: "schedule.monday", date: "06/07", isWeekend: false, isSunday: false },
-    { index: 1, i18nKey: "schedule.tuesday", date: "07/07", isWeekend: false, isSunday: false },
-    { index: 2, i18nKey: "schedule.wednesday", date: "08/07", isWeekend: false, isSunday: false },
-    { index: 3, i18nKey: "schedule.thursday", date: "09/07", isWeekend: false, isSunday: false },
-    { index: 4, i18nKey: "schedule.friday", date: "10/07", isWeekend: false, isSunday: false },
+    { index: 0, i18nKey: 'schedule.monday', date: '06/07', isWeekend: false, isSunday: false },
+    { index: 1, i18nKey: 'schedule.tuesday', date: '07/07', isWeekend: false, isSunday: false },
+    { index: 2, i18nKey: 'schedule.wednesday', date: '08/07', isWeekend: false, isSunday: false },
+    { index: 3, i18nKey: 'schedule.thursday', date: '09/07', isWeekend: false, isSunday: false },
+    { index: 4, i18nKey: 'schedule.friday', date: '10/07', isWeekend: false, isSunday: false },
   ];
 
   // Shift row definitions
   const shiftTypes: Array<{
-    type: "morning" | "afternoon" | "evening";
+    type: 'morning' | 'afternoon' | 'evening';
     nameKey: string;
     timeLabel: string;
     icon: string;
     badgeBg: string;
   }> = [
     {
-      type: "morning",
-      nameKey: "schedule.morning_shift",
-      timeLabel: "08:00 - 12:00",
-      icon: "wb_sunny",
-      badgeBg: "bg-amber-50 text-amber-700 border-amber-200",
+      type: 'morning',
+      nameKey: 'schedule.morning_shift',
+      timeLabel: '08:00 - 12:00',
+      icon: 'wb_sunny',
+      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
-      type: "afternoon",
-      nameKey: "schedule.afternoon_shift",
-      timeLabel: "13:30 - 17:30",
-      icon: "wb_twilight",
-      badgeBg: "bg-purple-50 text-purple-700 border-purple-200",
+      type: 'afternoon',
+      nameKey: 'schedule.afternoon_shift',
+      timeLabel: '13:30 - 17:30',
+      icon: 'wb_twilight',
+      badgeBg: 'bg-purple-50 text-purple-700 border-purple-200',
     },
   ];
 
   // CTV Shift Handlers
   const handleRegisterMyShift = (
     dayIndex: number,
-    shiftType: "morning" | "afternoon" | "evening",
+    shiftType: 'morning' | 'afternoon' | 'evening',
   ) => {
     if (!isGateOpen) {
-      onShowToast(t("schedule.gate_closed"));
+      onShowToast(t('schedule.gate_closed'));
       return;
     }
 
-    let slot = shifts.find((s) => s.dayIndex === dayIndex && s.shiftType === shiftType);
+    const slot = shifts.find((s) => s.dayIndex === dayIndex && s.shiftType === shiftType);
     const dayObj = daysHeader.find((d) => d.index === dayIndex);
 
     const newCTV: AssignedCTV = {
@@ -144,7 +141,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       initials: ctvUser.initials || ctvUser.name.slice(0, 2).toUpperCase(),
       phone: ctvUser.phone,
       cctvCode: ctvUser.cctvCode,
-      status: "Chờ duyệt",
+      status: 'Chờ duyệt',
     };
 
     let updatedShifts: ShiftSlot[];
@@ -152,7 +149,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     if (slot) {
       const isAlreadyAssigned = (slot.assignedCTVs || []).some((c) => c.id === ctvUser.id);
       if (isAlreadyAssigned) {
-        onShowToast(t("schedule.already_registered_shift"));
+        onShowToast(t('schedule.already_registered_shift'));
         return;
       }
       updatedShifts = shifts.map((s) => {
@@ -160,7 +157,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         return {
           ...s,
           assignedCTVs: [...(s.assignedCTVs || []), newCTV],
-          status: "Chờ duyệt" as const,
+          status: 'Chờ duyệt' as const,
         };
       });
     } else {
@@ -168,15 +165,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         id: `shift-${Date.now()}`,
         dayIndex,
         dayName: getWeekdayLabel(dayIndex, t),
-        dateStr: dayObj?.date || "06/07",
+        dateStr: dayObj?.date || '06/07',
         shiftType,
         shiftTimeLabel:
-          shiftType === "morning"
-            ? "08:00 - 12:00"
-            : shiftType === "afternoon"
-              ? "13:30 - 17:30"
-              : "18:00 - 21:00",
-        status: "Chờ duyệt",
+          shiftType === 'morning'
+            ? '08:00 - 12:00'
+            : shiftType === 'afternoon'
+              ? '13:30 - 17:30'
+              : '18:00 - 21:00',
+        status: 'Chờ duyệt',
         allowRegister: true,
         assignedCTVs: [newCTV],
       };
@@ -185,7 +182,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
     onUpdateShifts(updatedShifts);
     onShowToast(
-      t("schedule.register_request_sent", {
+      t('schedule.register_request_sent', {
         shift: getShiftTypeLabel(shiftType, t),
         day: getWeekdayLabel(dayIndex, t),
       }),
@@ -194,7 +191,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
   const handleCancelMyShift = (
     dayIndex: number,
-    shiftType: "morning" | "afternoon" | "evening",
+    shiftType: 'morning' | 'afternoon' | 'evening',
   ) => {
     const slot = shifts.find((s) => s.dayIndex === dayIndex && s.shiftType === shiftType);
     if (!slot) return;
@@ -205,16 +202,16 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       return {
         ...s,
         assignedCTVs: updatedCTVs,
-        status: updatedCTVs.length > 0 ? ("Đã đăng ký" as const) : ("Chưa đăng ký" as const),
+        status: updatedCTVs.length > 0 ? ('Đã đăng ký' as const) : ('Chưa đăng ký' as const),
       };
     });
 
     onUpdateShifts(updatedShifts);
-    onShowToast(t("schedule.cancel_shift_success"));
+    onShowToast(t('schedule.cancel_shift_success'));
   };
 
   const handleSaveRegistration = () => {
-    onShowToast(t("schedule.save_registration_success"));
+    onShowToast(t('schedule.save_registration_success'));
     setIsRegistrationMode(false);
   };
 
@@ -222,25 +219,25 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const [isRegistrationMode, setIsRegistrationMode] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     dayIndex: number;
-    shiftType: "morning" | "afternoon" | "evening";
+    shiftType: 'morning' | 'afternoon' | 'evening';
   } | null>(null);
   const [isQuickAssignOpen, setIsQuickAssignOpen] = useState(false);
 
   // Leave request modal state
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [leaveShiftType, setLeaveShiftType] = useState("today_morning");
-  const [leaveReasonKey, setLeaveReasonKey] = useState<string>("personal");
-  const [leaveNote, setLeaveNote] = useState("");
+  const [leaveShiftType, setLeaveShiftType] = useState('today_morning');
+  const [leaveReasonKey, setLeaveReasonKey] = useState<string>('personal');
+  const [leaveNote, setLeaveNote] = useState('');
 
   // Quick Assign form state
-  const [assignUser, setAssignUser] = useState("");
+  const [assignUser, setAssignUser] = useState('');
   const [assignDay, setAssignDay] = useState(0);
-  const [assignType, setAssignType] = useState<"morning" | "afternoon" | "evening">("morning");
+  const [assignType, setAssignType] = useState<'morning' | 'afternoon' | 'evening'>('morning');
 
   // Helper to get shift slot object
   const getSlot = (
     dayIndex: number,
-    shiftType: "morning" | "afternoon" | "evening",
+    shiftType: 'morning' | 'afternoon' | 'evening',
   ): ShiftSlot | undefined => {
     return shifts.find((s) => s.dayIndex === dayIndex && s.shiftType === shiftType);
   };
@@ -249,7 +246,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
   const getFilteredCTVs = (ctvs: AssignedCTV[] = []) => {
     const nonAdminCTVs = ctvs.filter((c) => {
       const userAcc = accounts.find((a) => a.id === c.id);
-      return !userAcc || userAcc.role !== "Admin";
+      return !userAcc || userAcc.role !== 'Admin';
     });
     if (!searchTerm.trim() && !pendingOnlyFilter) return nonAdminCTVs;
     return nonAdminCTVs.filter((c) => {
@@ -257,7 +254,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.cctvCode && c.cctvCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (c.phone && c.phone.includes(searchTerm));
-      const matchesPending = pendingOnlyFilter ? c.status === "Chờ duyệt" : true;
+      const matchesPending = pendingOnlyFilter ? c.status === 'Chờ duyệt' : true;
       return matchesSearch && matchesPending;
     });
   };
@@ -267,12 +264,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     const updated = shifts.map((s) => {
       if (s.id !== shiftId) return s;
       const updatedCTVs = (s.assignedCTVs || []).map((c) =>
-        c.id === ctvId ? { ...c, status: "Đã duyệt" as const } : c,
+        c.id === ctvId ? { ...c, status: 'Đã duyệt' as const } : c,
       );
       return { ...s, assignedCTVs: updatedCTVs };
     });
     onUpdateShifts(updated);
-    onShowToast(t("schedule.approve_ctv_success"));
+    onShowToast(t('schedule.approve_ctv_success'));
   };
 
   const handleRemoveCTVFromShift = (shiftId: string, ctvId: string) => {
@@ -282,7 +279,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       return { ...s, assignedCTVs: updatedCTVs };
     });
     onUpdateShifts(updated);
-    onShowToast(t("schedule.remove_ctv_success"));
+    onShowToast(t('schedule.remove_ctv_success'));
   };
 
   const handleAddCTVToShiftSlot = (shiftId: string, ctvUser: UserAccount) => {
@@ -291,7 +288,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
     const existing = (slot.assignedCTVs || []).find((c) => c.id === ctvUser.id);
     if (existing) {
-      onShowToast(t("schedule.ctv_already_in_shift", { name: ctvUser.name }));
+      onShowToast(t('schedule.ctv_already_in_shift', { name: ctvUser.name }));
       return;
     }
 
@@ -302,7 +299,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       initials: ctvUser.initials || ctvUser.name.slice(0, 2).toUpperCase(),
       phone: ctvUser.phone,
       cctvCode: ctvUser.cctvCode,
-      status: "Đã duyệt",
+      status: 'Đã duyệt',
     };
 
     const updated = shifts.map((s) => {
@@ -310,21 +307,21 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       return {
         ...s,
         assignedCTVs: [...(s.assignedCTVs || []), newCTV],
-        status: "Đã đăng ký" as const,
+        status: 'Đã đăng ký' as const,
       };
     });
 
     onUpdateShifts(updated);
-    onShowToast(t("schedule.add_ctv_to_shift_success", { name: ctvUser.name }));
+    onShowToast(t('schedule.add_ctv_to_shift_success', { name: ctvUser.name }));
   };
 
-  const activeAccounts = accounts.filter((a) => a.role !== "Admin");
+  const activeAccounts = accounts.filter((a) => a.role !== 'Admin');
 
   // Quick Assign submit handler
   const handleQuickAssignSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignUser) {
-      onShowToast(t("schedule.please_select_ctv"));
+      onShowToast(t('schedule.please_select_ctv'));
       return;
     }
 
@@ -339,15 +336,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
         id: `shift-${Date.now()}`,
         dayIndex: assignDay,
         dayName: getWeekdayLabel(assignDay, t),
-        dateStr: dayObj?.date || "06/07",
+        dateStr: dayObj?.date || '06/07',
         shiftType: assignType,
         shiftTimeLabel:
-          assignType === "morning"
-            ? "08:00 - 12:00"
-            : assignType === "afternoon"
-              ? "13:30 - 17:30"
-              : "18:00 - 21:00",
-        status: "Đã đăng ký",
+          assignType === 'morning'
+            ? '08:00 - 12:00'
+            : assignType === 'afternoon'
+              ? '13:30 - 17:30'
+              : '18:00 - 21:00',
+        status: 'Đã đăng ký',
         allowRegister: true,
         assignedCTVs: [],
       };
@@ -356,7 +353,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
     handleAddCTVToShiftSlot(slot.id, userObj);
     setIsQuickAssignOpen(false);
-    setAssignUser("");
+    setAssignUser('');
   };
 
   // Modal active shift slot object
@@ -391,15 +388,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
   const handleSubmitLeaveRequest = () => {
     if (!leaveReasonKey) {
-      onShowToast(t("schedule.please_enter_leave_reason"));
+      onShowToast(t('schedule.please_enter_leave_reason'));
       return;
     }
 
-    let targetShiftType: "morning" | "afternoon" | "evening" = "morning";
-    if (leaveShiftType === "today_afternoon") {
-      targetShiftType = "afternoon";
-    } else if (leaveShiftType === "today_morning") {
-      targetShiftType = "morning";
+    let targetShiftType: 'morning' | 'afternoon' | 'evening' = 'morning';
+    if (leaveShiftType === 'today_afternoon') {
+      targetShiftType = 'afternoon';
+    } else if (leaveShiftType === 'today_morning') {
+      targetShiftType = 'morning';
     }
 
     const slot = shifts.find((s) => s.dayIndex === todayIndex && s.shiftType === targetShiftType);
@@ -407,7 +404,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       const updatedShifts = shifts.map((s) => {
         if (s.id !== slot.id) return s;
         const updatedCTVs = (s.assignedCTVs || []).map((c) =>
-          c.id === ctvUser.id ? { ...c, status: "Xin nghỉ" as any } : c,
+          c.id === ctvUser.id ? { ...c, status: 'Xin nghỉ' as const } : c,
         );
         return { ...s, assignedCTVs: updatedCTVs };
       });
@@ -415,22 +412,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
     }
 
     onShowToast(
-      t("schedule.leave_request_sent", {
+      t('schedule.leave_request_sent', {
         shift: getShiftTypeLabel(targetShiftType, t),
         day: getWeekdayLabel(todayIndex, t),
       }),
     );
     setIsLeaveModalOpen(false);
-    setLeaveNote("");
+    setLeaveNote('');
   };
 
   if (isCTV) {
     return (
-      <CTVScheduleWorkspace
-        currentUser={ctvUser}
-        onShowToast={onShowToast}
-        onReload={onReload}
-      />
+      <CTVScheduleWorkspace currentUser={ctvUser} onShowToast={onShowToast} onReload={onReload} />
     );
   }
 
@@ -440,13 +433,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#1b365d] dark:text-[#d6e3ff] tracking-tight">
-            {t("schedule.title")}
+            {t('schedule.title')}
           </h2>
         </div>
       </div>
 
       {/* VIEW MODE: PERSONAL SHIFTS & REGISTRATION (CTV PERSONAL VIEW) */}
-      {viewMode === "my_schedule" && (
+      {viewMode === 'my_schedule' && (
         <div className="space-y-6">
           {/* Card: Today Shifts */}
           <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-2xl p-5 shadow-2xs">
@@ -458,7 +451,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-base text-[#1b365d] dark:text-[#d6e3ff]">
-                      {t("schedule.today_shifts")}
+                      {t('schedule.today_shifts')}
                     </h3>
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                       {getWeekdayLabel(todayIndex, t)}
@@ -466,8 +459,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {todayShifts.length > 0
-                      ? t("schedule.assigned_shifts_count", { count: todayShifts.length })
-                      : t("schedule.no_assigned_shifts_today")}
+                      ? t('schedule.assigned_shifts_count', { count: todayShifts.length })
+                      : t('schedule.no_assigned_shifts_today')}
                   </p>
                 </div>
               </div>
@@ -479,7 +472,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 className="px-4 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-rose-200 dark:border-rose-800/60 shadow-2xs self-start sm:self-auto"
               >
                 <span className="material-symbols-outlined text-[18px]">event_busy</span>
-                <span>{t("schedule.request_leave")}</span>
+                <span>{t('schedule.request_leave')}</span>
               </button>
             </div>
 
@@ -511,11 +504,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
                       <span
                         className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          s.assigned?.status === "Đã duyệt"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                            : s.assigned?.status === "Chờ duyệt"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
-                              : "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                          s.assigned?.status === 'Đã duyệt'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            : s.assigned?.status === 'Chờ duyệt'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
                         }`}
                       >
                         {getShiftStatusLabel(s.assigned?.status, t)}
@@ -526,7 +519,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               ) : (
                 <div className="py-4 px-4 bg-slate-50 dark:bg-[#1f2023] rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center flex items-center justify-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                   <span className="material-symbols-outlined text-[18px]">info</span>
-                  <span>{t("schedule.no_shift_today_wishing")}</span>
+                  <span>{t('schedule.no_shift_today_wishing')}</span>
                 </div>
               )}
             </div>
@@ -536,10 +529,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             <div className="p-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#1f2023] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-[#1b365d] dark:text-[#d6e3ff]">
-                  {isRegistrationMode ? "edit_calendar" : "calendar_month"}
+                  {isRegistrationMode ? 'edit_calendar' : 'calendar_month'}
                 </span>
                 <h3 className="font-bold text-base text-[#1b365d] dark:text-[#d6e3ff]">
-                  {isRegistrationMode ? t("schedule.register_schedule") : t("schedule.title")}
+                  {isRegistrationMode ? t('schedule.register_schedule') : t('schedule.title')}
                 </h3>
               </div>
 
@@ -549,7 +542,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   className="bg-accent hover:opacity-90 text-white px-4 py-1.5 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
-                  <span>{t("schedule.register_shift")}</span>
+                  <span>{t('schedule.register_shift')}</span>
                 </button>
               ) : (
                 <button
@@ -557,7 +550,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#1b365d] dark:text-[#d6e3ff] px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 border border-slate-300 dark:border-slate-600"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  <span>{t("schedule.back_to_schedule")}</span>
+                  <span>{t('schedule.back_to_schedule')}</span>
                 </button>
               )}
             </div>
@@ -567,22 +560,22 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 {/* Header: Days Row */}
                 <div className="grid grid-cols-[140px_repeat(5,1fr)] border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#1f2023]">
                   <div className="p-3.5 border-r border-[#E2E8F0] dark:border-[#3b3d45] text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] text-center">
-                    {t("schedule.shift_day")}
+                    {t('schedule.shift_day')}
                   </div>
                   {daysHeader.map((d) => (
                     <div
                       key={d.index}
                       className={`p-3 border-r border-[#E2E8F0] dark:border-[#3b3d45] last:border-r-0 text-center ${
-                        d.isSunday ? "bg-rose-50/30 dark:bg-rose-950/10" : ""
+                        d.isSunday ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
                       }`}
                     >
                       <div
                         className={`font-bold text-sm ${
                           d.isSunday
-                            ? "text-rose-600 dark:text-rose-400"
+                            ? 'text-rose-600 dark:text-rose-400'
                             : d.isWeekend
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-[#1b365d] dark:text-[#d6e3ff]"
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-[#1b365d] dark:text-[#d6e3ff]'
                         }`}
                       >
                         {t(d.i18nKey)}
@@ -614,9 +607,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     {daysHeader.map((d) => {
                       const slot = getSlot(d.index, st.type);
                       const assignedList = slot?.assignedCTVs || [];
-                      const myRecord = assignedList.find(
-                        (c) => c.id === ctvUser.id,
-                      );
+                      const myRecord = assignedList.find((c) => c.id === ctvUser.id);
                       const isMyRegistered = !!myRecord;
 
                       return (
@@ -624,10 +615,10 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           key={`my-${st.type}-${d.index}`}
                           className={`p-3 border-r border-[#E2E8F0] dark:border-[#3b3d45] last:border-r-0 flex flex-col items-center justify-center min-h-[95px] transition-colors ${
                             isMyRegistered
-                              ? "bg-emerald-50/60 dark:bg-emerald-950/20"
+                              ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
                               : d.isWeekend
-                                ? "bg-slate-50/60 dark:bg-[#1e1f23]"
-                                : "bg-white dark:bg-[#25262b]"
+                                ? 'bg-slate-50/60 dark:bg-[#1e1f23]'
+                                : 'bg-white dark:bg-[#25262b]'
                           }`}
                         >
                           {!isRegistrationMode ? (
@@ -636,11 +627,11 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 <span className="material-symbols-outlined text-[16px]">
                                   check_circle
                                 </span>
-                                <span>{t("schedule.working")}</span>
+                                <span>{t('schedule.working')}</span>
                               </span>
                             ) : (
                               <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 flex items-center gap-1">
-                                <span>{t("schedule.off")}</span>
+                                <span>{t('schedule.off')}</span>
                               </span>
                             )
                           ) : isMyRegistered ? (
@@ -650,7 +641,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 className="px-4 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/60 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                               >
                                 <span className="material-symbols-outlined text-[16px]">close</span>
-                                <span>{t("schedule.cancel_shift")}</span>
+                                <span>{t('schedule.cancel_shift')}</span>
                               </button>
                             </div>
                           ) : (
@@ -662,7 +653,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 <span className="material-symbols-outlined text-[16px]">
                                   add_circle
                                 </span>
-                                <span>{t("schedule.register")}</span>
+                                <span>{t('schedule.register')}</span>
                               </button>
                             </div>
                           )}
@@ -682,7 +673,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   className="px-6 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>{t("save_btn")}</span>
+                  <span>{t('save_btn')}</span>
                 </button>
               </div>
             )}
@@ -691,29 +682,29 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       )}
 
       {/* VIEW MODE 1: GRID VIEW */}
-      {viewMode === "grid" && (
+      {viewMode === 'grid' && (
         <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <div className="min-w-[1000px]">
               {/* Header: Days Row */}
               <div className="grid grid-cols-[130px_repeat(5,1fr)] border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#1f2023]">
                 <div className="p-3.5 border-r border-[#E2E8F0] dark:border-[#3b3d45] text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] flex items-center justify-center">
-                  {t("schedule.shift_session")}
+                  {t('schedule.shift_session')}
                 </div>
                 {daysHeader.map((d) => (
                   <div
                     key={d.index}
                     className={`p-3 border-r border-[#E2E8F0] dark:border-[#3b3d45] last:border-r-0 text-center ${
-                      d.isSunday ? "bg-rose-50/30 dark:bg-rose-950/10" : ""
+                      d.isSunday ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
                     }`}
                   >
                     <div
                       className={`font-bold text-sm ${
                         d.isSunday
-                          ? "text-rose-600 dark:text-rose-400"
+                          ? 'text-rose-600 dark:text-rose-400'
                           : d.isWeekend
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-[#1b365d] dark:text-[#d6e3ff]"
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-[#1b365d] dark:text-[#d6e3ff]'
                       }`}
                     >
                       {t(d.i18nKey)}
@@ -724,7 +715,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
 
               {/* Rows for Shifts (Morning, Afternoon) */}
               {shiftTypes
-                .filter((st) => selectedShiftFilter === "all" || selectedShiftFilter === st.type)
+                .filter((st) => selectedShiftFilter === 'all' || selectedShiftFilter === st.type)
                 .map((st) => (
                   <div
                     key={st.type}
@@ -748,33 +739,33 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       const slot = getSlot(d.index, st.type);
                       const allCTVs = slot?.assignedCTVs || [];
                       const filteredCTVs = getFilteredCTVs(allCTVs);
-                      const approvedCount = allCTVs.filter((c) => c.status === "Đã duyệt").length;
-                      const pendingCount = allCTVs.filter((c) => c.status === "Chờ duyệt").length;
-                      const isOff = slot?.status === "Nghỉ";
+                      const approvedCount = allCTVs.filter((c) => c.status === 'Đã duyệt').length;
+                      const pendingCount = allCTVs.filter((c) => c.status === 'Chờ duyệt').length;
+                      const isOff = slot?.status === 'Nghỉ';
 
                       return (
                         <div
                           key={`${st.type}-${d.index}`}
                           className={`p-2 border-r border-[#E2E8F0] dark:border-[#3b3d45] last:border-r-0 flex flex-col justify-between transition-colors ${
                             d.isWeekend
-                              ? "bg-slate-50/60 dark:bg-[#1e1f23]"
-                              : "bg-white dark:bg-[#25262b]"
+                              ? 'bg-slate-50/60 dark:bg-[#1e1f23]'
+                              : 'bg-white dark:bg-[#25262b]'
                           } hover:bg-slate-50 dark:hover:bg-[#2c2d33]`}
                         >
                           {/* Cell Top Header */}
                           <div className="flex items-center justify-between mb-1.5">
                             {isOff ? (
                               <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                                {t("schedule.off")}
+                                {t('schedule.off')}
                               </span>
                             ) : (
                               <div className="flex items-center gap-1">
                                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded-full">
-                                  {approvedCount} {t("schedule.ctv_short")}
+                                  {approvedCount} {t('schedule.ctv_short')}
                                 </span>
                                 {pendingCount > 0 && (
                                   <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded-full animate-pulse">
-                                    +{pendingCount} {t("schedule.pending_short")}
+                                    +{pendingCount} {t('schedule.pending_short')}
                                   </span>
                                 )}
                               </div>
@@ -784,7 +775,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               onClick={() =>
                                 setSelectedCell({ dayIndex: d.index, shiftType: st.type })
                               }
-                              title={t("schedule.manage_shift_ctvs")}
+                              title={t('schedule.manage_shift_ctvs')}
                               className="text-[#74777f] hover:text-[#1b365d] dark:hover:text-white p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                             >
                               <span className="material-symbols-outlined text-[16px]">
@@ -800,9 +791,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                 <div
                                   key={ctv.id}
                                   className={`p-1.5 rounded-lg border text-xs flex items-center justify-between gap-1 group transition-all ${
-                                    ctv.status === "Đã duyệt"
-                                      ? "bg-slate-50 border-slate-200 dark:bg-[#1a1b1e] dark:border-[#3b3d45]"
-                                      : "bg-amber-50/70 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800/50"
+                                    ctv.status === 'Đã duyệt'
+                                      ? 'bg-slate-50 border-slate-200 dark:bg-[#1a1b1e] dark:border-[#3b3d45]'
+                                      : 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800/50'
                                   }`}
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0">
@@ -814,7 +805,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                       />
                                     ) : (
                                       <div className="w-5 h-5 rounded-full bg-accent text-white font-bold text-[9px] flex items-center justify-center shrink-0">
-                                        {ctv.initials || "CTV"}
+                                        {ctv.initials || 'CTV'}
                                       </div>
                                     )}
                                     <span className="font-semibold text-[#1a1b1e] dark:text-[#d6e3ff] truncate text-[11px]">
@@ -823,20 +814,20 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   </div>
 
                                   <div className="flex items-center gap-1 shrink-0">
-                                    {ctv.status === "Chờ duyệt" ? (
+                                    {ctv.status === 'Chờ duyệt' ? (
                                       <button
                                         onClick={() =>
                                           slot && handleApproveCTVInShift(slot.id, ctv.id)
                                         }
-                                        title={t("schedule.approve_ctv_tooltip")}
+                                        title={t('schedule.approve_ctv_tooltip')}
                                         className="text-emerald-600 hover:text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 p-0.5 rounded text-[10px] font-bold"
                                       >
-                                        {t("approve")}
+                                        {t('approve')}
                                       </button>
                                     ) : (
                                       <span
                                         className="w-2 h-2 rounded-full bg-emerald-500 inline-block"
-                                        title={t("status_approved")}
+                                        title={t('status_approved')}
                                       />
                                     )}
 
@@ -844,7 +835,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                       onClick={() =>
                                         slot && handleRemoveCTVFromShift(slot.id, ctv.id)
                                       }
-                                      title={t("schedule.remove_from_shift")}
+                                      title={t('schedule.remove_from_shift')}
                                       className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 p-0.5 transition-opacity cursor-pointer"
                                     >
                                       <span className="material-symbols-outlined text-[14px]">
@@ -856,7 +847,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               ))
                             ) : (
                               <div className="h-full flex flex-col items-center justify-center text-center p-2 text-[11px] text-slate-300 dark:text-slate-600 italic">
-                                {isOff ? t("schedule.shift_closed") : t("schedule.no_ctv_short")}
+                                {isOff ? t('schedule.shift_closed') : t('schedule.no_ctv_short')}
                               </div>
                             )}
                           </div>
@@ -870,7 +861,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                               className="mt-1 w-full py-1 rounded border border-dashed border-slate-200 dark:border-slate-700 hover:border-[#1b365d] hover:bg-[#1b365d]/5 text-[11px] text-[#74777f] hover:text-[#1b365d] dark:hover:text-white transition-all font-medium flex items-center justify-center gap-1 cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[14px]">add</span>
-                              <span>{t("schedule.assign_shift")}</span>
+                              <span>{t('schedule.assign_shift')}</span>
                             </button>
                           )}
                         </div>
@@ -884,13 +875,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
       )}
 
       {/* VIEW MODE 2: PER-CTV VIEW */}
-      {viewMode === "ctv" && (
+      {viewMode === 'ctv' && (
         <div className="bg-white dark:bg-[#25262b] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F8FAFC] dark:bg-[#1f2023] border-b border-[#E2E8F0] dark:border-[#3b3d45] text-[#1b365d] dark:text-[#d6e3ff]">
                 <tr>
-                  <th className="p-3.5 font-bold w-[220px]">{t("schedule.collaborator")}</th>
+                  <th className="p-3.5 font-bold w-[220px]">{t('schedule.collaborator')}</th>
                   {daysHeader.map((d) => (
                     <th
                       key={d.index}
@@ -900,7 +891,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     </th>
                   ))}
                   <th className="p-3.5 font-bold text-center border-l border-[#E2E8F0] dark:border-[#3b3d45] w-[100px]">
-                    {t("schedule.total_shifts")}
+                    {t('schedule.total_shifts')}
                   </th>
                 </tr>
               </thead>
@@ -959,21 +950,21 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                                   const ctvRecord = (s.assignedCTVs || []).find(
                                     (c) => c.id === acc.id,
                                   );
-                                  const isPending = ctvRecord?.status === "Chờ duyệt";
+                                  const isPending = ctvRecord?.status === 'Chờ duyệt';
 
                                   return (
                                     <span
                                       key={s.id}
                                       className={`px-2 py-1 rounded text-[10px] font-bold border ${
-                                        s.shiftType === "morning"
-                                          ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
-                                          : s.shiftType === "afternoon"
-                                            ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
-                                            : "bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300"
-                                      } ${isPending ? "border-dashed opacity-80" : ""}`}
+                                        s.shiftType === 'morning'
+                                          ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                                          : s.shiftType === 'afternoon'
+                                            ? 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
+                                            : 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300'
+                                      } ${isPending ? 'border-dashed opacity-80' : ''}`}
                                     >
                                       {getShiftTypeLabel(s.shiftType, t)}
-                                      {isPending ? " (?)" : ""}
+                                      {isPending ? ' (?)' : ''}
                                     </span>
                                   );
                                 })}
@@ -990,7 +981,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       {/* Total Shifts Column */}
                       <td className="p-3.5 border-l border-[#E2E8F0] dark:border-[#3b3d45] text-center font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff]">
                         <span className="bg-[#1b365d]/10 text-[#1b365d] dark:bg-[#1b365d]/30 dark:text-[#87a0cd] px-2.5 py-1 rounded-full text-xs">
-                          {totalShiftsForCTV} {t("schedule.shift_unit")}
+                          {totalShiftsForCTV} {t('schedule.shift_unit')}
                         </span>
                       </td>
                     </tr>
@@ -1016,21 +1007,21 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-[#1b365d] text-white flex items-center justify-center">
                 <span className="material-symbols-outlined text-[22px]">
-                  {modalShiftMeta?.icon || "event"}
+                  {modalShiftMeta?.icon || 'event'}
                 </span>
               </div>
               <div>
                 <h3 className="text-lg font-bold text-[#1b365d] dark:text-[#d6e3ff]">
-                  {t("schedule.assign_shift_modal_title", {
+                  {t('schedule.assign_shift_modal_title', {
                     day: getWeekdayLabel(selectedCell.dayIndex, t),
-                    date: modalDayHeader?.date || "",
+                    date: modalDayHeader?.date || '',
                   })}
                 </h3>
                 <p className="text-xs text-[#74777f] dark:text-[#c4c6cf]">
-                  {t("schedule.shift_colon")}{" "}
+                  {t('schedule.shift_colon')}{' '}
                   <span className="font-semibold text-[#1b365d] dark:text-white">
-                    {modalShiftMeta ? t(modalShiftMeta.nameKey) : ""}
-                  </span>{" "}
+                    {modalShiftMeta ? t(modalShiftMeta.nameKey) : ''}
+                  </span>{' '}
                   ({modalShiftMeta?.timeLabel})
                 </p>
               </div>
@@ -1039,7 +1030,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             {/* Current CTV list in this shift */}
             <div className="space-y-3 mb-6">
               <label className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] block">
-                {t("schedule.ctv_list_in_shift", { count: modalSlot?.assignedCTVs?.length || 0 })}
+                {t('schedule.ctv_list_in_shift', { count: modalSlot?.assignedCTVs?.length || 0 })}
               </label>
 
               <div className="max-h-52 overflow-y-auto space-y-2 border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl p-2 bg-[#f4f3f7]/50 dark:bg-[#1a1b1e]">
@@ -1057,7 +1048,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           }
                         }}
                         className="flex items-center gap-2.5 cursor-pointer group/ctv hover:opacity-80 transition-opacity"
-                        title={t("schedule.view_ctv_profile", { name: ctv.name })}
+                        title={t('schedule.view_ctv_profile', { name: ctv.name })}
                       >
                         {ctv.avatar ? (
                           <img
@@ -1067,7 +1058,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                           />
                         ) : (
                           <div className="w-7 h-7 rounded-full bg-[#1b365d] text-white font-bold text-xs flex items-center justify-center group-hover/ctv:ring-2 group-hover/ctv:ring-accent transition-all">
-                            {ctv.initials || "CTV"}
+                            {ctv.initials || 'CTV'}
                           </div>
                         )}
                         <div>
@@ -1079,18 +1070,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {ctv.status === "Chờ duyệt" ? (
+                        {ctv.status === 'Chờ duyệt' ? (
                           <button
                             onClick={() =>
                               modalSlot && handleApproveCTVInShift(modalSlot.id, ctv.id)
                             }
                             className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2 py-1 rounded"
                           >
-                            {t("schedule.approve_shift")}
+                            {t('schedule.approve_shift')}
                           </button>
                         ) : (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {t("status_approved")}
+                            {t('status_approved')}
                           </span>
                         )}
 
@@ -1099,7 +1090,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                             modalSlot && handleRemoveCTVFromShift(modalSlot.id, ctv.id)
                           }
                           className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                          title={t("schedule.remove_from_shift")}
+                          title={t('schedule.remove_from_shift')}
                         >
                           <span className="material-symbols-outlined text-[16px]">delete</span>
                         </button>
@@ -1108,7 +1099,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   ))
                 ) : (
                   <div className="text-center py-6 text-xs text-[#74777f] italic">
-                    {t("schedule.no_ctv_in_this_shift")}
+                    {t('schedule.no_ctv_in_this_shift')}
                   </div>
                 )}
               </div>
@@ -1117,7 +1108,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
             {/* Form to add a CTV to this shift */}
             <div className="space-y-3 pt-3 border-t border-[#E2E8F0] dark:border-[#3b3d45]">
               <label className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] block">
-                {t("schedule.add_ctv_to_shift_label")}
+                {t('schedule.add_ctv_to_shift_label')}
               </label>
               <div className="flex gap-2">
                 <select
@@ -1125,7 +1116,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   onChange={(e) => setAssignUser(e.target.value)}
                   className="flex-1 p-2 bg-[#f4f3f7] dark:bg-[#1a1b1e] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl text-xs font-medium text-[#1b365d] dark:text-[#d6e3ff]"
                 >
-                  <option value="">{t("schedule.select_ctv_option")}</option>
+                  <option value="">{t('schedule.select_ctv_option')}</option>
                   {activeAccounts
                     .filter((acc) => !(modalSlot?.assignedCTVs || []).some((c) => c.id === acc.id))
                     .map((acc) => (
@@ -1141,12 +1132,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                     const userObj = activeAccounts.find((a) => a.id === assignUser);
                     if (userObj && modalSlot) {
                       handleAddCTVToShiftSlot(modalSlot.id, userObj);
-                      setAssignUser("");
+                      setAssignUser('');
                     }
                   }}
                   className="bg-[#1b365d] hover:bg-[#002046] disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
                 >
-                  {t("schedule.add_ctv_btn")}
+                  {t('schedule.add_ctv_btn')}
                 </button>
               </div>
             </div>
@@ -1156,7 +1147,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 onClick={() => setSelectedCell(null)}
                 className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs px-5 py-2 rounded-xl cursor-pointer"
               >
-                {t("done")}
+                {t('done')}
               </button>
             </div>
           </div>
@@ -1180,11 +1171,9 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-[#1b365d] dark:text-[#d6e3ff]">
-                  {t("schedule.quick_assign_title")}
+                  {t('schedule.quick_assign_title')}
                 </h3>
-                <p className="text-xs text-[#74777f]">
-                  {t("schedule.quick_assign_subtitle")}
-                </p>
+                <p className="text-xs text-[#74777f]">{t('schedule.quick_assign_subtitle')}</p>
               </div>
             </div>
 
@@ -1192,7 +1181,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               {/* Select CTV */}
               <div>
                 <label className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] block mb-1.5">
-                  {t("schedule.quick_assign_step1")}
+                  {t('schedule.quick_assign_step1')}
                 </label>
                 <select
                   required
@@ -1200,7 +1189,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   onChange={(e) => setAssignUser(e.target.value)}
                   className="w-full p-2.5 bg-[#f4f3f7] dark:bg-[#1a1b1e] border border-[#E2E8F0] dark:border-[#3b3d45] rounded-xl text-xs font-medium text-[#1b365d] dark:text-[#d6e3ff]"
                 >
-                  <option value="">{t("schedule.select_ctv_short")}</option>
+                  <option value="">{t('schedule.select_ctv_short')}</option>
                   {activeAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.name} ({acc.cctvCode || acc.phone})
@@ -1212,7 +1201,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               {/* Select Day */}
               <div>
                 <label className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] block mb-1.5">
-                  {t("schedule.quick_assign_step2")}
+                  {t('schedule.quick_assign_step2')}
                 </label>
                 <select
                   value={assignDay}
@@ -1230,7 +1219,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               {/* Select Shift Type */}
               <div>
                 <label className="text-xs font-bold text-[#1b365d] dark:text-[#d6e3ff] block mb-1.5">
-                  {t("schedule.quick_assign_step3")}
+                  {t('schedule.quick_assign_step3')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {shiftTypes.map((st) => (
@@ -1240,8 +1229,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       onClick={() => setAssignType(st.type)}
                       className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         assignType === st.type
-                          ? "bg-[#1b365d] text-white border-[#1b365d] shadow-2xs"
-                          : "bg-[#f4f3f7] dark:bg-[#1a1b1e] border-[#E2E8F0] dark:border-[#3b3d45] text-[#1b365d] dark:text-[#d6e3ff] hover:bg-slate-200"
+                          ? 'bg-[#1b365d] text-white border-[#1b365d] shadow-2xs'
+                          : 'bg-[#f4f3f7] dark:bg-[#1a1b1e] border-[#E2E8F0] dark:border-[#3b3d45] text-[#1b365d] dark:text-[#d6e3ff] hover:bg-slate-200'
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">{st.icon}</span>
@@ -1258,13 +1247,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   onClick={() => setIsQuickAssignOpen(false)}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
-                  {t("cancel")}
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-[#1b365d] hover:bg-[#002046] text-white transition-all cursor-pointer shadow-2xs"
                 >
-                  {t("schedule.confirm_assign")}
+                  {t('schedule.confirm_assign')}
                 </button>
               </div>
             </form>
@@ -1282,7 +1271,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   <span className="material-symbols-outlined text-[20px]">event_busy</span>
                 </div>
                 <h3 className="text-base font-bold text-[#1b365d] dark:text-[#d6e3ff]">
-                  {t("schedule.leave_request_title")}
+                  {t('schedule.leave_request_title')}
                 </h3>
               </div>
               <button
@@ -1297,7 +1286,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               {/* Select Shift to Take Leave */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {t("schedule.select_leave_shift")}
+                  {t('schedule.select_leave_shift')}
                 </label>
                 <select
                   value={leaveShiftType}
@@ -1305,19 +1294,23 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a1b1e] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-[#1b365d] dark:text-[#d6e3ff] outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="today_morning">
-                    {t("schedule.leave_option_morning_today", { day: getWeekdayLabel(todayIndex, t) })}
+                    {t('schedule.leave_option_morning_today', {
+                      day: getWeekdayLabel(todayIndex, t),
+                    })}
                   </option>
                   <option value="today_afternoon">
-                    {t("schedule.leave_option_afternoon_today", { day: getWeekdayLabel(todayIndex, t) })}
+                    {t('schedule.leave_option_afternoon_today', {
+                      day: getWeekdayLabel(todayIndex, t),
+                    })}
                   </option>
-                  <option value="other">{t("schedule.leave_option_all_week")}</option>
+                  <option value="other">{t('schedule.leave_option_all_week')}</option>
                 </select>
               </div>
 
               {/* Reason Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {t("schedule.leave_reason_label")}
+                  {t('schedule.leave_reason_label')}
                 </label>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   {LEAVE_REASONS.map((r) => (
@@ -1327,8 +1320,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                       onClick={() => setLeaveReasonKey(r.key)}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-left transition-all cursor-pointer ${
                         leaveReasonKey === r.key
-                          ? "bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 font-bold"
-                          : "bg-slate-50 dark:bg-[#1a1b1e] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                          ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300 font-bold'
+                          : 'bg-slate-50 dark:bg-[#1a1b1e] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                       }`}
                     >
                       {t(r.labelKey)}
@@ -1340,13 +1333,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
               {/* Note input */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {t("schedule.leave_note_label")}
+                  {t('schedule.leave_note_label')}
                 </label>
                 <textarea
                   rows={3}
                   value={leaveNote}
                   onChange={(e) => setLeaveNote(e.target.value)}
-                  placeholder={t("schedule.leave_note_placeholder")}
+                  placeholder={t('schedule.leave_note_placeholder')}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a1b1e] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-[#1b365d] dark:text-[#d6e3ff] outline-none focus:ring-1 focus:ring-blue-500 resize-none"
                 />
               </div>
@@ -1359,7 +1352,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 onClick={() => setIsLeaveModalOpen(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
-                {t("cancel")}
+                {t('cancel')}
               </button>
               <button
                 type="button"
@@ -1367,7 +1360,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({
                 className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">send</span>
-                <span>{t("schedule.submit_leave_request")}</span>
+                <span>{t('schedule.submit_leave_request')}</span>
               </button>
             </div>
           </div>

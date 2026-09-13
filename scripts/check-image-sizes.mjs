@@ -19,7 +19,7 @@ function getImageSize(imageName) {
     const output = execFileSync(
       'docker',
       ['image', 'inspect', imageName, '--format', '{{.Size}}'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
     );
     return Number.parseInt(output.trim(), 10);
   } catch (error) {
@@ -42,12 +42,12 @@ for (const [key, config] of Object.entries(BUDGETS)) {
 
     if (sizeBytes > config.maxBytes) {
       console.error(
-        `❌ [FAIL] ${key} (${config.name}): ${sizeMb} MB exceeds budget of ${maxMb} MB! (Baseline: ${config.baselineMb} MB)`
+        `❌ [FAIL] ${key} (${config.name}): ${sizeMb} MB exceeds budget of ${maxMb} MB! (Baseline: ${config.baselineMb} MB)`,
       );
       failed = true;
     } else {
       console.log(
-        `✅ [PASS] ${key} (${config.name}): ${sizeMb} MB (Budget: <= ${maxMb} MB | Baseline: ${config.baselineMb} MB | Reduction: -${reductionPercent}%)`
+        `✅ [PASS] ${key} (${config.name}): ${sizeMb} MB (Budget: <= ${maxMb} MB | Baseline: ${config.baselineMb} MB | Reduction: -${reductionPercent}%)`,
       );
     }
   } catch (err) {

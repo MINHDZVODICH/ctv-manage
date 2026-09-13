@@ -1,82 +1,35 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { UserAccount, RegistrationRequest, ShiftSlot, ViewTab } from '../shared/types';
-import { Sidebar, SettingsModal } from '../shared/ui';
+import type { UserAccount, ViewTab } from '../shared/types';
 import { LoginScreen } from '../features/auth';
-import {
-  AccountListScreen,
-  RequestsScreen,
-  ViewAccountDetailModal,
-  ResetPasswordModal,
-  ViewRequestModal,
-} from '../features/accounts';
-import { ScheduleScreen, SummaryScheduleScreen } from '../features/schedule';
-import {
-  ProfileScreen,
-  EditProfileModal,
-  ChangePasswordModal,
-  useProfile,
-} from '../features/profile';
+import { useAccountsAdmin } from '../features/accounts';
+import { useRegistrationRequests } from '../features/registration';
+import { useScheduleDashboard } from '../features/schedule';
+import { useProfile } from '../features/profile';
 import { useSystemSettings } from '../shared/context/SystemSettingsContext';
 import { useAuth } from '../shared/auth/AuthContext';
-import * as api from '../shared/api';
-import {
-  accountToUserAccount,
-  accountsToUserAccounts,
-  requestsToRegistrationRequests,
-  myShiftsToSlots,
-  weeklyScheduleToSlots,
-  summaryToSlots,
-  mapRole,
-  fileUrl,
-} from '../shared/mappers';
-
-const SHIFT_STORAGE_KEY = 'ctv_schedule_cache';
-const PAGE_SIZE = 5;
-
-interface PaginatedQueryState {
-  page: number;
-  pageSize: number;
-  q: string;
-  total: number;
-  loading: boolean;
-  error: string | null;
-}
+import { useCurrentUser } from './hooks/useCurrentUser';
+import { useTabRefresh } from './hooks/useTabRefresh';
+import { AppNavigation } from './components/AppNavigation';
+import { AppContent } from './components/AppContent';
+import { AppModals } from './components/AppModals';
+import { mapRole } from '../shared/mappers';
 
 export const App: React.FC = () => {
   const { isDarkMode, t } = useSystemSettings();
   const { user: authUser, loading: authLoading, login, register, logout } = useAuth();
+  const { user: currentUser, refreshUser: refreshCurrentUser, clearUser } = useCurrentUser();
 
   const [currentTab, setCurrentTab] = useState<ViewTab>('accounts');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  const [accounts, setAccounts] = useState<UserAccount[]>([]);
-  const [requests, setRequests] = useState<RegistrationRequest[]>([]);
-  const [shifts, setShifts] = useState<ShiftSlot[]>([]);
-  const [accountQuery, setAccountQuery] = useState<PaginatedQueryState>({ page: 1, pageSize: PAGE_SIZE, q: '', total: 0, loading: false, error: null });
-  const [requestQuery, setRequestQuery] = useState<PaginatedQueryState>({ page: 1, pageSize: PAGE_SIZE, q: '', total: 0, loading: false, error: null });
-  const [accountSearchInput, setAccountSearchInput] = useState('');
-  const [requestSearchInput, setRequestSearchInput] = useState('');
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-
-  const accountRequestController = useRef<AbortController | null>(null);
-  const requestRequestController = useRef<AbortController | null>(null);
-  const accountRequestSequence = useRef(0);
-  const requestRequestSequence = useRef(0);
-
-  const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
-  const [selectedAccountDetail, setSelectedAccountDetail] = useState<UserAccount | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ---- helpers ----
   const showToast = useCallback((msg: string) => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
     toastTimerRef.current = setTimeout(() => {
       setToastMessage(null);
@@ -87,346 +40,52 @@ export const App: React.FC = () => {
   const isAdmin = authUser?.role === 'ADMIN';
   const isLoggedIn = !!authUser;
 
-  // ---- load current user profile ----
-  const refreshCurrentUser = useCallback(async () => {
-    if (!authUser) {
-      setCurrentUser(null);
-      return null;
-    }
-    try {
-      const res: any = await api.apiGet('/api/v1/users/me');
-      const raw = res.user ?? res.data ?? res;
-      if (raw?.id) {
-        const mapped = accountToUserAccount(raw as any, 0);
-        setCurrentUser(mapped);
-        return mapped;
-      }
-    } catch {}
-    if (authUser) {
-      setCurrentUser({
-        id: authUser.id,
-        stt: 1,
-        name: authUser.displayName,
-        email: authUser.email,
-        phone: '',
-        role: mapRole(authUser.role),
-        status: 'Kích hoạt',
-        registerDate: '',
-      });
-    }
-    return null;
-  }, [authUser]);
+  const accountsAdmin = useAccountsAdmin({ isAdmin, onToast: showToast, t });
+  const regRequests = useRegistrationRequests({ isAdmin, onToast: showToast, t });
+  const scheduleDash = useScheduleDashboard({
+    authUser,
+    isAdmin,
+    currentUser,
+    onToast: showToast,
+    t,
+  });
+  const profileActions = useProfile({
+    onSuccess: showToast,
+    onError: showToast,
+    onRefreshUser: async () => {
+      await refreshCurrentUser();
+    },
+  });
 
-  useEffect(() => {
-    refreshCurrentUser();
-  }, [refreshCurrentUser]);
+  useTabRefresh({
+    authUser,
+    currentTab,
+    isAdmin,
+    loadAccounts: accountsAdmin.loadAccounts,
+    loadRequests: regRequests.loadRequests,
+    loadShifts: scheduleDash.loadShifts,
+    refreshCurrentUser,
+    onToast: showToast,
+    reloadFailedMessage: t('app.schedule_reload_failed'),
+    scheduleFailedMessage: t('app.schedule_failed_retry'),
+  });
 
-  // ---- load accounts (admin) ----
-  const loadAccounts = useCallback(async () => {
-    if (!isAdmin) return;
-    accountRequestController.current?.abort();
-    const controller = new AbortController();
-    const sequence = ++accountRequestSequence.current;
-    accountRequestController.current = controller;
-    const { page, pageSize, q } = accountQuery;
-    setAccountQuery((current) => ({ ...current, loading: true, error: null }));
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-      if (q.trim()) params.set('q', q.trim());
-      const res: any = await api.apiGet(`/api/v1/accounts?${params.toString()}`, { signal: controller.signal });
-      const rows = res.data ?? res.items ?? [];
-      const total = res.total ?? rows.length;
-      if (sequence !== accountRequestSequence.current) return;
-      const lastPage = Math.max(1, Math.ceil(total / pageSize));
-      if (total > 0 && rows.length === 0 && page > lastPage) {
-        setAccountQuery((current) => ({ ...current, page: lastPage, total, loading: false }));
-        return;
-      }
-      setAccounts(accountsToUserAccounts(rows));
-      setAccountQuery((current) => ({ ...current, total, loading: false, error: null }));
-    } catch (error) {
-      if (api.isRequestAborted(error) || sequence !== accountRequestSequence.current) return;
-      setAccountQuery((current) => ({ ...current, loading: false, error: t('app.account_list_failed') }));
-    }
-  }, [accountQuery.page, accountQuery.pageSize, accountQuery.q, isAdmin, t]);
-
-  const loadRequests = useCallback(async () => {
-    if (!isAdmin) return;
-    requestRequestController.current?.abort();
-    const controller = new AbortController();
-    const sequence = ++requestRequestSequence.current;
-    requestRequestController.current = controller;
-    const { page, pageSize, q } = requestQuery;
-    setRequestQuery((current) => ({ ...current, loading: true, error: null }));
-    try {
-      const params = new URLSearchParams({ status: 'PENDING', page: String(page), pageSize: String(pageSize) });
-      if (q.trim()) params.set('q', q.trim());
-      const res: any = await api.apiGet(`/api/v1/registration-requests?${params.toString()}`, { signal: controller.signal });
-      const rows = res.items ?? res.data ?? [];
-      const total = res.total ?? rows.length;
-      if (sequence !== requestRequestSequence.current) return;
-      const lastPage = Math.max(1, Math.ceil(total / pageSize));
-      if (total > 0 && rows.length === 0 && page > lastPage) {
-        setRequestQuery((current) => ({ ...current, page: lastPage, total, loading: false }));
-        return;
-      }
-      setRequests(requestsToRegistrationRequests(rows));
-      setRequestQuery((current) => ({ ...current, total, loading: false, error: null }));
-    } catch (error) {
-      if (api.isRequestAborted(error) || sequence !== requestRequestSequence.current) return;
-      setRequestQuery((current) => ({ ...current, loading: false, error: t('app.requests_failed') }));
-    }
-  }, [isAdmin, requestQuery.page, requestQuery.pageSize, requestQuery.q, t]);
-
-  const loadShifts = useCallback(async () => {
-    if (!authUser) return;
-    if (!isAdmin) {
-      const registrationResult = await api.apiGet('/api/v1/users/me/schedule-registration');
-      const reg: any = (registrationResult as any)?.data ?? registrationResult;
-      const u: UserAccount =
-        currentUser ??
-        ({
-          id: authUser.id,
-          name: authUser.displayName,
-          email: authUser.email,
-          phone: '',
-          role: mapRole(authUser.role),
-          status: 'Kích hoạt',
-          registerDate: '',
-        } as unknown as UserAccount);
-      setShifts(weeklyScheduleToSlots(reg, u));
-    } else {
-      // Admin: load weekly schedule summary
-      try {
-        const res: any = await api.apiGet('/api/v1/schedule/weekly-summary').catch(() =>
-          api.apiGet('/api/v1/schedule-summary').catch(() => ({ data: { cells: [] } }))
-        );
-        const cells = res.data?.cells ?? res.cells ?? [];
-        setShifts(summaryToSlots(cells));
-      } catch {
-        setShifts([]);
-      }
-    }
-  }, [authUser, isAdmin, currentUser]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setAccountQuery((current) => ({ ...current, q: accountSearchInput, page: 1 }));
-    }, 250);
-    return () => window.clearTimeout(timeout);
-  }, [accountSearchInput]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setRequestQuery((current) => ({ ...current, q: requestSearchInput, page: 1 }));
-    }, 250);
-    return () => window.clearTimeout(timeout);
-  }, [requestSearchInput]);
-
-  useEffect(() => {
-    if (!authUser || !isAdmin || currentTab !== 'accounts') {
-      accountRequestController.current?.abort();
-      return;
-    }
-    void loadAccounts();
-    return () => accountRequestController.current?.abort();
-  }, [authUser, currentTab, isAdmin, loadAccounts]);
-
-  useEffect(() => {
-    if (!authUser || !isAdmin || currentTab !== 'requests') {
-      requestRequestController.current?.abort();
-      return;
-    }
-    void loadRequests();
-    return () => requestRequestController.current?.abort();
-  }, [authUser, currentTab, isAdmin, loadRequests]);
-
-  useEffect(() => {
-    if (authUser && !isAdmin && currentTab === 'schedule') {
-      void loadShifts().catch(() => showToast(t('app.schedule_failed_retry')));
-    }
-  }, [authUser, currentTab, isAdmin, loadShifts, showToast, t]);
-
-  // A focus and a visibility event often fire together; defer once and refresh only the visible resource.
-  useEffect(() => {
-    let timer: number | null = null;
-    const refreshVisibleResource = () => {
-      if (document.visibilityState !== 'visible' || !authUser || timer !== null) return;
-      timer = window.setTimeout(() => {
-        timer = null;
-        if (currentTab === 'profile') void refreshCurrentUser();
-        else if (isAdmin && currentTab === 'accounts') void loadAccounts();
-        else if (isAdmin && currentTab === 'requests') void loadRequests();
-        else if (!isAdmin && currentTab === 'schedule') {
-          void loadShifts().catch(() => showToast(t('app.schedule_reload_failed')));
-        }
-      }, 0);
-    };
-    window.addEventListener('focus', refreshVisibleResource);
-    document.addEventListener('visibilitychange', refreshVisibleResource);
-    return () => {
-      if (timer !== null) window.clearTimeout(timer);
-      window.removeEventListener('focus', refreshVisibleResource);
-      document.removeEventListener('visibilitychange', refreshVisibleResource);
-    };
-  }, [authUser, currentTab, isAdmin, loadAccounts, loadRequests, loadShifts, refreshCurrentUser, showToast, t]);
-
-  // ---- tab default per role ----
   useEffect(() => {
     if (!authUser) return;
     if (authUser.role === 'ADMIN' && currentTab === 'schedule') setCurrentTab('accounts');
     if (authUser.role !== 'ADMIN' && (currentTab === 'accounts' || currentTab === 'requests')) {
       setCurrentTab('schedule');
     }
-  }, [authUser?.role]);
-
-  // ---- handlers wiring to API ----
-  const handleOpenAccountDetail = async (acc: UserAccount) => {
-    setSelectedAccountDetail(acc);
-    try {
-      const detailRes: any = await api.apiGet(`/api/v1/accounts/${acc.id}`);
-      const raw = detailRes.data ?? (detailRes as any);
-      if (raw?.id) {
-        const mapped = accountToUserAccount(raw, acc.stt);
-        setSelectedAccountDetail(mapped);
-      }
-    } catch {}
-  };
-
-  const handleOpenAccountDetailById = async (id: string) => {
-    try {
-      const detailRes: any = await api.apiGet(`/api/v1/accounts/${id}`);
-      const raw = detailRes.data ?? detailRes;
-      if (raw?.id) setSelectedAccountDetail(accountToUserAccount(raw, 0));
-    } catch (error) {
-      if (!api.isRequestAborted(error)) showToast(t('app.account_info_failed'));
-    }
-  };
-
-  const handleOpenRequestDetail = (req: RegistrationRequest) => {
-    setSelectedRequest(req);
-  };
-
-  const handleLoginSuccess = async (email: string, password: string) => {
-    try {
-      await login(email, password);
-      showToast(t('app.login_success_with_email', { email }));
-    } catch (e: any) {
-      throw e;
-    }
-  };
+  }, [authUser?.role, currentTab]);
 
   const handleLogout = async () => {
     await logout();
-    setAccounts([]);
-    setRequests([]);
-    setShifts([]);
+    accountsAdmin.clearAccounts();
+    regRequests.clearRequests();
+    scheduleDash.clearShifts();
+    clearUser();
     showToast(t('app.logout_success'));
   };
-
-  const handleToggleAccountStatus = async (id: string) => {
-    const acc = accounts.find((a) => a.id === id);
-    if (!acc) return;
-    const targetStatus = acc.status === 'Kích hoạt' ? 'DISABLED' : 'ACTIVE';
-    try {
-      // Need version: fetch detail to get version if not in list
-      const detailRes: any = await api.apiGet(`/api/v1/accounts/${id}`);
-      const version = detailRes.data?.version ?? (detailRes as any).version ?? undefined;
-      await api.apiPatch(`/api/v1/accounts/${id}/status`, { status: targetStatus, expectedVersion: version });
-      showToast(
-        targetStatus === 'DISABLED'
-          ? t('app.account_disabled', { name: acc.name })
-          : t('app.account_enabled', { name: acc.name })
-      );
-      await loadAccounts();
-      if (selectedAccountDetail?.id === id) {
-        handleOpenAccountDetail({ ...acc, status: targetStatus === 'DISABLED' ? 'Vô hiệu hóa' : 'Kích hoạt' });
-      }
-    } catch (e: any) {
-      showToast(e.message ?? t('app.status_update_failed'));
-    }
-  };
-
-  const handleDeleteAccount = async (id: string) => {
-    const target = accounts.find((a) => a.id === id);
-    if (!target) return;
-    if (!confirm(t('app.delete_account_confirm', { name: target.name }))) return;
-    try {
-      await api.apiDelete(`/api/v1/accounts/${id}`);
-      showToast(t('app.account_deleted', { name: target.name }));
-      if (selectedAccountDetail?.id === id) setSelectedAccountDetail(null);
-      await loadAccounts();
-    } catch (e: any) {
-      showToast(e.message ?? t('app.delete_failed'));
-    }
-  };
-
-  const handleResetPassword = async (id: string, newPassword: string, requireChangeOnLogin: boolean) => {
-    const target = accounts.find((a) => a.id === id) ?? (selectedAccountDetail?.id === id ? selectedAccountDetail : null);
-    const accountName = target?.name ?? t('app.default_account_name');
-    try {
-      await api.apiPost(`/api/v1/accounts/${id}/password-resets`, { newPassword, mustChangePassword: requireChangeOnLogin });
-      showToast(t('app.password_reset_for_account_success', { name: accountName }));
-    } catch (e: any) {
-      showToast(e.message ?? t('app.password_reset_failed'));
-    }
-  };
-
-  const handleSaveAccountNotes = async (id: string, notes: string) => {
-    try {
-      // fetch version
-      const detailRes: any = await api.apiGet(`/api/v1/accounts/${id}`);
-      const version = detailRes.data?.version ?? (detailRes as any).version;
-      await api.apiPatch(`/api/v1/accounts/${id}/notes`, { adminNotes: notes, expectedVersion: version });
-      setSelectedAccountDetail((prev) => (prev && prev.id === id ? { ...prev, notes } : prev));
-      showToast(t('app.save_admin_notes_success'));
-      await loadAccounts();
-    } catch (e: any) {
-      showToast(e.message ?? t('app.save_notes_failed'));
-    }
-  };
-
-  const handleApproveRequest = async (id: string) => {
-    try {
-      await api.apiPatch(`/api/v1/registration-requests/${id}`, { decision: 'APPROVED', expectedStatus: 'PENDING' });
-      showToast(t('app.req_approved_general'));
-      if (selectedRequest?.id === id) setSelectedRequest(null);
-      await loadRequests();
-    } catch (e: any) {
-      showToast(e.message ?? t('app.approve_failed'));
-    }
-  };
-
-  const handleRejectRequest = async (id: string) => {
-    try {
-      await api.apiPatch(`/api/v1/registration-requests/${id}`, { decision: 'REJECTED', expectedStatus: 'PENDING' });
-      if (selectedRequest?.id === id) setSelectedRequest(null);
-      showToast(t('app.req_rejected_general'));
-      await loadRequests();
-    } catch (e: any) {
-      showToast(e.message ?? t('app.reject_failed'));
-    }
-  };
-
-  const {
-    saveProfile: handleSaveProfile,
-    updateAvatar: handleUpdateAvatar,
-    updateCccd: handleUpdateCccd,
-    updateCv: handleUpdateCv,
-  } = useProfile({
-    onSuccess: showToast,
-    onError: showToast,
-    onRefreshUser: refreshCurrentUser,
-  });
-
-  const handleEndAccountSchedule = async (accountId: string, _startDate: string, endDate: string, reason: string) => {
-    // Use schedule summary cancel: not directly supported; cancel future assignments via schedule service
-    // For now, use status change side-effect or manual shift cancellation per assignment is not exposed.
-    // We'll call changeStatus DISABLED as fallback is not correct. Instead, show not implemented.
-    showToast(t('app.end_schedule_hint'));
-  };
-
-  const pendingRequestsCount = requestQuery.total;
 
   if (authLoading) {
     return (
@@ -439,40 +98,34 @@ export const App: React.FC = () => {
   if (!isLoggedIn || !authUser) {
     return (
       <LoginScreen
-        onLoginSuccess={handleLoginSuccess}
-        onRequestRegister={async (formData: any) => {
-          // LoginScreen will call with FormData now (see patched LoginScreen)
-          // Fallback: if it passes RegistrationRequest object (old prototype), ignore
-          if (formData instanceof FormData) {
-            await register(formData);
-          }
+        onLoginSuccess={async (email, password) => {
+          await login(email, password);
+          showToast(t('app.login_success_with_email', { email }));
+        }}
+        onRequestRegister={async (formData: unknown) => {
+          if (formData instanceof FormData) await register(formData);
         }}
       />
     );
   }
 
-  const userName = currentUser?.name ?? authUser.displayName;
-  const userRoleLabel = currentUser?.role ?? mapRole(authUser.role);
-  const userAvatar = currentUser?.avatar;
-  const userInitials = currentUser?.initials;
-  const effectiveCurrentUser: UserAccount =
-    currentUser ??
-    ({
-      id: authUser.id,
-      stt: 1,
-      name: authUser.displayName,
-      email: authUser.email,
-      phone: '',
-      role: mapRole(authUser.role),
-      status: 'Kích hoạt',
-      registerDate: '',
-    } as UserAccount);
+  const effectiveUser: UserAccount = currentUser ?? {
+    id: authUser.id,
+    stt: 1,
+    name: authUser.displayName,
+    email: authUser.email,
+    phone: '',
+    role: mapRole(authUser.role),
+    status: 'Kích hoạt',
+    registerDate: '',
+  };
 
   return (
-    <div className={`h-screen flex overflow-hidden bg-[#faf9fd] text-[#1a1b1e] ${isDarkMode ? 'dark' : ''}`}>
+    <div
+      className={`h-screen flex overflow-hidden bg-[#faf9fd] text-[#1a1b1e] ${isDarkMode ? 'dark' : ''}`}
+    >
       {toastMessage && (
         <div
-          role="status"
           aria-live="polite"
           className="fixed bottom-6 right-6 z-50 bg-[#002046] text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-3 duration-200"
         >
@@ -481,54 +134,25 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="hidden md:block">
-        <Sidebar
-          currentTab={currentTab}
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            setIsMobileMenuOpen(false);
-          }}
-          pendingRequestsCount={pendingRequestsCount}
-          onLogout={handleLogout}
-          userName={userName}
-          userRole={userRoleLabel}
-          userAvatar={userAvatar}
-          userInitials={userInitials}
-          onSwitchRole={() => showToast(t('app.switch_role_not_available'))}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-      </div>
+      <AppNavigation
+        currentTab={currentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          setIsMobileMenuOpen(false);
+        }}
+        pendingRequestsCount={regRequests.pendingRequestsCount}
+        onLogout={handleLogout}
+        effectiveUser={effectiveUser}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
+      />
 
-      {isMobileMenuOpen && (
-        <div onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" className="fixed inset-0 bg-black/50 z-30 md:hidden" />
-      )}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-y-0 left-0 w-[280px] bg-[#f4f3f7] z-40 md:hidden flex flex-col">
-          <Sidebar
-            currentTab={currentTab}
-            onSelectTab={(tab) => {
-              setCurrentTab(tab);
-              setIsMobileMenuOpen(false);
-            }}
-            pendingRequestsCount={pendingRequestsCount}
-            onLogout={handleLogout}
-            userName={userName}
-            userRole={userRoleLabel}
-            userAvatar={userAvatar}
-            userInitials={userInitials}
-            onSwitchRole={() => showToast(t('app.switch_role_not_available'))}
-            onOpenSettings={() => {
-              setIsSettingsOpen(true);
-              setIsMobileMenuOpen(false);
-            }}
-            isCollapsed={false}
-          />
-        </div>
-      )}
-
-      <div className={`flex-1 flex flex-col h-screen min-w-0 overflow-hidden relative transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[280px]'}`}>
+      <div
+        className={`flex-1 flex flex-col h-screen min-w-0 overflow-hidden relative transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[280px]'}`}
+      >
         <div className="md:hidden p-3 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#f4f3f7] dark:bg-[#1a1b1e] flex items-center justify-between z-10 shrink-0">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -541,99 +165,38 @@ export const App: React.FC = () => {
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl w-full mx-auto">
-            {currentTab === 'accounts' && (
-              <AccountListScreen
-                accounts={accounts}
-                total={accountQuery.total}
-                page={accountQuery.page}
-                pageSize={accountQuery.pageSize}
-                searchTerm={accountSearchInput}
-                loading={accountQuery.loading}
-                error={accountQuery.error}
-                onSearchChange={setAccountSearchInput}
-                onPageChange={(page) => setAccountQuery((current) => ({ ...current, page }))}
-                onResetFilters={() => {
-                  setAccountSearchInput('');
-                  setAccountQuery((current) => ({ ...current, q: '', page: 1 }));
-                }}
-                onToggleAccountStatus={handleToggleAccountStatus}
-                onDeleteAccount={handleDeleteAccount}
-                onViewAccountDetail={handleOpenAccountDetail}
-                onResetPassword={handleResetPassword}
-              />
-            )}
-            {currentTab === 'requests' && (
-              <RequestsScreen
-                requests={requests}
-                total={requestQuery.total}
-                page={requestQuery.page}
-                pageSize={requestQuery.pageSize}
-                searchTerm={requestSearchInput}
-                loading={requestQuery.loading}
-                error={requestQuery.error}
-                onSearchChange={setRequestSearchInput}
-                onPageChange={(page) => setRequestQuery((current) => ({ ...current, page }))}
-                onResetFilters={() => {
-                  setRequestSearchInput('');
-                  setRequestQuery((current) => ({ ...current, q: '', page: 1 }));
-                }}
-                onApproveRequest={handleApproveRequest}
-                onRejectRequest={handleRejectRequest}
-                onViewRequestDetail={handleOpenRequestDetail}
-              />
-            )}
-            {currentTab === 'schedule' && (
-              <ScheduleScreen
-                shifts={shifts}
-                accounts={accounts}
-                onUpdateShifts={setShifts}
-                onShowToast={showToast}
-                onReload={loadShifts}
-                onViewAccountDetail={handleOpenAccountDetail}
-                currentUser={effectiveCurrentUser}
-                userRole={userRoleLabel as any}
-              />
-            )}
-            {currentTab === 'meetings' && (
-              <SummaryScheduleScreen
-                shifts={shifts}
-                onViewAccountDetail={handleOpenAccountDetailById}
-                onShowToast={showToast}
-                currentUser={currentUser ?? undefined}
-                userRole={userRoleLabel as any}
-              />
-            )}
-            {currentTab === 'profile' && currentUser && (
-              <ProfileScreen
-                user={currentUser}
-                onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                onOpenChangePassword={() => setIsChangePasswordOpen(true)}
-                onUpdateAvatar={handleUpdateAvatar}
-                onUpdateCccdFront={(url) => handleUpdateCccd('CCCD_FRONT', url)}
-                onUpdateCccdBack={(url) => handleUpdateCccd('CCCD_BACK', url)}
-                onUpdateCvFile={handleUpdateCv}
-              />
-            )}
-          </div>
+          <AppContent
+            currentTab={currentTab}
+            accountsAdmin={accountsAdmin}
+            regRequests={regRequests}
+            scheduleDash={scheduleDash}
+            effectiveUser={effectiveUser}
+            currentUser={currentUser}
+            showToast={showToast}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
+            onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+            onUpdateAvatar={profileActions.updateAvatar}
+            onUpdateCccdFront={(url) => profileActions.updateCccd('CCCD_FRONT', url)}
+            onUpdateCccdBack={(url) => profileActions.updateCccd('CCCD_BACK', url)}
+            onUpdateCvFile={profileActions.updateCv}
+          />
         </main>
       </div>
 
-      <ViewRequestModal request={selectedRequest} onClose={() => setSelectedRequest(null)} onApprove={handleApproveRequest} onReject={handleRejectRequest} />
-      <ViewAccountDetailModal
-        account={selectedAccountDetail}
-        shifts={shifts}
-        onClose={() => setSelectedAccountDetail(null)}
-        onToggleStatus={handleToggleAccountStatus}
-        onSaveNotes={handleSaveAccountNotes}
-        onEndSchedule={handleEndAccountSchedule}
-        onResetPassword={handleResetPassword}
+      <AppModals
+        accountsAdmin={accountsAdmin}
+        regRequests={regRequests}
+        scheduleDash={scheduleDash}
+        profileActions={profileActions}
+        currentUser={currentUser}
+        isEditProfileOpen={isEditProfileOpen}
+        onCloseEditProfile={() => setIsEditProfileOpen(false)}
+        isChangePasswordOpen={isChangePasswordOpen}
+        onCloseChangePassword={() => setIsChangePasswordOpen(false)}
+        onChangePasswordSuccess={() => showToast(t('app.change_password_success'))}
+        isSettingsOpen={isSettingsOpen}
+        onCloseSettings={() => setIsSettingsOpen(false)}
       />
-      {currentUser && (
-        <EditProfileModal isOpen={isEditProfileOpen} user={currentUser} onClose={() => setIsEditProfileOpen(false)} onSave={handleSaveProfile} />
-      )}
-      <ChangePasswordModal isOpen={isChangePasswordOpen} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => showToast(t('app.change_password_success'))} />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 };

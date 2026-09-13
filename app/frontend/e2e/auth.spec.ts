@@ -40,7 +40,10 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
     await expect(error).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   });
 
-  test('Admin đăng nhập, không còn nút đổi vai trò, và đăng xuất được', async ({ page, loginAs }) => {
+  test('Admin đăng nhập, không còn nút đổi vai trò, và đăng xuất được', async ({
+    page,
+    loginAs,
+  }) => {
     await loginAs('admin');
     await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
     await expect(page.getByText('Chuyển vai trò', { exact: true })).toHaveCount(0);
@@ -51,7 +54,10 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
     await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
   });
 
-  test('không khôi phục màn hình đã đăng nhập khi trang được lấy từ lịch sử trình duyệt sau đăng xuất', async ({ page, loginAs }) => {
+  test('không khôi phục màn hình đã đăng nhập khi trang được lấy từ lịch sử trình duyệt sau đăng xuất', async ({
+    page,
+    loginAs,
+  }) => {
     await loginAs('admin');
     await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
 
@@ -61,8 +67,10 @@ test.describe('Đăng nhập và bố cục thông báo lỗi', () => {
 
     // Mô phỏng `pageshow` khi Back/Forward cache khôi phục một bản React cũ.
     // Kiểm tra rằng ứng dụng thật sự hỏi lại server, thay vì tin vào state cũ.
-    const sessionCheck = page.waitForResponse((response) =>
-      response.url().includes('/api/v1/auth/sessions/me') && response.request().method() === 'GET',
+    const sessionCheck = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/auth/sessions/me') &&
+        response.request().method() === 'GET',
     );
     await page.evaluate(() => {
       window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));

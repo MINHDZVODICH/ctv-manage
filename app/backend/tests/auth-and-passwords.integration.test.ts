@@ -19,7 +19,9 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
 
   test('AUTH-001: Blank and malformed login payload validation', async () => {
     // Missing password
-    const res1 = await request(app).post('/api/v1/auth/sessions').send({ email: 'ctv.active@ctv.local' });
+    const res1 = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ email: 'ctv.active@ctv.local' });
     expect(res1.status).toBe(400);
     expect(res1.body.error).toBeDefined();
 
@@ -28,7 +30,9 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
     expect(res2.status).toBe(400);
 
     // Invalid email format
-    const res3 = await request(app).post('/api/v1/auth/sessions').send({ email: 'not-an-email', password: TEST_PASSWORD });
+    const res3 = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ email: 'not-an-email', password: TEST_PASSWORD });
     expect(res3.status).toBe(400);
   });
 
@@ -56,8 +60,13 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
     expect([401, 403]).toContain(res1.status);
 
     // Soft-deleted account login attempt
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
-    await prisma.account.update({ where: { id: ctv.id }, data: { deletedAt: new Date(), status: 'DISABLED' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
+    await prisma.account.update({
+      where: { id: ctv.id },
+      data: { deletedAt: new Date(), status: 'DISABLED' },
+    });
 
     const res2 = await request(app)
       .post('/api/v1/auth/sessions')
@@ -81,9 +90,13 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
     expect(cookieHeader?.toLowerCase()).toContain('httponly');
 
     // Verify lastLoginAt was updated in database
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
     expect(ctv.lastLoginAt).not.toBeNull();
-    expect(new Date(ctv.lastLoginAt!).getTime()).toBeGreaterThanOrEqual(beforeLogin.getTime() - 1000);
+    expect(new Date(ctv.lastLoginAt!).getTime()).toBeGreaterThanOrEqual(
+      beforeLogin.getTime() - 1000,
+    );
 
     // Restore session via GET /api/v1/auth/sessions/me
     const cookie = cookieHeader.split(';')[0];
@@ -99,7 +112,9 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
     expect(res1.status).toBe(401);
 
     // Malformed session cookie
-    const res2 = await request(app).get('/api/v1/auth/sessions/me').set('Cookie', 'sid=invalid_cookie_format_12345');
+    const res2 = await request(app)
+      .get('/api/v1/auth/sessions/me')
+      .set('Cookie', 'sid=invalid_cookie_format_12345');
     expect(res2.status).toBe(401);
   });
 
@@ -170,7 +185,9 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
   test('AUTH-010 & AUTH-011: Admin password reset and mustChangePassword enforcement', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Admin resets CTV password with mustChangePassword = true
     const resetRes = await request(app)
@@ -194,7 +211,9 @@ describe('Phase B — Authentication, Sessions & Password Management Suite (AUTH
   test('password reset revokes active sessions atomically', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     const resetRes = await request(app)
       .post(`/api/v1/accounts/${ctv.id}/password-resets`)

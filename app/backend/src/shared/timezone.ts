@@ -53,15 +53,7 @@ export function weekdayUtc(d: Date): number {
  */
 export function getDelayUntilNextBangkok1730(now: Date = new Date()): number {
   const targetUtc = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      10,
-      30,
-      0,
-      0,
-    ),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 10, 30, 0, 0),
   );
 
   if (now.getTime() >= targetUtc.getTime()) {
@@ -70,4 +62,3 @@ export function getDelayUntilNextBangkok1730(now: Date = new Date()): number {
 
   return targetUtc.getTime() - now.getTime();
 }
-

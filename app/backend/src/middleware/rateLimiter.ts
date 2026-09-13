@@ -24,10 +24,7 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
       );
 
       if (requestCount > options.maxRequests) {
-        const retryAfterSeconds = Math.max(
-          1,
-          Math.ceil((expiresAt.getTime() - Date.now()) / 1000),
-        );
+        const retryAfterSeconds = Math.max(1, Math.ceil((expiresAt.getTime() - Date.now()) / 1000));
         logger.warn(
           {
             event: 'ratelimit.rejected',

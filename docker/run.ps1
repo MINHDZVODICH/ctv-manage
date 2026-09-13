@@ -1,7 +1,8 @@
 param(
     [string]$ProjectName = 'ctv-release',
     [ValidateRange(1,65535)][int]$Port = 8080,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$Update
 )
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
@@ -72,11 +73,12 @@ try {
     if ($osType.Trim() -ne 'linux') { throw 'Switch Docker Desktop to Linux containers.' }
     Invoke-Compose -ComposeArgs @('config', '--quiet')
 
-    Write-Host '[2/5] Downloading missing application images...'
+    Write-Host '[2/5] Checking application images...'
     $images = Invoke-Compose -ComposeArgs @('config', '--images')
     foreach ($image in $images) {
-        if (-not (Test-DockerCommand -DockerArgs @('image', 'inspect', $image))) {
-            Write-Host "Downloading $image. Internet is required for the first run..."
+        $hasImage = Test-DockerCommand -DockerArgs @('image', 'inspect', $image)
+        if ($Update -or (-not $hasImage)) {
+            Write-Host "Downloading $image..."
             try { Invoke-Docker -DockerArgs @('pull', $image) }
             catch { throw "Cannot download $image. Check your Internet connection and Docker Hub access, then run again." }
         }
@@ -91,6 +93,22 @@ try {
         Invoke-Compose -ComposeArgs @('cp', 'backup/ctv_manage.dump', 'postgres:/tmp/ctv_manage.dump')
         Invoke-Compose -ComposeArgs @('exec', '-T', 'postgres', 'pg_restore', '-U', 'ctv_manage', '-d', 'ctv_manage', '--no-owner', '--no-privileges', '--exit-on-error', '--single-transaction', '/tmp/ctv_manage.dump')
     } else { Write-Host 'Existing database found. Keeping current data.' }
+
+    # Synchronize PostgreSQL user password with .env.docker POSTGRES_PASSWORD
+    $pgUser = 'ctv_manage'
+    $pgDb = 'ctv_manage'
+    $pgPassword = 'ctv_manage'
+    if (Test-Path -LiteralPath '.env.docker') {
+        $pwMatch = Select-String -Path '.env.docker' -Pattern '^\s*POSTGRES_PASSWORD\s*=\s*(.+?)\s*$'
+        if ($pwMatch) { $pgPassword = $pwMatch.Matches[0].Groups[1].Value.Trim('"', "'") }
+        $userMatch = Select-String -Path '.env.docker' -Pattern '^\s*POSTGRES_USER\s*=\s*(.+?)\s*$'
+        if ($userMatch) { $pgUser = $userMatch.Matches[0].Groups[1].Value.Trim('"', "'") }
+        $dbMatch = Select-String -Path '.env.docker' -Pattern '^\s*POSTGRES_DB\s*=\s*(.+?)\s*$'
+        if ($dbMatch) { $pgDb = $dbMatch.Matches[0].Groups[1].Value.Trim('"', "'") }
+    }
+    $escapedPw = $pgPassword.Replace("'", "''")
+    $syncSql = "ALTER USER $pgUser WITH PASSWORD '$escapedPw';"
+    Invoke-Compose -ComposeArgs @('exec', '-T', 'postgres', 'psql', '-U', $pgUser, '-d', $pgDb, '-c', $syncSql) | Out-Null
 
     Write-Host '[4/5] Preparing uploaded files...'
     $backupPath = Join-Path $PSScriptRoot 'backup'

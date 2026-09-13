@@ -46,9 +46,11 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
 
   test('4. GET /api/v1/health/ready returns 503 { status: "not_ready" } when DB query rejects without leaking SQL or error', async () => {
     const originalQueryRaw = prisma.$queryRaw;
-    prisma.$queryRaw = vi.fn().mockRejectedValueOnce(
-      new Error('FATAL: password authentication failed for user "postgres"'),
-    ) as any;
+    prisma.$queryRaw = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error('FATAL: password authentication failed for user "postgres"'),
+      ) as any;
 
     try {
       const res = await request(app).get('/api/v1/health/ready');
@@ -64,9 +66,9 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
 
   test('5. GET /api/v1/health/ready returns 503 { status: "not_ready" } when DB query hangs beyond 2s deadline', async () => {
     const originalQueryRaw = prisma.$queryRaw;
-    prisma.$queryRaw = vi.fn().mockImplementationOnce(
-      () => new Promise((resolve) => setTimeout(resolve, 2500)),
-    ) as any;
+    prisma.$queryRaw = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(resolve, 2500))) as any;
 
     try {
       const start = Date.now();
@@ -92,9 +94,7 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
 
   test('7. Propagates valid incoming X-Request-ID header', async () => {
     const customId = crypto.randomUUID();
-    const res = await request(app)
-      .get('/api/v1/health')
-      .set('X-Request-ID', customId);
+    const res = await request(app).get('/api/v1/health').set('X-Request-ID', customId);
 
     expect(res.headers['x-request-id']).toBe(customId);
   });
@@ -162,9 +162,7 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
 
     const infoSpy = vi.spyOn(logger, 'info');
     try {
-      const res = await request(app)
-        .get('/api/v1/users/me')
-        .set('Cookie', cookie);
+      const res = await request(app).get('/api/v1/users/me').set('Cookie', cookie);
 
       expect(res.status).toBe(200);
 
@@ -215,6 +213,8 @@ describe('Health Endpoints, Structured Logging, and Graceful Shutdown Integratio
     expect(standardizeSnapshotErrorCode('DATE_PASSED')).toBe('DATE_PASSED');
     expect(standardizeSnapshotErrorCode(new Error('DATE_PASSED'))).toBe('DATE_PASSED');
     expect(standardizeSnapshotErrorCode(new Error('Query timeout occurred'))).toBe('DB_TIMEOUT');
-    expect(standardizeSnapshotErrorCode(new Error('FATAL syntax error in SQL query at char 42'))).toBe('SNAPSHOT_EXECUTION_FAILED');
+    expect(
+      standardizeSnapshotErrorCode(new Error('FATAL syntax error in SQL query at char 42')),
+    ).toBe('SNAPSHOT_EXECUTION_FAILED');
   });
 });

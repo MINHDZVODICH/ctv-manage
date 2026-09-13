@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSystemSettings } from '../context/SystemSettingsContext';
-import { ContrastOption, AccentColorOption, LanguageOption } from '../types';
+import type { ContrastOption, AccentColorOption, LanguageOption } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,23 +8,23 @@ interface SettingsModalProps {
 }
 
 const accentColorMap: Record<AccentColorOption, { name: string; hex: string; bgClass: string }> = {
-  'Xám': { name: 'Xám', hex: '#64748b', bgClass: 'bg-slate-500' },
-  'Lục': { name: 'Lục', hex: '#10b981', bgClass: 'bg-emerald-500' },
-  'Lam': { name: 'Lam', hex: '#2563eb', bgClass: 'bg-blue-600' },
-  'Vàng': { name: 'Vàng', hex: '#eab308', bgClass: 'bg-amber-400' },
-  'Đỏ': { name: 'Đỏ', hex: '#ef4444', bgClass: 'bg-red-500' },
-  'Cam': { name: 'Cam', hex: '#f97316', bgClass: 'bg-orange-500' },
-  'Tím': { name: 'Tím', hex: '#a855f7', bgClass: 'bg-purple-500' },
+  Xám: { name: 'Xám', hex: '#64748b', bgClass: 'bg-slate-500' },
+  Lục: { name: 'Lục', hex: '#10b981', bgClass: 'bg-emerald-500' },
+  Lam: { name: 'Lam', hex: '#2563eb', bgClass: 'bg-blue-600' },
+  Vàng: { name: 'Vàng', hex: '#eab308', bgClass: 'bg-amber-400' },
+  Đỏ: { name: 'Đỏ', hex: '#ef4444', bgClass: 'bg-red-500' },
+  Cam: { name: 'Cam', hex: '#f97316', bgClass: 'bg-orange-500' },
+  Tím: { name: 'Tím', hex: '#a855f7', bgClass: 'bg-purple-500' },
 };
 
 const colorI18nKeys: Record<AccentColorOption, string> = {
-  'Xám': 'color_gray',
-  'Lục': 'color_green',
-  'Lam': 'color_blue',
-  'Vàng': 'color_yellow',
-  'Đỏ': 'color_red',
-  'Cam': 'color_orange',
-  'Tím': 'color_purple',
+  Xám: 'color_gray',
+  Lục: 'color_green',
+  Lam: 'color_blue',
+  Vàng: 'color_yellow',
+  Đỏ: 'color_red',
+  Cam: 'color_orange',
+  Tím: 'color_purple',
 };
 
 interface DropdownItem<T> {
@@ -67,7 +67,9 @@ function CustomSelect<T extends string>({
         }`}
       >
         {selectedOption?.colorBgClass && (
-          <span className={`w-3 h-3 rounded-full ${selectedOption.colorBgClass} inline-block shrink-0`} />
+          <span
+            className={`w-3 h-3 rounded-full ${selectedOption.colorBgClass} inline-block shrink-0`}
+          />
         )}
         <span>{selectedOption?.label || value}</span>
         <span
@@ -110,13 +112,15 @@ function CustomSelect<T extends string>({
                         ? 'bg-blue-600/20 text-blue-400 font-semibold'
                         : 'bg-blue-50 text-blue-600 font-semibold'
                       : isDarkMode
-                      ? 'text-slate-200 hover:bg-slate-700/60'
-                      : 'text-slate-700 hover:bg-slate-100'
+                        ? 'text-slate-200 hover:bg-slate-700/60'
+                        : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center gap-2 text-left justify-start">
                     {opt.colorBgClass && (
-                      <span className={`w-3 h-3 rounded-full ${opt.colorBgClass} inline-block shrink-0`} />
+                      <span
+                        className={`w-3 h-3 rounded-full ${opt.colorBgClass} inline-block shrink-0`}
+                      />
                     )}
                     <span className="text-left font-medium">{opt.label}</span>
                   </div>
@@ -135,10 +139,7 @@ function CustomSelect<T extends string>({
   );
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-}) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const {
     isDarkMode,
     contrast,
@@ -172,9 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Header */}
         <div
           className={`flex items-center justify-between px-6 py-4 border-b rounded-t-2xl ${
-            isDarkMode
-              ? 'border-slate-800/80 bg-[#18181a]'
-              : 'border-slate-200 bg-slate-50/80'
+            isDarkMode ? 'border-slate-800/80 bg-[#18181a]' : 'border-slate-200 bg-slate-50/80'
           }`}
         >
           <h3
@@ -219,9 +218,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             <span
-              className={`text-sm font-medium ${
-                isDarkMode ? 'text-slate-200' : 'text-slate-700'
-              }`}
+              className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}
             >
               {t('theme_setting')}
             </span>
@@ -248,9 +245,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             <span
-              className={`text-sm font-medium ${
-                isDarkMode ? 'text-slate-200' : 'text-slate-700'
-              }`}
+              className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}
             >
               {t('contrast_setting')}
             </span>
@@ -274,9 +269,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             <span
-              className={`text-sm font-medium ${
-                isDarkMode ? 'text-slate-200' : 'text-slate-700'
-              }`}
+              className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}
             >
               {t('accent_setting')}
             </span>
@@ -300,9 +293,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             <span
-              className={`text-sm font-medium ${
-                isDarkMode ? 'text-slate-200' : 'text-slate-700'
-              }`}
+              className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}
             >
               {t('language_setting')}
             </span>

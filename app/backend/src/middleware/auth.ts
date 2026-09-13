@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../shared/prisma.js';
 import { COOKIE_NAME, hashToken } from '../shared/crypto.js';
 import { Errors } from '../shared/errors.js';
+import { logger } from '../shared/logger.js';
 
 export interface AuthUser {
   id: string;
@@ -34,10 +35,7 @@ export async function auth(req: Request, _res: Response, next: NextFunction) {
     const account = await prisma.account.findUnique({ where: { id: session.accountId } });
     if (!account || account.deletedAt) throw Errors.unauthorized();
     if (account.status !== 'ACTIVE') {
-      throw Errors.forbidden(
-        'ACCOUNT_DISABLED',
-        'Tài khoản đã bị vô hiệu hóa',
-      );
+      throw Errors.forbidden('ACCOUNT_DISABLED', 'Tài khoản đã bị vô hiệu hóa');
     }
     req.user = {
       id: account.id,
@@ -75,6 +73,8 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       version: account.version,
     };
     req.sessionId = session.id;
-  } catch {}
+  } catch (err) {
+    logger.debug({ err }, 'Optional auth token validation skipped or failed');
+  }
   next();
 }

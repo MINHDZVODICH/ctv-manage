@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { scheduleApi } from '../api/scheduleApi';
 import type { ApiSummaryCell } from '../types';
+import { normalizeErrorMessage } from '../../../shared/api/errors';
 
 export function useWeeklySummary() {
   const [cells, setCells] = useState<ApiSummaryCell[]>([]);
@@ -15,8 +16,8 @@ export function useWeeklySummary() {
       const summaryCells = res.data?.cells ?? res.cells ?? [];
       setCells(summaryCells);
       return summaryCells;
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load weekly summary');
+    } catch (err: unknown) {
+      setError(normalizeErrorMessage(err, 'Failed to load weekly summary'));
       return [];
     } finally {
       setLoading(false);

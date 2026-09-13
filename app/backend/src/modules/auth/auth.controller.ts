@@ -4,11 +4,7 @@ import { z } from 'zod';
 import * as authService from './auth.service.js';
 import type { AuthUserDto } from './auth.service.js';
 import { Errors } from '../../shared/errors.js';
-import {
-  COOKIE_NAME,
-  sessionCookieOptions,
-  clearCookieOptions,
-} from '../../shared/crypto.js';
+import { COOKIE_NAME, sessionCookieOptions, clearCookieOptions } from '../../shared/crypto.js';
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
@@ -23,7 +19,10 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Validation failed');
+      throw Errors.badRequest(
+        'VALIDATION_ERROR',
+        parsed.error.issues[0]?.message ?? 'Validation failed',
+      );
     }
     const { email, password } = parsed.data;
     const ipAddress = req.ip ?? undefined;

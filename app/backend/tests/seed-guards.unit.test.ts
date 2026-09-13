@@ -5,12 +5,8 @@ import {
   assertResetAllowed,
   cleanDemoDatabase,
 } from '../scripts/seed-demo';
-import {
-  validateAcceptanceSeedEnvironment,
-} from '../scripts/seed-acceptance';
-import {
-  bootstrapAdmin,
-} from '../scripts/bootstrap-admin';
+import { validateAcceptanceSeedEnvironment } from '../scripts/seed-acceptance';
+import { bootstrapAdmin } from '../scripts/bootstrap-admin';
 
 describe('Seed Guards and Admin Bootstrap Unit Tests', () => {
   const originalEnv = { ...process.env };
@@ -206,11 +202,15 @@ describe('Seed Guards and Admin Bootstrap Unit Tests', () => {
 
     it('5b. returns validated databaseUrl even when DATABASE_URL points to a production database', () => {
       process.env.NODE_ENV = 'test';
-      process.env.DATABASE_TEST_URL = 'postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public';
-      process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/ctv_production?schema=public';
+      process.env.DATABASE_TEST_URL =
+        'postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public';
+      process.env.DATABASE_URL =
+        'postgresql://user:pass@localhost:5432/ctv_production?schema=public';
 
       const result = validateAcceptanceSeedEnvironment({});
-      expect(result.databaseUrl).toBe('postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public');
+      expect(result.databaseUrl).toBe(
+        'postgresql://user:pass@localhost:5432/ctv_manage_test?schema=public',
+      );
       expect(result.databaseName).toBe('ctv_manage_test');
     });
   });

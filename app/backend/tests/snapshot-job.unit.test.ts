@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { reconcilePass } = vi.hoisted(() => ({ reconcilePass: vi.fn() }));
 vi.mock('../src/modules/schedule/snapshot-coordinator.service.js', () => ({
-  SnapshotCoordinatorService: class { reconcilePass = reconcilePass; },
+  SnapshotCoordinatorService: class {
+    reconcilePass = reconcilePass;
+  },
 }));
 vi.mock('../src/shared/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn() },
@@ -10,18 +12,31 @@ vi.mock('../src/shared/logger.js', () => ({
 import { startScheduleSnapshotJob } from '../src/jobs/schedule-snapshot.job.js';
 
 describe('Snapshot job lifecycle', () => {
-  beforeEach(() => { vi.useFakeTimers(); reconcilePass.mockReset(); });
-  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    reconcilePass.mockReset();
+  });
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
 
   it('joins manual and timer triggers and waits for the original task on stop', async () => {
     let release!: () => void;
-    reconcilePass.mockImplementationOnce(() => new Promise<void>((resolve) => { release = resolve; }));
+    reconcilePass.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
     const job = startScheduleSnapshotJob();
     const manual = job.triggerNow();
     await vi.advanceTimersByTimeAsync(120_000);
     expect(reconcilePass).toHaveBeenCalledTimes(1);
     let stopped = false;
-    const stopping = job.stop().then(() => { stopped = true; });
+    const stopping = job.stop().then(() => {
+      stopped = true;
+    });
     await Promise.resolve();
     expect(stopped).toBe(false);
     release();

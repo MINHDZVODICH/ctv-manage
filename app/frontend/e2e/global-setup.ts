@@ -14,7 +14,9 @@ async function waitForServer(url: string, process: ChildProcess) {
     try {
       const response = await fetch(url);
       if (response.ok) return;
-    } catch {}
+    } catch (_err) {
+      void _err;
+    }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`Quá thời gian chờ máy chủ kiểm thử: ${url}`);

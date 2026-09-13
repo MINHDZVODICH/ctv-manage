@@ -24,7 +24,10 @@ describe('private files and schedule workflows', () => {
     const invalid = await request(app)
       .put('/api/v1/users/me/files/AVATAR')
       .set('Cookie', ownerCookie)
-      .attach('file', Buffer.from('not an image'), { filename: 'fake.png', contentType: 'image/png' });
+      .attach('file', Buffer.from('not an image'), {
+        filename: 'fake.png',
+        contentType: 'image/png',
+      });
     expect(invalid.status).toBe(400);
     expect(invalid.body.error.code).toBe('INVALID_FILE_TYPE');
 
@@ -51,17 +54,27 @@ describe('private files and schedule workflows', () => {
       ]),
     );
 
-    expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status).toBe(200);
-    expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', adminCookie)).status).toBe(200);
-    expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', otherCookie)).status).toBe(403);
+    expect(
+      (await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', adminCookie)).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', otherCookie)).status,
+    ).toBe(403);
 
     const removed = await request(app)
       .delete('/api/v1/users/me/files/AVATAR')
       .set('Cookie', ownerCookie);
     expect(removed.status).toBe(204);
-    expect((await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status).toBe(403);
+    expect(
+      (await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ownerCookie)).status,
+    ).toBe(403);
 
-    const profileAfterDelete = await request(app).get('/api/v1/users/me').set('Cookie', ownerCookie);
+    const profileAfterDelete = await request(app)
+      .get('/api/v1/users/me')
+      .set('Cookie', ownerCookie);
     expect(profileAfterDelete.body.user.files).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ category: 'AVATAR' })]),
     );
@@ -90,10 +103,14 @@ describe('private files and schedule workflows', () => {
     expect(shifts.body.data.length).toBeGreaterThan(0);
     const assignment = shifts.body.data[0];
 
-    const denied = await request(app).get(`/api/v1/shifts/${assignment.shiftId}`).set('Cookie', otherCookie);
+    const denied = await request(app)
+      .get(`/api/v1/shifts/${assignment.shiftId}`)
+      .set('Cookie', otherCookie);
     expect(denied.status).toBe(403);
 
-    const detail = await request(app).get(`/api/v1/shifts/${assignment.shiftId}`).set('Cookie', adminCookie);
+    const detail = await request(app)
+      .get(`/api/v1/shifts/${assignment.shiftId}`)
+      .set('Cookie', adminCookie);
     expect(detail.status).toBe(200);
     expect(detail.body.data.assignments[0].displayName).toBe('CTV Active');
 
@@ -105,11 +122,11 @@ describe('private files and schedule workflows', () => {
       .set('Cookie', adminCookie);
     expect(rejectedQuery.status).toBe(400);
 
-    const summary = await request(app)
-      .get('/api/v1/schedule-summary')
-      .set('Cookie', adminCookie);
+    const summary = await request(app).get('/api/v1/schedule-summary').set('Cookie', adminCookie);
     expect(summary.status).toBe(200);
-    expect(summary.body.data.cells.some((cell: any) => cell.shiftId === assignment.shiftId)).toBe(true);
+    expect(summary.body.data.cells.some((cell: any) => cell.shiftId === assignment.shiftId)).toBe(
+      true,
+    );
 
     const cancelled = await request(app)
       .delete(`/api/v1/users/me/shift-assignments/${assignment.id}`)

@@ -61,7 +61,7 @@ export interface AssignedCTV {
   initials?: string;
   phone?: string;
   cctvCode?: string;
-  status: "Đã duyệt" | "Chờ duyệt";
+  status: 'Đã duyệt' | 'Chờ duyệt' | 'Xin nghỉ';
   room?: string;
   taskContent?: string;
 }

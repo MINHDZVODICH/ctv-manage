@@ -65,7 +65,6 @@ export async function putMySchedule(req: Request, res: Response, next: NextFunct
 
 export const putMyRegistration = putMySchedule;
 
-
 export async function getAccountSchedule(req: Request, res: Response, next: NextFunction) {
   try {
     assertNoScheduleDateParams(req.query);

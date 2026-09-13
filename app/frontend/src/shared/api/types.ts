@@ -1,14 +1,3 @@
-export interface ApiResponse<T> {
-  data?: T;
-  user?: T;
-  request?: T;
-  file?: T;
-  status?: string;
-  total?: number;
-  page?: number;
-  pageSize?: number;
-}
-
 export interface ApiError extends Error {
   status?: number;
   code?: string;
@@ -20,4 +9,16 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface AuthSessionUserDto {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  mustChangePassword?: boolean;
+}
+
+export interface AuthSessionResponse {
+  user: AuthSessionUserDto;
 }

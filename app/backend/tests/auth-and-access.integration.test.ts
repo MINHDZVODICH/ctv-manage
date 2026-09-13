@@ -78,7 +78,9 @@ describe('authentication, sessions and role boundaries', () => {
 
   test('rejects non-ACTIVE account with 403 ACCOUNT_DISABLED even if session exists', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Directly disable account in DB without revoking session to test defense-in-depth
     await prisma.account.update({
@@ -93,7 +95,9 @@ describe('authentication, sessions and role boundaries', () => {
 
   test('optionalAuth does not attach req.user if account is not ACTIVE', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     await prisma.account.update({
       where: { id: ctv.id },
@@ -111,4 +115,3 @@ describe('authentication, sessions and role boundaries', () => {
     expect(req.user).toBeUndefined();
   });
 });
-

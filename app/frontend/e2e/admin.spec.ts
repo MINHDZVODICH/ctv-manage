@@ -50,7 +50,10 @@ test('Admin vô hiệu hóa tài khoản CTV có xác nhận', async ({ page, lo
   await expect(row.getByTitle('Kích hoạt tài khoản')).toBeVisible();
 });
 
-test('Modal đặt lại mật khẩu tự sinh mật khẩu ngẫu nhiên và dùng màu điểm nhấn', async ({ page, loginAs }) => {
+test('Modal đặt lại mật khẩu tự sinh mật khẩu ngẫu nhiên và dùng màu điểm nhấn', async ({
+  page,
+  loginAs,
+}) => {
   await loginAs('admin');
   const row = page.getByRole('row').filter({ hasText: 'CTV Active' });
   const openResetModal = () => row.getByTitle('Đặt lại mật khẩu mặc định (Quên MK)').click();
@@ -94,22 +97,30 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
     }
 
     const cells = url.searchParams.has('from')
-      ? [{
-          shiftId: 'shift-room-modal',
-          workDate,
-          period: 'MORNING',
-          count: 1,
-          shiftAssignments: [{
-            id: 'assignment-room-modal',
-            accountId: ctv.id,
-            displayName: ctv.displayName,
-            phone: ctv.phone,
-            roomCode: 'ROOM_2',
-            status: 'ACTIVE',
-          }],
-        }]
+      ? [
+          {
+            shiftId: 'shift-room-modal',
+            workDate,
+            period: 'MORNING',
+            count: 1,
+            shiftAssignments: [
+              {
+                id: 'assignment-room-modal',
+                accountId: ctv.id,
+                displayName: ctv.displayName,
+                phone: ctv.phone,
+                roomCode: 'ROOM_2',
+                status: 'ACTIVE',
+              },
+            ],
+          },
+        ]
       : [];
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { cells } }) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { cells } }),
+    });
   });
 
   const weeklyScheduleResponse = page.waitForResponse((response) => {
@@ -123,7 +134,9 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
   await weeklyScheduleResponse;
   const detailHeading = page.getByRole('heading', { name: 'Hồ sơ & Lịch trình tài khoản' });
   await expect(detailHeading).toBeVisible();
-  const detailModal = detailHeading.locator('xpath=ancestor::div[contains(@class, "max-w-3xl")][1]');
+  const detailModal = detailHeading.locator(
+    'xpath=ancestor::div[contains(@class, "max-w-3xl")][1]',
+  );
   await expect(detailModal.getByText('Chưa có', { exact: true })).toHaveCount(3);
   await expect(detailModal.locator('img[src*="images.unsplash.com"]')).toHaveCount(0);
   await expect(detailModal.getByRole('button', { name: 'Xem file' })).toHaveCount(0);
@@ -150,7 +163,9 @@ test('Modal chi tiết CTV tách API lịch tuần và lịch sử làm việc',
   });
   await page.getByRole('button', { name: 'Lịch sử làm việc' }).click();
   await expect(page.getByRole('status')).toContainText('Đang tải...');
-  await expect(page.getByText('Đang tải lịch sử làm việc từ hệ thống...', { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText('Đang tải lịch sử làm việc từ hệ thống...', { exact: true }),
+  ).toHaveCount(0);
   await historyResponse;
 
   await expect(page.getByRole('heading', { name: 'Lịch sử làm việc' })).toBeVisible();
@@ -170,14 +185,16 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
         weekday: wd,
         period: 'MORNING',
         count: 1,
-        shiftAssignments: [{
-          id: `assignment-room-summary-${wd}`,
-          accountId: ctv.id,
-          displayName: ctv.displayName,
-          phone: ctv.phone,
-          roomCode: 'ROOM_2',
-          status: 'ACTIVE',
-        }],
+        shiftAssignments: [
+          {
+            id: `assignment-room-summary-${wd}`,
+            accountId: ctv.id,
+            displayName: ctv.displayName,
+            phone: ctv.phone,
+            roomCode: 'ROOM_2',
+            status: 'ACTIVE',
+          },
+        ],
       })),
     },
   };
@@ -194,20 +211,24 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
       contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          cells: [{
-            shiftId: 'shift-room-summary',
-            workDate,
-            period: 'MORNING',
-            count: 1,
-            shiftAssignments: [{
-              id: 'assignment-room-summary',
-              accountId: ctv.id,
-              displayName: ctv.displayName,
-              phone: ctv.phone,
-              roomCode: 'ROOM_2',
-              status: 'ACTIVE',
-            }],
-          }],
+          cells: [
+            {
+              shiftId: 'shift-room-summary',
+              workDate,
+              period: 'MORNING',
+              count: 1,
+              shiftAssignments: [
+                {
+                  id: 'assignment-room-summary',
+                  accountId: ctv.id,
+                  displayName: ctv.displayName,
+                  phone: ctv.phone,
+                  roomCode: 'ROOM_2',
+                  status: 'ACTIVE',
+                },
+              ],
+            },
+          ],
         },
       }),
     });
@@ -231,26 +252,35 @@ test('Lịch tổng hợp hiển thị cùng nhãn Buồng làm việc từ room
   if (dow <= 4) {
     await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
   } else {
-    await expect(todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true })).toBeVisible();
+    await expect(
+      todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true }),
+    ).toBeVisible();
   }
 
   await page.getByRole('button', { name: 'Lịch sử tổng hợp', exact: true }).click();
   if (dow <= 4) {
     await expect(todayCard.getByText(ctv.displayName, { exact: true })).toBeVisible();
   } else {
-    await expect(todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true })).toBeVisible();
+    await expect(
+      todayCard.getByText('Chưa có CTV nào đăng ký hôm nay', { exact: true }),
+    ).toBeVisible();
   }
 
   await page.getByRole('button', { name: 'Lịch tuần tổng hợp', exact: true }).click();
   await page.getByTitle('Bấm xem danh sách CTV ca sáng').first().click();
 
-  const shiftModal = page.getByRole('heading', { name: /Ca Sáng/ }).locator('xpath=ancestor::div[contains(@class, "max-w-2xl")][1]');
+  const shiftModal = page
+    .getByRole('heading', { name: /Ca Sáng/ })
+    .locator('xpath=ancestor::div[contains(@class, "max-w-2xl")][1]');
   await expect(shiftModal.getByText('Buồng làm việc', { exact: true })).toBeVisible();
   await expect(shiftModal.getByText('Buồng 2', { exact: true })).toBeVisible();
   await expect(page.getByText('ROOM_2', { exact: true })).toHaveCount(0);
 });
 
-test('Tìm kiếm tài khoản không phân biệt chữ hoa, chữ thường cho tên và email', async ({ page, loginAs }) => {
+test('Tìm kiếm tài khoản không phân biệt chữ hoa, chữ thường cho tên và email', async ({
+  page,
+  loginAs,
+}) => {
   await loginAs('admin');
   await page.getByRole('button').filter({ hasText: 'Quản lý tài khoản' }).click();
   await expect(page.getByRole('heading', { name: 'Quản lý tài khoản' })).toBeVisible();
@@ -277,7 +307,8 @@ test('Tìm kiếm tài khoản không phân biệt chữ hoa, chữ thường ch
   // 4. Clear and search unrelated string -> empty state
   await searchInput.clear();
   await searchInput.fill('KhongTonTaiNguoiDungNay123');
-  await expect(page.getByText('Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.')).toBeVisible();
+  await expect(
+    page.getByText('Không tìm thấy tài khoản phù hợp với điều kiện tìm kiếm.'),
+  ).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'Vũ Thị Hoa' })).toHaveCount(0);
 });
-

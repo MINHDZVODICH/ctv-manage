@@ -18,8 +18,8 @@ export function parseAndValidateDateOfBirth(input: unknown): Date | null {
     const trimmed = input.trim();
     if (!trimmed) return null;
 
-    const vnMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    const isoMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    const vnMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    const isoMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
 
     if (vnMatch) {
       day = parseInt(vnMatch[1], 10);
@@ -44,7 +44,11 @@ export function parseAndValidateDateOfBirth(input: unknown): Date | null {
 
   const currentYear = new Date().getFullYear();
   if (year < 1900 || year > currentYear) {
-    throw new AppError(400, 'INVALID_DATE_OF_BIRTH', `Năm sinh phải từ năm 1900 đến ${currentYear}`);
+    throw new AppError(
+      400,
+      'INVALID_DATE_OF_BIRTH',
+      `Năm sinh phải từ năm 1900 đến ${currentYear}`,
+    );
   }
 
   if (month < 1 || month > 12) {
@@ -53,7 +57,11 @@ export function parseAndValidateDateOfBirth(input: unknown): Date | null {
 
   const daysInMonth = new Date(year, month, 0).getDate();
   if (day < 1 || day > daysInMonth) {
-    throw new AppError(400, 'INVALID_DATE_OF_BIRTH', `Tháng ${month}/${year} chỉ có tối đa ${daysInMonth} ngày`);
+    throw new AppError(
+      400,
+      'INVALID_DATE_OF_BIRTH',
+      `Tháng ${month}/${year} chỉ có tối đa ${daysInMonth} ngày`,
+    );
   }
 
   const result = new Date(Date.UTC(year, month - 1, day));

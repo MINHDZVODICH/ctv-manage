@@ -3,7 +3,10 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
-import { snapshotTodayWorkHistory, parseYmdToUtcDate } from '../src/modules/schedule/schedule.service.js';
+import {
+  snapshotTodayWorkHistory,
+  parseYmdToUtcDate,
+} from '../src/modules/schedule/schedule.service.js';
 
 const app = createApp();
 
@@ -21,9 +24,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
 
     // 1. Initial schedule retrieval should return null
-    const getInit = await request(app)
-      .get('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie);
+    const getInit = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
     expect(getInit.status).toBe(200);
     expect(getInit.body.data).toBeNull();
 
@@ -45,7 +46,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(putRes.body.data.patternSlots).toHaveLength(2);
 
     // 3. Verify in database
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
     const dbSchedule = await prisma.schedule.findUnique({
       where: { accountId: ctv.id },
       include: { shifts: true },
@@ -55,9 +58,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(dbSchedule?.shifts).toHaveLength(2);
 
     // 4. Retrieve schedule via GET /api/v1/users/me/schedule
-    const getRes = await request(app)
-      .get('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie);
+    const getRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.roomCode).toBe('ROOM_1');
     expect(getRes.body.data.version).toBe(1);
@@ -184,8 +185,16 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(monMorn).toBeDefined();
     expect(monMorn.count).toBe(2);
     expect(monMorn.shiftAssignments).toHaveLength(2);
-    expect(monMorn.shiftAssignments.some((a: any) => a.roomCode === 'ROOM_1' && a.displayName === 'CTV Active')).toBe(true);
-    expect(monMorn.shiftAssignments.some((a: any) => a.roomCode === 'ROOM_2' && a.displayName === 'CTV Other')).toBe(true);
+    expect(
+      monMorn.shiftAssignments.some(
+        (a: any) => a.roomCode === 'ROOM_1' && a.displayName === 'CTV Active',
+      ),
+    ).toBe(true);
+    expect(
+      monMorn.shiftAssignments.some(
+        (a: any) => a.roomCode === 'ROOM_2' && a.displayName === 'CTV Other',
+      ),
+    ).toBe(true);
 
     // Wednesday Afternoon should have count = 1
     const wedAft = cells.find((c: any) => c.weekday === 3 && c.period === 'AFTERNOON');
@@ -200,9 +209,7 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(tueMorn.shiftAssignments).toHaveLength(0);
 
     // Backward compatible alias: GET /api/v1/schedule-summary
-    const aliasRes = await request(app)
-      .get('/api/v1/schedule-summary')
-      .set('Cookie', adminCookie);
+    const aliasRes = await request(app).get('/api/v1/schedule-summary').set('Cookie', adminCookie);
     expect(aliasRes.status).toBe(200);
     const aliasCells = aliasRes.body.data?.cells ?? aliasRes.body.cells;
     expect(aliasCells.length).toBe(10);
@@ -210,7 +217,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
 
   test('Test 4 & 5: snapshotTodayWorkHistory behavior before 17:30 (skipped) vs weekend (skipped) vs at 17:30 (recorded & idempotent)', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Wednesday = weekday 3. Let's use 2026-09-02 (a Wednesday).
     // CTV registers Wednesday MORNING and Wednesday AFTERNOON in ROOM_3
@@ -226,7 +235,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       });
 
     // Put the fixture schedule before the simulated cutoff.
-    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T09:00:00Z') } });
+    await prisma.workHistorySource.updateMany({
+      data: { effectiveAt: new Date('2026-09-02T09:00:00Z') },
+    });
     const targetDateStr = '2026-09-02';
     const targetDateUtc = parseYmdToUtcDate(targetDateStr);
 
@@ -248,8 +259,11 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const workHistoryResBefore = await request(app)
       .get('/api/v1/users/me/work-history?month=2026-09')
       .set('Cookie', ctvCookie);
-    const entriesBefore = workHistoryResBefore.body.data?.entries ?? workHistoryResBefore.body.entries;
-    const todayEntriesBefore = (entriesBefore || []).filter((e: any) => e.workDate === targetDateStr);
+    const entriesBefore =
+      workHistoryResBefore.body.data?.entries ?? workHistoryResBefore.body.entries;
+    const todayEntriesBefore = (entriesBefore || []).filter(
+      (e: any) => e.workDate === targetDateStr,
+    );
     expect(todayEntriesBefore).toHaveLength(0);
 
     // 3. Run snapshotTodayWorkHistory at exactly 10:30 UTC (17:30 Asia/Bangkok) on Wednesday 2026-09-02
@@ -293,7 +307,12 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     expect(dataAfter.entries).toEqual(
       expect.arrayContaining([
         { id: expect.any(String), workDate: targetDateStr, period: 'MORNING', roomCode: 'ROOM_3' },
-        { id: expect.any(String), workDate: targetDateStr, period: 'AFTERNOON', roomCode: 'ROOM_3' },
+        {
+          id: expect.any(String),
+          workDate: targetDateStr,
+          period: 'AFTERNOON',
+          roomCode: 'ROOM_3',
+        },
       ]),
     );
     // Dedicated CTV DTO: No cells, no status exposed, no accountId/displayName/phone
@@ -304,7 +323,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
 
   test('Test 6: Changing schedule does NOT alter existing History', async () => {
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // 1. Initial schedule: Wednesday MORNING in ROOM_1
     const regRes = await request(app)
@@ -316,7 +337,9 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
       });
     expect(regRes.status).toBe(200);
 
-    await prisma.workHistorySource.updateMany({ data: { effectiveAt: new Date('2026-09-02T09:00:00Z') } });
+    await prisma.workHistorySource.updateMany({
+      data: { effectiveAt: new Date('2026-09-02T09:00:00Z') },
+    });
     // 2. Snapshot Wednesday 2026-09-02 after 17:30
     await snapshotTodayWorkHistory(new Date('2026-09-02T11:00:00.000Z'));
 
@@ -358,8 +381,12 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
   test('Test 7: Admin retrieval of CTV schedule (GET /api/v1/accounts/:id/schedule)', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
-    const otherCtv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.other@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
+    const otherCtv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.other@ctv.local' },
+    });
 
     // Register schedule for ctv.active
     await request(app)
@@ -436,23 +463,18 @@ describe('Task 2 — Schedule, Shift and History Redesign Integration Tests', ()
     const version = putRes.body.data.version;
 
     // 2. Update with empty slots []
-    const res = await request(app)
-      .put('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie)
-      .send({
-        roomCode: 'ROOM_1',
-        slots: [],
-        expectedVersion: version,
-      });
+    const res = await request(app).put('/api/v1/users/me/schedule').set('Cookie', ctvCookie).send({
+      roomCode: 'ROOM_1',
+      slots: [],
+      expectedVersion: version,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.data.shifts).toHaveLength(0);
     expect(res.body.data.version).toBe(version + 1);
 
     // 3. Verify GET returns schedule with empty shifts
-    const getRes = await request(app)
-      .get('/api/v1/users/me/schedule')
-      .set('Cookie', ctvCookie);
+    const getRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.shifts).toHaveLength(0);
   });

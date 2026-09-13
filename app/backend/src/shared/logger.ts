@@ -8,10 +8,7 @@ function formatLogLine(raw: string): string {
     const entry = JSON.parse(trimmed);
     const msg = entry.msg ?? '';
     const err =
-      entry.err?.stack ||
-      entry.err?.message ||
-      entry.error?.stack ||
-      entry.error?.message;
+      entry.err?.stack || entry.err?.message || entry.error?.stack || entry.error?.message;
     if (msg && err) {
       return `${msg}: ${err}\n`;
     }
@@ -68,4 +65,3 @@ export const logger = pino(
   },
   useJson ? process.stdout : msgOnlyStream,
 );
-

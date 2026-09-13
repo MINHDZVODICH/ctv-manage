@@ -1,5 +1,5 @@
 import React from 'react';
-import { ViewTab } from '../types';
+import type { ViewTab } from '../types';
 import { useSystemSettings } from '../context/SystemSettingsContext';
 
 interface TopBarProps {
@@ -26,7 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   userAvatar,
   userName = 'Admin',
   userInitials,
-  onToggleMobileMenu
+  onToggleMobileMenu,
 }) => {
   const { t } = useSystemSettings();
 

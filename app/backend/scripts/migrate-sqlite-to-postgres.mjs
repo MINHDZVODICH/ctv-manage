@@ -86,7 +86,8 @@ function convertRow(row, table) {
   const converted = { ...row };
   for (const field of table.dates) converted[field] = sqliteDateToDate(converted[field]);
   for (const field of table.booleans ?? []) {
-    converted[field] = converted[field] === true || converted[field] === 1 || converted[field] === '1';
+    converted[field] =
+      converted[field] === true || converted[field] === 1 || converted[field] === '1';
   }
   return converted;
 }
@@ -94,7 +95,10 @@ function convertRow(row, table) {
 const sqlite = new DatabaseSync(sourcePath, { readOnly: true });
 const sourceRows = tables.map((table) => ({
   ...table,
-  rows: sqlite.prepare(`SELECT * FROM "${table.table}"`).all().map((row) => convertRow(row, table)),
+  rows: sqlite
+    .prepare(`SELECT * FROM "${table.table}"`)
+    .all()
+    .map((row) => convertRow(row, table)),
 }));
 
 if (dryRun) {

@@ -1,6 +1,9 @@
 import { test, expect } from './fixtures';
 
-test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và dữ liệu được đồng nhất', async ({ page, loginAs }) => {
+test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và dữ liệu được đồng nhất', async ({
+  page,
+  loginAs,
+}) => {
   await loginAs('ctv');
   await page.route('**/api/v1/users/me/work-history?*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -44,7 +47,9 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
   await morningBadge.click();
   await expect(page.getByRole('dialog', { name: /Chi tiết ca/ })).toHaveCount(0);
 
-  await expect(weeklySchedule.getByText('Lặp lại đến khi bạn cập nhật', { exact: true })).toHaveCount(0);
+  await expect(
+    weeklySchedule.getByText('Lặp lại đến khi bạn cập nhật', { exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Xem tuần trước' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Xem tuần sau' })).toHaveCount(0);
   await expect(page.getByText('ROOM_1', { exact: true })).toHaveCount(0);
@@ -55,7 +60,10 @@ test('CTV đăng ký lịch làm việc (Buồng 1, T2 sáng, T3 chiều) và d�
   await expect(page.getByText('Chưa có ca làm việc đã hoàn thành trong tháng này.')).toHaveCount(0);
 });
 
-test('Mẫu ca làm việc theo tuần điền sẵn ca đã đăng ký và cho phép lưu khi không chọn ca nào (0 ca)', async ({ page, loginAs }) => {
+test('Mẫu ca làm việc theo tuần điền sẵn ca đã đăng ký và cho phép lưu khi không chọn ca nào (0 ca)', async ({
+  page,
+  loginAs,
+}) => {
   await loginAs('ctv');
 
   // 1. Khi đã có lịch, nút đổi thành "Cập nhật" và modal điền sẵn ca đã đăng ký
@@ -140,7 +148,9 @@ test('Lịch tuần vẫn hiện assignment khi metadata đăng ký tải lỗi'
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByText('Không thể tải lại lịch làm việc.', { exact: true })).toBeVisible();
 
-  await expect(page.getByTestId('weekly-schedule').getByText('Ca Sáng', { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByTestId('weekly-schedule').getByText('Ca Sáng', { exact: true }),
+  ).toHaveCount(1);
 });
 
 test('Lịch tuần không bị sidebar desktop che trên màn hình mobile', async ({ page, loginAs }) => {
@@ -153,7 +163,10 @@ test('Lịch tuần không bị sidebar desktop che trên màn hình mobile', as
   await expect(page.getByText('Lặp lại đến khi bạn cập nhật', { exact: true })).toHaveCount(0);
 });
 
-test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại sau lỗi tải', async ({ page, loginAs }) => {
+test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại sau lỗi tải', async ({
+  page,
+  loginAs,
+}) => {
   await loginAs('ctv');
   const accountId = await page.evaluate(async () => {
     const response = await fetch('/api/v1/users/me');
@@ -165,7 +178,11 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
   const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const targetMonth = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
   let targetDay = 1;
-  while ([0, 6].includes(new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth(), targetDay).getDay())) {
+  while (
+    [0, 6].includes(
+      new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth(), targetDay).getDay(),
+    )
+  ) {
     targetDay += 1;
   }
   const workDate = `${targetMonth}-${String(targetDay).padStart(2, '0')}`;
@@ -174,12 +191,20 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
   await page.route('**/api/v1/users/me/work-history?*', async (route) => {
     const month = new URL(route.request().url()).searchParams.get('month');
     if (month !== targetMonth) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { month, entries: [] } }) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { month, entries: [] } }),
+      });
       return;
     }
     targetMonthAttempts += 1;
     if (targetMonthAttempts === 1) {
-      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'temporary failure' } }) });
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: 'temporary failure' } }),
+      });
       return;
     }
     await route.fulfill({
@@ -188,12 +213,14 @@ test('Lịch sử làm việc hiển thị dữ liệu và cho phép thử lại
       body: JSON.stringify({
         data: {
           month: targetMonth,
-          entries: [{
-            id: 'history-shift-1',
-            workDate,
-            period: 'MORNING',
-            roomCode: 'ROOM_1',
-          }],
+          entries: [
+            {
+              id: 'history-shift-1',
+              workDate,
+              period: 'MORNING',
+              roomCode: 'ROOM_1',
+            },
+          ],
         },
       }),
     });
@@ -216,7 +243,9 @@ test('CTV tải file hồ sơ lên và vẫn thấy sau khi tải lại trang', 
   const openProfile = async () => {
     await page.locator('aside').getByRole('button').last().click();
     await page.getByRole('button', { name: /Hồ sơ cá nhân/ }).click();
-    await expect(page.getByRole('heading', { name: 'Thông tin tài khoản', level: 2 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Thông tin tài khoản', level: 2 }),
+    ).toBeVisible();
   };
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -231,7 +260,9 @@ test('CTV tải file hồ sơ lên và vẫn thấy sau khi tải lại trang', 
     mimeType: 'image/png',
     buffer: png,
   });
-  await expect(page.getByText('Đã thay đổi ảnh đại diện thành công', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Đã thay đổi ảnh đại diện thành công', { exact: true }),
+  ).toBeVisible();
 
   await page.getByTestId('profile-cccd-front').setInputFiles({
     name: 'cccd-front.png',
@@ -296,7 +327,9 @@ test('form hồ sơ chỉ nhận chữ số cho điện thoại và ngày sinh',
   await expect(editProfileModal.getByTitle('Năm')).toHaveValue('1999');
 
   await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
-  await expect(page.getByText('Đã cập nhật thông tin hồ sơ cá nhân.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Đã cập nhật thông tin hồ sơ cá nhân.', { exact: true }),
+  ).toBeVisible();
 });
 
 async function checkContrastRatio(locator: import('@playwright/test').Locator): Promise<number> {
@@ -340,7 +373,10 @@ async function checkContrastRatio(locator: import('@playwright/test').Locator): 
   });
 }
 
-test('Monthly Work History renders English localization correctly and handles error retry', async ({ page, loginAs }) => {
+test('Monthly Work History renders English localization correctly and handles error retry', async ({
+  page,
+  loginAs,
+}) => {
   await page.addInitScript(() => {
     localStorage.setItem('ctv_sys_language', 'Tiếng Anh');
   });
@@ -385,7 +421,12 @@ test('Monthly Work History renders English localization correctly and handles er
 
   // Assert English weekdays
   for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
-    await expect(page.locator('div').filter({ hasText: new RegExp(`^${day}$`) }).first()).toBeVisible();
+    await expect(
+      page
+        .locator('div')
+        .filter({ hasText: new RegExp(`^${day}$`) })
+        .first(),
+    ).toBeVisible();
   }
 
   // Assert English month & year format
@@ -404,14 +445,25 @@ test('Monthly Work History renders English localization correctly and handles er
   await expect(page.getByLabel('View next month')).toBeVisible();
 
   // Assert absence of Vietnamese-only strings in the calendar section
-  const forbiddenVnTerms = ['Thứ', 'Tháng', 'Hôm nay', 'Đang tải', 'Thử lại', 'Xem tháng', 'Không thể tải lịch sử làm việc'];
+  const forbiddenVnTerms = [
+    'Thứ',
+    'Tháng',
+    'Hôm nay',
+    'Đang tải',
+    'Thử lại',
+    'Xem tháng',
+    'Không thể tải lịch sử làm việc',
+  ];
   const calendarSection = page.locator('section').filter({ hasText: 'Work History' });
   for (const term of forbiddenVnTerms) {
     await expect(calendarSection.getByText(term, { exact: true })).toHaveCount(0);
   }
 });
 
-test('Dark mode profile contrast meets WCAG AA standards and light mode is preserved', async ({ page, loginAs }) => {
+test('Dark mode profile contrast meets WCAG AA standards and light mode is preserved', async ({
+  page,
+  loginAs,
+}) => {
   await page.addInitScript(() => {
     localStorage.setItem('ctv_sys_dark_mode', 'true');
   });
@@ -465,7 +517,10 @@ test('Dark mode profile contrast meets WCAG AA standards and light mode is prese
   expect(labelRatio).toBeGreaterThanOrEqual(4.5);
 });
 
-test('Light mode profile preserves visual hierarchy, readable text, and buttons', async ({ page, loginAs }) => {
+test('Light mode profile preserves visual hierarchy, readable text, and buttons', async ({
+  page,
+  loginAs,
+}) => {
   await page.addInitScript(() => {
     localStorage.setItem('ctv_sys_dark_mode', 'false');
   });
@@ -486,4 +541,3 @@ test('Light mode profile preserves visual hierarchy, readable text, and buttons'
   const personalRatio = await checkContrastRatio(personalInfoTitle);
   expect(personalRatio).toBeGreaterThanOrEqual(4.5);
 });
-

@@ -58,4 +58,3 @@ describe('generatePendingRegistrationData', () => {
     expect(result.createdEmails).not.toContain('pending.ctv02@gmail.com');
   });
 });
-

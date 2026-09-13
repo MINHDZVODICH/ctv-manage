@@ -1,10 +1,10 @@
-import type { AssignedCTV, ShiftSlot } from "../types";
-import { formatRoomLabel } from "./rooms";
+import type { AssignedCTV, ShiftSlot } from '../types';
+import { formatRoomLabel } from './rooms';
 
 export function getAssignedCTVsForDate(
   shifts: ShiftSlot[],
   workDate: string,
-  shiftType: "morning" | "afternoon",
+  shiftType: 'morning' | 'afternoon',
 ): AssignedCTV[] {
   const uniqueCTVs = new Map<string, AssignedCTV>();
 
@@ -31,11 +31,11 @@ export function getAssignedCTVsForDate(
  * If 17:30 has already passed today in Asia/Bangkok, returns null.
  */
 export function getMsUntilPostCutoffRefresh(now = new Date()): number | null {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).formatToParts(now);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   const y = Number(values.year);

@@ -1,4 +1,4 @@
-import { LanguageOption } from "../types";
+import type { LanguageOption } from '../types';
 
 export type LocaleTranslations = Record<string, string>;
 

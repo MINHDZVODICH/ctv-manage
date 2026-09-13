@@ -9,15 +9,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const scanDir = path.join(repoRoot, 'app', 'frontend', 'src');
 
 // Scannable source code file extensions
-const SCANNABLE_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.json',
-  '.html',
-  '.css',
-]);
+const SCANNABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.json', '.html', '.css']);
 
 // Allowlist for known intentional domain constants, internal enum values, and language labels
 const ALLOWLIST = [
@@ -66,7 +58,10 @@ function toPosixPath(filePath) {
 
 function isExcluded(relPath) {
   // 1. Exclude translation dictionaries: app/frontend/src/shared/i18n/**
-  if (relPath.startsWith('app/frontend/src/shared/i18n/') || relPath === 'app/frontend/src/shared/i18n') {
+  if (
+    relPath.startsWith('app/frontend/src/shared/i18n/') ||
+    relPath === 'app/frontend/src/shared/i18n'
+  ) {
     return true;
   }
   // 2. Exclude system settings configuration: app/frontend/src/shared/context/SystemSettingsContext.tsx
@@ -120,7 +115,10 @@ function checkLineForVietnamese(line) {
   if (trimmed.startsWith('{/*') && trimmed.endsWith('*/}')) return false;
 
   // Strip inline comments
-  let cleaned = line.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/g, '');
+  let cleaned = line
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/g, '');
 
   // Backend message matching patterns (e.g. .includes("..."))
   cleaned = cleaned.replace(/\.(?:includes|match|test)\s*\([^)]*\)/g, '');

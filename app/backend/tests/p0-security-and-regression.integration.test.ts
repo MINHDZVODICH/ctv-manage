@@ -28,18 +28,26 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
       .send({ roomCode: 'ROOM_1', slots: [{ weekday: 1, period: 'MORNING' }] });
 
     // 1. Admin can view schedule of CTV
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
-    const adminRes = await request(app).get(`/api/v1/accounts/${ctv.id}/schedule`).set('Cookie', adminCookie);
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
+    const adminRes = await request(app)
+      .get(`/api/v1/accounts/${ctv.id}/schedule`)
+      .set('Cookie', adminCookie);
     expect(adminRes.status).toBe(200);
     expect(adminRes.body.data.roomCode).toBe('ROOM_1');
 
     // 2. Assigned CTV can view own schedule
-    const assignedRes = await request(app).get('/api/v1/users/me/schedule').set('Cookie', ctvCookie);
+    const assignedRes = await request(app)
+      .get('/api/v1/users/me/schedule')
+      .set('Cookie', ctvCookie);
     expect(assignedRes.status).toBe(200);
     expect(assignedRes.body.data.roomCode).toBe('ROOM_1');
 
     // 3. Unassigned CTV is forbidden from viewing other CTV schedule via admin endpoint
-    const unassignedRes = await request(app).get(`/api/v1/accounts/${ctv.id}/schedule`).set('Cookie', otherCookie);
+    const unassignedRes = await request(app)
+      .get(`/api/v1/accounts/${ctv.id}/schedule`)
+      .set('Cookie', otherCookie);
     expect(unassignedRes.status).toBe(403);
   });
 
@@ -47,7 +55,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
 
-    const ctvAccount = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctvAccount = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Verify session is currently active
     const meBefore = await request(app).get('/api/v1/auth/sessions/me').set('Cookie', ctvCookie);
@@ -61,7 +71,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     expect(disableRes.status).toBe(200);
 
     // Next request from CTV with same session cookie MUST be rejected
-    const meAfterDisable = await request(app).get('/api/v1/auth/sessions/me').set('Cookie', ctvCookie);
+    const meAfterDisable = await request(app)
+      .get('/api/v1/auth/sessions/me')
+      .set('Cookie', ctvCookie);
     expect(meAfterDisable.status).toBe(401);
 
     const profileAfterDisable = await request(app).get('/api/v1/users/me').set('Cookie', ctvCookie);
@@ -71,7 +83,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
   test('RISK-03 / PROF-001 / ACC-011 / RGR-11: Sensitive fields are omitted in responses', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctvAccount = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctvAccount = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Admin sets admin notes on CTV account
     await request(app)
@@ -100,7 +114,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
 
   test('RISK-04 / REG-005 / RGR-01: Soft-deleted account allows clean re-registration and approval', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
-    const ctvAccount = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctvAccount = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Soft delete the CTV account
     const delRes = await request(app)
@@ -135,7 +151,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
   test('RISK-05 / ACC-009 / SCH-007: Stale optimistic version updates return 409 Conflict', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctvAccount = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctvAccount = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // 1. Account update with stale version
     const staleAccountUpdate = await request(app)
@@ -155,7 +173,11 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     const staleScheduleUpdate = await request(app)
       .put('/api/v1/users/me/schedule-registration')
       .set('Cookie', ctvCookie)
-      .send({ roomCode: 'ROOM_2', slots: [{ weekday: 2, period: 'AFTERNOON' }], expectedVersion: regVersion + 999 });
+      .send({
+        roomCode: 'ROOM_2',
+        slots: [{ weekday: 2, period: 'AFTERNOON' }],
+        expectedVersion: regVersion + 999,
+      });
     expect(staleScheduleUpdate.status).toBe(409);
   });
 
@@ -173,16 +195,22 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     const fileId = uploadRes.body.file.fileId;
 
     // 1. Owner can stream the file
-    const ownerStream = await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', ctvCookie);
+    const ownerStream = await request(app)
+      .get(`/api/v1/files/${fileId}/content`)
+      .set('Cookie', ctvCookie);
     expect(ownerStream.status).toBe(200);
     expect(ownerStream.headers['content-type']).toContain('image/png');
 
     // 2. Admin can stream the file
-    const adminStream = await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', adminCookie);
+    const adminStream = await request(app)
+      .get(`/api/v1/files/${fileId}/content`)
+      .set('Cookie', adminCookie);
     expect(adminStream.status).toBe(200);
 
     // 3. Another CTV is forbidden from accessing the file
-    const otherStream = await request(app).get(`/api/v1/files/${fileId}/content`).set('Cookie', otherCookie);
+    const otherStream = await request(app)
+      .get(`/api/v1/files/${fileId}/content`)
+      .set('Cookie', otherCookie);
     expect(otherStream.status).toBe(403);
 
     // 4. Anonymous user is denied
@@ -191,7 +219,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
   });
 
   test('RISK-07 / CAN-005 / HIST-001..003: Finalized work history is immutable to future cancellations', async () => {
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Seed historical history snapshot
     const historyRecord = await prisma.history.create({
@@ -252,7 +282,9 @@ describe('Phase A — P0 Security, Access & Regression Protection Suite', () => 
     expect(accAnon.status).toBe(401);
 
     // 3. Registration requests review: Admin=200, CTV=403, Anon=401
-    const reqAdmin = await request(app).get('/api/v1/registration-requests').set('Cookie', adminCookie);
+    const reqAdmin = await request(app)
+      .get('/api/v1/registration-requests')
+      .set('Cookie', adminCookie);
     expect(reqAdmin.status).toBe(200);
 
     const reqCtv = await request(app).get('/api/v1/registration-requests').set('Cookie', ctvCookie);

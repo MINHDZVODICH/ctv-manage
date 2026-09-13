@@ -35,10 +35,7 @@ export async function getReady(_req: Request, res: Response): Promise<void> {
   });
 
   try {
-    await Promise.race([
-      prisma.$queryRaw`SELECT 1`,
-      timeoutPromise,
-    ]);
+    await Promise.race([prisma.$queryRaw`SELECT 1`, timeoutPromise]);
     if (timer) clearTimeout(timer);
     res.status(200).json({ status: 'ready' });
   } catch (error) {

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as api from '../api/client';
+import type { AuthSessionResponse, ApiError } from '../api/types';
 
 export type AuthUser = {
   id: string;
@@ -26,10 +27,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res: any = await api.apiGet('/api/v1/auth/sessions/me');
-      const u = res.user ?? res.data ?? res;
-      setUser(u && u.id ? u : null);
-    } catch {
+      const res = await api.apiGet<AuthSessionResponse>('/api/v1/auth/sessions/me');
+      setUser(res.user?.id ? res.user : null);
+    } catch (err) {
+      if ((err as ApiError)?.status !== 401) {
+        console.error('[AuthContext] Unexpected error refreshing auth session:', err);
+      }
       setUser(null);
     } finally {
       setLoading(false);
@@ -51,9 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const login = async (email: string, password: string) => {
-    const res: any = await api.apiPost('/api/v1/auth/sessions', { email, password });
-    const u = res.user ?? res.data ?? res;
-    setUser(u);
+    const res = await api.apiPost<AuthSessionResponse>('/api/v1/auth/sessions', {
+      email,
+      password,
+    });
+    setUser(res.user ?? null);
   };
 
   const register = async (form: FormData) => {
@@ -63,12 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await api.apiDelete('/api/v1/auth/sessions/current');
+    } catch (err) {
+      console.error('[AuthContext] Unexpected error during session logout:', err);
     } finally {
       setUser(null);
     }
   };
 
-  return <Ctx.Provider value={{ user, loading, login, register, logout, refresh }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ user, loading, login, register, logout, refresh }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth() {

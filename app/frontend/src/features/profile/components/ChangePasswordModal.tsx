@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as api from '../../../shared/api';
+import { normalizeErrorMessage } from '../../../shared/api/errors';
 import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
 
 interface ChangePasswordModalProps {
@@ -11,7 +12,7 @@ interface ChangePasswordModalProps {
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
 }) => {
   const { t } = useSystemSettings();
   const [oldPassword, setOldPassword] = useState('');
@@ -28,21 +29,24 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!oldPassword) {
-      setErrorMsg(t("profile.enter_current_password"));
+      setErrorMsg(t('profile.enter_current_password'));
       return;
     }
     if (newPassword.length < 8) {
-      setErrorMsg(t("profile.password_hint"));
+      setErrorMsg(t('profile.password_hint'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg(t("profile.password_mismatch"));
+      setErrorMsg(t('profile.password_mismatch'));
       return;
     }
     setErrorMsg('');
     setIsSubmitting(true);
     try {
-      await api.apiPost('/api/v1/users/me/password-changes', { currentPassword: oldPassword, newPassword });
+      await api.apiPost('/api/v1/users/me/password-changes', {
+        currentPassword: oldPassword,
+        newPassword,
+      });
       onSuccess();
       setOldPassword('');
       setNewPassword('');
@@ -51,16 +55,20 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       setShowNewPassword(false);
       setShowConfirmPassword(false);
       onClose();
-    } catch (err: any) {
-      const msg = err.message || '';
-      if (msg.includes('Current password is incorrect') || msg.includes('INVALID_PASSWORD') || msg.includes('không chính xác')) {
-        setErrorMsg(t("profile.current_password_incorrect"));
+    } catch (err: unknown) {
+      const msg = normalizeErrorMessage(err, '');
+      if (
+        msg.includes('Current password is incorrect') ||
+        msg.includes('INVALID_PASSWORD') ||
+        msg.includes('không chính xác')
+      ) {
+        setErrorMsg(t('profile.current_password_incorrect'));
       } else if (msg.includes('Account not found') || msg.includes('NOT_FOUND')) {
-        setErrorMsg(t("profile.account_not_found"));
+        setErrorMsg(t('profile.account_not_found'));
       } else if (msg.includes('Validation failed') || msg.includes('VALIDATION_ERROR')) {
-        setErrorMsg(t("profile.invalid_input"));
+        setErrorMsg(t('profile.invalid_input'));
       } else {
-        setErrorMsg(msg || t("profile.password_change_failed"));
+        setErrorMsg(msg || t('profile.password_change_failed'));
       }
     } finally {
       setIsSubmitting(false);
@@ -71,7 +79,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-[#1e1f23] rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between p-5 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c]">
-          <h3 className="text-lg font-bold text-[#1a1b1e] dark:text-slate-100">{t('change_password')}</h3>
+          <h3 className="text-lg font-bold text-[#1a1b1e] dark:text-slate-100">
+            {t('change_password')}
+          </h3>
           <button
             onClick={onClose}
             className="text-[#74777f] hover:text-[#1a1b1e] dark:text-slate-400 dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
@@ -94,7 +104,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </label>
             <div className="relative">
               <input
-                type={showOldPassword ? "text" : "password"}
+                type={showOldPassword ? 'text' : 'password'}
                 required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
@@ -107,7 +117,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 title={showOldPassword ? t('hide_password') : t('show_password')}
               >
                 <span className="material-symbols-outlined text-[18px]">
-                  {showOldPassword ? "visibility_off" : "visibility"}
+                  {showOldPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
             </div>
@@ -119,7 +129,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </label>
             <div className="relative">
               <input
-                type={showNewPassword ? "text" : "password"}
+                type={showNewPassword ? 'text' : 'password'}
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -132,7 +142,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 title={showNewPassword ? t('hide_password') : t('show_password')}
               >
                 <span className="material-symbols-outlined text-[18px]">
-                  {showNewPassword ? "visibility_off" : "visibility"}
+                  {showNewPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
             </div>
@@ -144,7 +154,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </label>
             <div className="relative">
               <input
-                type={showConfirmPassword ? "text" : "password"}
+                type={showConfirmPassword ? 'text' : 'password'}
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -157,7 +167,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 title={showConfirmPassword ? t('hide_password') : t('show_password')}
               >
                 <span className="material-symbols-outlined text-[18px]">
-                  {showConfirmPassword ? "visibility_off" : "visibility"}
+                  {showConfirmPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
             </div>

@@ -4,11 +4,7 @@ import { createApp } from '../src/app.js';
 import { prisma } from '../src/shared/prisma.js';
 import { loginCookie, resetDatabase, seedActors } from './helpers.js';
 import { SnapshotCoordinatorService } from '../src/modules/schedule/snapshot-coordinator.service.js';
-import {
-  todayInBangkok,
-  addDays,
-  parseYmdToUtcDate,
-} from '../src/shared/timezone.js';
+import { todayInBangkok, addDays, parseYmdToUtcDate } from '../src/shared/timezone.js';
 
 const app = createApp();
 

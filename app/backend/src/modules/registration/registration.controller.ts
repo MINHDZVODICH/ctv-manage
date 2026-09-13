@@ -35,7 +35,12 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
 const createBodySchema = z.object({
   email: z.string().trim().email('Email không hợp lệ'),
   displayName: z.string().trim().min(1, 'Họ và tên là bắt buộc'),
-  phone: emptyToUndefined(z.string().trim().regex(/^\d{10,11}$/, 'Số điện thoại phải từ 10 - 11 chữ số')),
+  phone: emptyToUndefined(
+    z
+      .string()
+      .trim()
+      .regex(/^\d{10,11}$/, 'Số điện thoại phải từ 10 - 11 chữ số'),
+  ),
   dateOfBirth: z.preprocess((v) => {
     if (v === '' || v === undefined || v === null) return undefined;
     return parseAndValidateDateOfBirth(v);
@@ -49,10 +54,15 @@ const createHandler = async (req: Request, res: Response, next: NextFunction) =>
   try {
     const parsed = createBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ');
+      throw Errors.badRequest(
+        'VALIDATION_ERROR',
+        parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ',
+      );
     }
 
-    const uploaded = (req.files ?? {}) as Partial<Record<'cccdFront' | 'cccdBack' | 'cv', Express.Multer.File[]>>;
+    const uploaded = (req.files ?? {}) as Partial<
+      Record<'cccdFront' | 'cccdBack' | 'cv', Express.Multer.File[]>
+    >;
     const cccdFront = uploaded.cccdFront?.[0];
     const cccdBack = uploaded.cccdBack?.[0];
     const cv = uploaded.cv?.[0];
@@ -60,13 +70,19 @@ const createHandler = async (req: Request, res: Response, next: NextFunction) =>
     // CCCD front/back and CV are optional per use case 1.3
     if (cccdFront) {
       if (!IMAGE_MIMES.includes(cccdFront.mimetype)) {
-        throw Errors.badRequest('INVALID_FILE_TYPE', 'File CCCD mặt trước phải là ảnh JPEG, PNG hoặc WebP');
+        throw Errors.badRequest(
+          'INVALID_FILE_TYPE',
+          'File CCCD mặt trước phải là ảnh JPEG, PNG hoặc WebP',
+        );
       }
       assertFileMagic(cccdFront.buffer, IMAGE_MIMES);
     }
     if (cccdBack) {
       if (!IMAGE_MIMES.includes(cccdBack.mimetype)) {
-        throw Errors.badRequest('INVALID_FILE_TYPE', 'File CCCD mặt sau phải là ảnh JPEG, PNG hoặc WebP');
+        throw Errors.badRequest(
+          'INVALID_FILE_TYPE',
+          'File CCCD mặt sau phải là ảnh JPEG, PNG hoặc WebP',
+        );
       }
       assertFileMagic(cccdBack.buffer, IMAGE_MIMES);
     }
@@ -117,7 +133,10 @@ export async function list(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = listQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Tham số truy vấn không hợp lệ');
+      throw Errors.badRequest(
+        'VALIDATION_ERROR',
+        parsed.error.issues[0]?.message ?? 'Tham số truy vấn không hợp lệ',
+      );
     }
     const result = await registrationService.listPending(parsed.data as any);
     res.json(result);
@@ -130,15 +149,20 @@ export async function list(req: Request, res: Response, next: NextFunction) {
 const decideBodySchema = z.object({
   decision: z.enum(['APPROVED', 'REJECTED']),
   expectedStatus: z.literal('PENDING'),
-  rejectionReason: z
-    .preprocess((v) => (v === '' ? undefined : v), z.string().max(500).optional() as any) as any,
+  rejectionReason: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().max(500).optional() as any,
+  ) as any,
 });
 
 export async function decide(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = decideBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      throw Errors.badRequest('VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Dữ liệu quyết định không hợp lệ');
+      throw Errors.badRequest(
+        'VALIDATION_ERROR',
+        parsed.error.issues[0]?.message ?? 'Dữ liệu quyết định không hợp lệ',
+      );
     }
     const { requestId } = req.params;
     if (!requestId) throw Errors.badRequest('INVALID_REQUEST_ID', 'Thiếu requestId');

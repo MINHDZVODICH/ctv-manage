@@ -19,7 +19,9 @@ describe('Phase C — Resilience, Integrity & Timezone Boundaries Suite', () => 
   test('Database integrity: Cascading and foreign key integrity during account operations', async () => {
     const adminCookie = await loginCookie(app, 'admin.acceptance@ctv.local');
     const ctvCookie = await loginCookie(app, 'ctv.active@ctv.local');
-    const ctv = await prisma.account.findUniqueOrThrow({ where: { email: 'ctv.active@ctv.local' } });
+    const ctv = await prisma.account.findUniqueOrThrow({
+      where: { email: 'ctv.active@ctv.local' },
+    });
 
     // Register schedule
     await request(app)

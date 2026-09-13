@@ -88,12 +88,15 @@ export async function upsertSchedule(
           accountId,
           roomCode: input.roomCode as RoomCode,
           version: 1,
-          shifts: slots.length > 0 ? {
-            create: slots.map((s) => ({
-              weekday: s.weekday,
-              period: s.period as Period,
-            })),
-          } : undefined,
+          shifts:
+            slots.length > 0
+              ? {
+                  create: slots.map((s) => ({
+                    weekday: s.weekday,
+                    period: s.period as Period,
+                  })),
+                }
+              : undefined,
         },
       });
     }

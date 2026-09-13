@@ -80,11 +80,7 @@ const passwordChangeSchema = z.object({
   newPassword: z.string().min(8).max(128),
 });
 
-export async function postPasswordChange(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export async function postPasswordChange(req: Request, res: Response, next: NextFunction) {
   try {
     const user = req.user;
     if (!user) throw Errors.unauthorized();

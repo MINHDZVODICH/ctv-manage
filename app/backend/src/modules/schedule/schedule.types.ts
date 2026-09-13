@@ -73,7 +73,10 @@ export function monthRangeToUtcDates(month: string): { from: Date; to: Date } {
 
 export function validateScheduleInput(input: UpsertScheduleInput): void {
   if (!ROOM_CODES.includes(input.roomCode as RoomCode)) {
-    throw Errors.badRequest('INVALID_ROOM_CODE', `roomCode must be one of ${ROOM_CODES.join(', ')}`);
+    throw Errors.badRequest(
+      'INVALID_ROOM_CODE',
+      `roomCode must be one of ${ROOM_CODES.join(', ')}`,
+    );
   }
   if (!Array.isArray(input.slots)) {
     throw Errors.badRequest('INVALID_SLOTS', 'slots must be an array');

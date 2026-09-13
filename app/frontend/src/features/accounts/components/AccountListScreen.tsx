@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { UserAccount, UserRole } from "../../../shared/types";
-import { formatPhoneNumber } from "../../../shared/utils/formatters";
-import { ResetPasswordModal } from "./ResetPasswordModal";
-import { useSystemSettings } from "../../../shared/context/SystemSettingsContext";
-import { Pagination } from "../../../shared/ui";
+import React, { useState } from 'react';
+import type { UserAccount, UserRole } from '../../../shared/types';
+import { formatPhoneNumber } from '../../../shared/utils/formatters';
+import { ResetPasswordModal } from './ResetPasswordModal';
+import { useSystemSettings } from '../../../shared/context/SystemSettingsContext';
+import { Pagination } from '../../../shared/ui';
 
 interface AccountListScreenProps {
   accounts: UserAccount[];
@@ -55,9 +55,12 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">{t("accounts.title")}</h2>
+          <h2 className="text-2xl font-bold text-[#1a1b1e] tracking-tight">
+            {t('accounts.title')}
+          </h2>
           <p className="text-sm text-[#44474e] mt-1">
-            {t("total_label")} <span className="font-semibold text-[#1a1b1e]">{total}</span> {t("ctv_unit")}
+            {t('total_label')} <span className="font-semibold text-[#1a1b1e]">{total}</span>{' '}
+            {t('ctv_unit')}
           </p>
         </div>
       </div>
@@ -76,7 +79,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               onChange={(e) => {
                 onSearchChange(e.target.value);
               }}
-              placeholder={t("search_placeholder")}
+              placeholder={t('search_placeholder')}
               className="w-full pl-10 pr-4 py-2 h-[40px] border border-[#E2E8F0] rounded text-sm bg-white text-[#1a1b1e] focus:border-[#1b365d] focus:ring-1 focus:ring-[#1b365d] outline-none"
             />
           </div>
@@ -88,7 +91,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               className="text-[#44474e] hover:text-[#1b365d] font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-              <span>{t("refresh")}</span>
+              <span>{t('refresh')}</span>
             </button>
           </div>
         </div>
@@ -101,19 +104,19 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-[45px]">
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider w-16">
-                  {t("accounts.no")}
+                  {t('accounts.no')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("full_name")}
+                  {t('full_name')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("phone_number")}
+                  {t('phone_number')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider">
-                  {t("registration_date")}
+                  {t('registration_date')}
                 </th>
                 <th className="py-3 px-4 text-xs font-semibold text-[#44474e] uppercase tracking-wider text-right">
-                  {t("actions")}
+                  {t('actions')}
                 </th>
               </tr>
             </thead>
@@ -121,17 +124,19 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               {loading && accounts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {t("accounts.loading")}
+                    {t('accounts.loading')}
                   </td>
                 </tr>
               ) : error && accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#DC2626] text-sm">{error}</td>
+                  <td colSpan={5} className="py-12 text-center text-[#DC2626] text-sm">
+                    {error}
+                  </td>
                 </tr>
               ) : accounts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#74777f] text-sm">
-                    {t("accounts.empty")}
+                    {t('accounts.empty')}
                   </td>
                 </tr>
               ) : (
@@ -145,7 +150,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                       <div
                         onClick={() => onViewAccountDetail(acc)}
                         className="flex items-center gap-3 cursor-pointer group/user inline-flex"
-                        title={t("accounts.view_profile_title", { name: acc.name })}
+                        title={t('accounts.view_profile_title', { name: acc.name })}
                       >
                         {acc.avatar ? (
                           <img
@@ -166,47 +171,49 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-sm text-[#44474e] font-medium">
-                      {acc.phone ? formatPhoneNumber(acc.phone) : "---"}
+                      {acc.phone ? formatPhoneNumber(acc.phone) : '---'}
                     </td>
                     <td className="py-3.5 px-4 text-sm text-[#44474e]">{acc.registerDate}</td>
                     <td className="py-3.5 px-4 text-right">
-                      {acc.role !== "Admin" && (
+                      {acc.role !== 'Admin' && (
                         <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => setAccountToResetPassword(acc)}
                             className="p-1.5 text-[#44474e] hover:text-[#1b365d] hover:bg-[#d8e2f9] rounded transition-colors cursor-pointer"
-                            title={t("accounts.reset_password_tooltip")}
-                            aria-label={t("accounts.reset_password")}
+                            title={t('accounts.reset_password_tooltip')}
+                            aria-label={t('accounts.reset_password')}
                           >
-                            <span className="material-symbols-outlined text-[20px]">lock_reset</span>
+                            <span className="material-symbols-outlined text-[20px]">
+                              lock_reset
+                            </span>
                           </button>
                           <button
                             onClick={() => setAccountToToggle(acc)}
                             className={`p-1.5 rounded transition-colors cursor-pointer ${
-                              acc.status === "Kích hoạt"
-                                ? "text-[#44474e] hover:text-[#EA580C] hover:bg-[#ffddb9]"
-                                : "text-[#44474e] hover:text-[#16A34A] hover:bg-[#c7ecc7]"
+                              acc.status === 'Kích hoạt'
+                                ? 'text-[#44474e] hover:text-[#EA580C] hover:bg-[#ffddb9]'
+                                : 'text-[#44474e] hover:text-[#16A34A] hover:bg-[#c7ecc7]'
                             }`}
                             title={
-                              acc.status === "Kích hoạt"
-                                ? t("accounts.disable_tooltip")
-                                : t("accounts.enable_tooltip")
+                              acc.status === 'Kích hoạt'
+                                ? t('accounts.disable_tooltip')
+                                : t('accounts.enable_tooltip')
                             }
                             aria-label={
-                              acc.status === "Kích hoạt"
-                                ? t("accounts.disable")
-                                : t("accounts.enable")
+                              acc.status === 'Kích hoạt'
+                                ? t('accounts.disable_tooltip')
+                                : t('accounts.enable_tooltip')
                             }
                           >
                             <span className="material-symbols-outlined text-[20px]">
-                              {acc.status === "Kích hoạt" ? "lock" : "lock_open"}
+                              {acc.status === 'Kích hoạt' ? 'lock' : 'lock_open'}
                             </span>
                           </button>
                           <button
                             onClick={() => setAccountToDelete(acc)}
                             className="p-1.5 text-[#44474e] hover:text-[#DC2626] hover:bg-[#ffdad6] rounded transition-colors cursor-pointer"
-                            title={t("accounts.delete_tooltip")}
-                            aria-label={t("accounts.delete")}
+                            title={t('accounts.delete_tooltip')}
+                            aria-label={t('accounts.delete')}
                           >
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
@@ -240,15 +247,16 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
             </div>
             <div className="text-center">
               <h3 className="text-base font-bold text-[#1a1b1e]">
-                {accountToToggle.status === "Kích hoạt"
-                  ? t("accounts.disable_confirm_question")
-                  : t("accounts.enable_confirm_question")}
+                {accountToToggle.status === 'Kích hoạt'
+                  ? t('accounts.disable_confirm_question')
+                  : t('accounts.enable_confirm_question')}
               </h3>
               <p className="text-xs text-[#44474e] mt-2">
-                {t("accounts.name")}:{" "}
+                {t('accounts.name')}:{' '}
                 <span className="font-semibold text-[#1a1b1e]">{accountToToggle.name}</span>
                 <br />
-                {t("accounts.email")}: <span className="font-semibold text-[#1a1b1e]">{accountToToggle.email}</span>
+                {t('accounts.email')}:{' '}
+                <span className="font-semibold text-[#1a1b1e]">{accountToToggle.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -256,7 +264,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 onClick={() => setAccountToToggle(null)}
                 className="px-4 py-2 text-xs font-semibold text-[#44474e] hover:bg-gray-100 rounded transition-colors cursor-pointer"
               >
-                {t("cancel")}
+                {t('cancel')}
               </button>
               <button
                 onClick={() => {
@@ -264,12 +272,14 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                   setAccountToToggle(null);
                 }}
                 className={`px-4 py-2 text-xs font-semibold text-white rounded transition-colors cursor-pointer ${
-                  accountToToggle.status === "Kích hoạt"
-                    ? "bg-[#EA580C] hover:bg-[#c2410c]"
-                    : "bg-[#16A34A] hover:bg-[#15803d]"
+                  accountToToggle.status === 'Kích hoạt'
+                    ? 'bg-[#EA580C] hover:bg-[#c2410c]'
+                    : 'bg-[#16A34A] hover:bg-[#15803d]'
                 }`}
               >
-                {accountToToggle.status === "Kích hoạt" ? t("accounts.disable") : t("accounts.enable")}
+                {accountToToggle.status === 'Kích hoạt'
+                  ? t('accounts.disable')
+                  : t('accounts.enable')}
               </button>
             </div>
           </div>
@@ -284,15 +294,18 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               <span className="material-symbols-outlined text-2xl">error</span>
             </div>
             <div className="text-center">
-              <h3 className="text-base font-bold text-[#1a1b1e]">{t("accounts.delete_confirm_question")}</h3>
+              <h3 className="text-base font-bold text-[#1a1b1e]">
+                {t('accounts.delete_confirm_question')}
+              </h3>
               <p className="text-xs text-[#DC2626] font-semibold mt-1">
-                {t("accounts.cannot_undo")}
+                {t('accounts.cannot_undo')}
               </p>
               <p className="text-xs text-[#44474e] mt-2">
-                {t("accounts.name")}:{" "}
+                {t('accounts.name')}:{' '}
                 <span className="font-semibold text-[#1a1b1e]">{accountToDelete.name}</span>
                 <br />
-                {t("accounts.email")}: <span className="font-semibold text-[#1a1b1e]">{accountToDelete.email}</span>
+                {t('accounts.email')}:{' '}
+                <span className="font-semibold text-[#1a1b1e]">{accountToDelete.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -300,7 +313,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 onClick={() => setAccountToDelete(null)}
                 className="px-4 py-2 text-xs font-semibold text-[#44474e] hover:bg-gray-100 rounded transition-colors cursor-pointer"
               >
-                {t("cancel")}
+                {t('cancel')}
               </button>
               <button
                 onClick={() => {
@@ -309,7 +322,7 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                 }}
                 className="px-4 py-2 text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#b91c1c] rounded transition-colors cursor-pointer"
               >
-                {t("accounts.delete")}
+                {t('accounts.delete')}
               </button>
             </div>
           </div>

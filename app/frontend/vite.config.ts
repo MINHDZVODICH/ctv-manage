@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    watch: {
+      ignored: ['**/playwright-report/**', '**/test-results/**', '**/.acceptance-uploads/**'],
+    },
     proxy: {
       '/api': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:4001',
     },

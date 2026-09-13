@@ -46,6 +46,10 @@ export function startScheduleSnapshotJob(): ScheduleSnapshotJobController {
         timer = null;
       }
       // Fallback timer on transient error
+      logger.error(
+        { error },
+        'Failed to determine next snapshot wake delay, falling back to 60s retry',
+      );
       timer = setTimeout(() => {
         void runReconcile();
       }, 60_000);
