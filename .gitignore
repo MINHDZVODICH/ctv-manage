@@ -59,6 +59,8 @@ Thumbs.db
 .codegraph/
 .playwright-mcp/
 .superpowers/
+.agents/
+bug_images/
 
 # Documentation / Scratch
 Deploy-React-Nodejs-EN.md

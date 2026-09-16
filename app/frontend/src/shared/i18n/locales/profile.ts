@@ -66,6 +66,8 @@ export const profileTranslations: DomainTranslations = {
     'profile.year': 'Năm',
     'profile.address_placeholder': 'TP. Hồ Chí Minh',
     'profile.phone_hint': 'Số điện thoại chỉ gồm từ 6 đến 15 chữ số',
+    'profile.error_name_required': 'Vui lòng nhập họ và tên!',
+    'profile.error_name_max_length': 'Họ và tên không được vượt quá 100 ký tự!',
 
     // Change Password Modal & Validation
     'profile.change_password_title': 'Đổi mật khẩu',
@@ -147,6 +149,8 @@ export const profileTranslations: DomainTranslations = {
     'profile.year': 'Year',
     'profile.address_placeholder': 'e.g. Ho Chi Minh City',
     'profile.phone_hint': 'Phone number must be between 6 and 15 digits',
+    'profile.error_name_required': 'Please enter your full name!',
+    'profile.error_name_max_length': 'Full name must not exceed 100 characters!',
 
     // Change Password Modal & Validation
     'profile.change_password_title': 'Change Password',

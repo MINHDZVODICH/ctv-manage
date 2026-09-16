@@ -49,11 +49,16 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
 }
 
 const patchMeSchema = z.object({
-  displayName: z.string().min(1).max(200).optional(),
-  phone: z.string().max(20).nullable().optional(),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Họ và tên không được để trống')
+    .max(100, 'Họ và tên không được vượt quá 100 ký tự')
+    .optional(),
+  phone: z.string().trim().max(20, 'Số điện thoại không được vượt quá 20 ký tự').nullable().optional(),
   dateOfBirth: z.string().nullable().optional(),
   gender: z.string().nullable().optional(),
-  address: z.string().nullable().optional(),
+  address: z.string().trim().max(255, 'Địa chỉ không được vượt quá 255 ký tự').nullable().optional(),
   expectedVersion: z.number().int().optional(),
 });
 

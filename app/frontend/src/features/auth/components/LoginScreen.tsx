@@ -228,13 +228,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
     setRegGeneralError('');
     const errors: { [key: string]: string } = {};
 
-    if (!regName.trim()) errors.regName = 'auth.error_name_required';
+    if (!regName.trim()) {
+      errors.regName = 'auth.error_name_required';
+    } else if (regName.trim().length > 100) {
+      errors.regName = 'auth.error_name_max_length';
+    }
     if (!regEmail.trim()) errors.regEmail = 'auth.error_email_required';
     if (regPhone.trim() && !/^\d{10,11}$/.test(regPhone.trim())) {
       errors.regPhone = 'auth.error_phone_format';
     }
     if (!cccdFrontFile) errors.cccdFront = 'auth.error_cccd_front_required';
     if (!cccdBackFile) errors.cccdBack = 'auth.error_cccd_back_required';
+    if (!cvFileObj) errors.cvFile = 'auth.error_cv_required';
     if (!regPassword) {
       errors.regPassword = 'auth.error_password_required';
     } else if (regPassword.length < 6) {
@@ -488,6 +493,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                 <input
                   type="text"
                   autoComplete="off"
+                  maxLength={100}
                   value={regName}
                   onFocus={() => clearRegError('regName')}
                   onClick={() => clearRegError('regName')}
@@ -910,6 +916,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onRequ
                       description
                     </span>
                     <span>{t('auth.cv')}</span>
+                    <span className="text-[#DC2626] font-bold">*</span>
                   </label>
                   <span className="text-[11px] text-[#74777f] dark:text-slate-400">.pdf</span>
                 </div>

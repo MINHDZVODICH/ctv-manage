@@ -67,10 +67,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   const [gender, setGender] = useState(normalizeGenderValue(user.gender));
   const [address, setAddress] = useState(user.address || '');
+  const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && user) {
       setName(user.name);
+      setNameError(null);
       setPhone(user.phone || '');
       const parts = parseDobToParts(user.dob);
       setDobDay(parts.day);
@@ -91,9 +93,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setNameError('profile.error_name_required');
+      return;
+    }
+    if (name.trim().length > 100) {
+      setNameError('profile.error_name_max_length');
+      return;
+    }
+    setNameError(null);
     const dob = dobDay && dobMonth && dobYear ? `${dobDay}/${dobMonth}/${dobYear}` : '';
     onSave({
-      name,
+      name: name.trim(),
       phone,
       dob,
       gender,
@@ -135,10 +146,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <input
               type="text"
               required
+              maxLength={100}
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none ${
+                nameError
+                  ? 'border-[#DC2626]'
+                  : 'border-[#c4c6cf] dark:border-slate-700'
+              }`}
             />
+            {nameError && (
+              <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
+                {t(nameError)}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

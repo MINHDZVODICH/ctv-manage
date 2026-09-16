@@ -163,8 +163,8 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                             {acc.initials || acc.name.substring(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <div>
-                          <div className="font-semibold text-sm text-[#1a1b1e] dark:text-white group-hover/user:text-[#1b365d] dark:group-hover/user:text-blue-300 group-hover/user:underline transition-colors">
+                        <div className="min-w-0 max-w-[200px] sm:max-w-[300px]">
+                          <div className="font-semibold text-sm text-[#1a1b1e] dark:text-white group-hover/user:text-[#1b365d] dark:group-hover/user:text-blue-300 group-hover/user:underline transition-colors truncate">
                             {acc.name}
                           </div>
                         </div>
@@ -251,12 +251,12 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
                   ? t('accounts.disable_confirm_question')
                   : t('accounts.enable_confirm_question')}
               </h3>
-              <p className="text-xs text-[#44474e] mt-2">
+              <p className="text-xs text-[#44474e] mt-2 break-words">
                 {t('accounts.name')}:{' '}
-                <span className="font-semibold text-[#1a1b1e]">{accountToToggle.name}</span>
+                <span className="font-semibold text-[#1a1b1e] break-all">{accountToToggle.name}</span>
                 <br />
                 {t('accounts.email')}:{' '}
-                <span className="font-semibold text-[#1a1b1e]">{accountToToggle.email}</span>
+                <span className="font-semibold text-[#1a1b1e] break-all">{accountToToggle.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -300,12 +300,12 @@ export const AccountListScreen: React.FC<AccountListScreenProps> = ({
               <p className="text-xs text-[#DC2626] font-semibold mt-1">
                 {t('accounts.cannot_undo')}
               </p>
-              <p className="text-xs text-[#44474e] mt-2">
+              <p className="text-xs text-[#44474e] mt-2 break-words">
                 {t('accounts.name')}:{' '}
-                <span className="font-semibold text-[#1a1b1e]">{accountToDelete.name}</span>
+                <span className="font-semibold text-[#1a1b1e] break-all">{accountToDelete.name}</span>
                 <br />
                 {t('accounts.email')}:{' '}
-                <span className="font-semibold text-[#1a1b1e]">{accountToDelete.email}</span>
+                <span className="font-semibold text-[#1a1b1e] break-all">{accountToDelete.email}</span>
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">

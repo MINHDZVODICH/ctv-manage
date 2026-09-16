@@ -18,7 +18,12 @@ const idParamSchema = z.object({
 });
 
 const patchBodySchema = z.object({
-  displayName: z.string().min(1).optional(),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Họ và tên không được để trống')
+    .max(100, 'Họ và tên không được vượt quá 100 ký tự')
+    .optional(),
   phone: z.string().nullable().optional(),
   dateOfBirth: z.string().nullable().optional(),
   gender: z.string().nullable().optional(),

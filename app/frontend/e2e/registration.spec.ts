@@ -136,6 +136,7 @@ test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và bi�
   const emailError = page.getByText('Vui lòng nhập email!');
   const cccdFrontError = page.getByText('Vui lòng tải ảnh CCCD mặt trước!');
   const cccdBackError = page.getByText('Vui lòng tải ảnh CCCD mặt sau!');
+  const cvError = page.getByText('Vui lòng tải lên hồ sơ ứng tuyển (CV)!');
   const passwordError = page.getByText('Vui lòng nhập mật khẩu!');
   const confirmPasswordError = page.getByText('Vui lòng nhập lại mật khẩu!');
 
@@ -143,6 +144,7 @@ test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và bi�
   await expect(emailError).toBeVisible();
   await expect(cccdFrontError).toBeVisible();
   await expect(cccdBackError).toBeVisible();
+  await expect(cvError).toBeVisible();
   await expect(passwordError).toBeVisible();
   await expect(confirmPasswordError).toBeVisible();
 
@@ -168,6 +170,11 @@ test('cảnh báo đỏ hiển thị khi thiếu thông tin bắt buộc và bi�
   const cccdBackDropzone = page.getByTestId('registration-cccd-back-dropzone');
   await cccdBackDropzone.click({ force: true });
   await expect(cccdBackError).toHaveCount(0);
+
+  // Khi người dùng nhấn vào khung CV -> cảnh báo CV phải mất đi
+  const cvDropzone = page.getByText('Tải file CV lên');
+  await cvDropzone.click({ force: true });
+  await expect(cvError).toHaveCount(0);
 
   // Khi người dùng nhấn vào ô Mật khẩu -> cảnh báo Mật khẩu phải mất đi
   const passwordInputs = page.locator('input[type="password"]');
@@ -206,6 +213,11 @@ test('người dùng gửi yêu cầu đăng ký thành công mà không cần s
     name: 'cccd-back.png',
     mimeType: 'image/png',
     buffer: png,
+  });
+  await page.getByTestId('registration-cv').setInputFiles({
+    name: 'cv.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\n%%EOF'),
   });
 
   const registrationResponse = page.waitForResponse(

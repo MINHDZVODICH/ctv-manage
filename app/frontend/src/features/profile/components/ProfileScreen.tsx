@@ -248,7 +248,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onChange={handleFileSelect}
             />
 
-            <h3 className="text-xl font-bold text-[#1a1b1e] dark:text-white">{user.name}</h3>
+            <h3 className="text-xl font-bold text-[#1a1b1e] dark:text-white break-words max-w-full text-center">
+              {user.name}
+            </h3>
 
             {/* Hidden inputs for CCCD and CV */}
             <input
@@ -402,56 +404,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   {t('personal_info')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('full_name')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {user.name}
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('date_of_birth')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {user.dob || t('not_updated')}
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('email')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {user.email}
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('phone_number')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {formatPhoneNumber(user.phone)}
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('gender')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {formatGender(user.gender)}
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-[#74777f] dark:text-slate-400 mb-1">
                       {t('address')}
                     </label>
-                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100">
+                    <p className="text-sm font-semibold text-[#1a1b1e] dark:text-slate-100 break-words">
                       {user.address || t('not_updated')}
                     </p>
                   </div>

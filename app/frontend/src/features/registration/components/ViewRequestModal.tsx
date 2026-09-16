@@ -58,17 +58,17 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
 
           {/* Scrollable Content Body */}
           <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center font-bold text-lg shadow-sm">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
                 {request.initials || request.name.substring(0, 2).toUpperCase()}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-xl font-bold text-[#1a1b1e] dark:text-slate-100">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-xl font-bold text-[#1a1b1e] dark:text-slate-100 break-words min-w-0">
                     {request.name}
                   </h4>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
                       request.status === 'Đã duyệt'
                         ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300'
                         : request.status === 'Từ chối'
@@ -90,34 +90,34 @@ export const ViewRequestModal: React.FC<ViewRequestModalProps> = ({
             </div>
 
             <div className="bg-[#F8FAFC] dark:bg-[#25262c] p-4 rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45] space-y-2.5 text-xs">
-              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-                <span className="text-[#74777f] dark:text-slate-400 font-medium">
+              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2 gap-2">
+                <span className="text-[#74777f] dark:text-slate-400 font-medium shrink-0">
                   {t('full_name')}:
                 </span>
-                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">
+                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100 break-words text-right min-w-0">
                   {request.name}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-                <span className="text-[#74777f] dark:text-slate-400 font-medium">
+              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2 gap-2">
+                <span className="text-[#74777f] dark:text-slate-400 font-medium shrink-0">
                   {t('phone_number')}:
                 </span>
-                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">
+                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100 break-words text-right min-w-0">
                   {formatPhoneNumber(request.phone)}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-                <span className="text-[#74777f] dark:text-slate-400 font-medium">
+              <div className="flex justify-between border-b border-slate-200/60 dark:border-slate-700/60 pb-2 gap-2">
+                <span className="text-[#74777f] dark:text-slate-400 font-medium shrink-0">
                   {t('email')}:
                 </span>
-                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">
+                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100 break-words text-right min-w-0">
                   {request.email}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#74777f] dark:text-slate-400 font-medium">{t('dob')}:</span>
-                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100">
-                  {request.dob || '14/05/1995'}
+              <div className="flex justify-between gap-2">
+                <span className="text-[#74777f] dark:text-slate-400 font-medium shrink-0">{t('dob')}:</span>
+                <span className="font-semibold text-[#1a1b1e] dark:text-slate-100 break-words text-right min-w-0">
+                  {request.dob || t('not_updated')}
                 </span>
               </div>
             </div>

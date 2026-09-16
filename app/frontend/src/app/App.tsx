@@ -73,7 +73,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!authUser) return;
     if (authUser.role === 'ADMIN' && currentTab === 'schedule') setCurrentTab('accounts');
-    if (authUser.role !== 'ADMIN' && (currentTab === 'accounts' || currentTab === 'requests')) {
+    if (authUser.role !== 'ADMIN' && currentTab !== 'schedule' && currentTab !== 'profile') {
       setCurrentTab('schedule');
     }
   }, [authUser, currentTab]);
@@ -84,6 +84,7 @@ export const App: React.FC = () => {
     regRequests.clearRequests();
     scheduleDash.clearShifts();
     clearUser();
+    setCurrentTab('accounts');
     showToast(t('app.logout_success'));
   };
 
@@ -127,10 +128,10 @@ export const App: React.FC = () => {
       {toastMessage && (
         <div
           aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 bg-[#002046] text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-3 duration-200"
+          className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] sm:max-w-md bg-[#002046] text-white text-xs font-semibold px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom-3 duration-200"
         >
-          <span className="material-symbols-outlined text-[18px] text-[#16A34A]">check_circle</span>
-          <span>{toastMessage}</span>
+          <span className="material-symbols-outlined text-[18px] text-[#16A34A] shrink-0">check_circle</span>
+          <span className="min-w-0 break-words line-clamp-3">{toastMessage}</span>
         </div>
       )}
 

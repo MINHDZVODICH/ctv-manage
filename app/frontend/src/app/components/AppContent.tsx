@@ -90,7 +90,7 @@ export const AppContent: React.FC<AppContentProps> = ({
           userRole={effectiveUser.role}
         />
       )}
-      {currentTab === 'meetings' && (
+      {currentTab === 'meetings' && effectiveUser.role === 'Admin' && (
         <SummaryScheduleScreen
           shifts={scheduleDash.shifts}
           onViewAccountDetail={accountsAdmin.openAccountDetailById}

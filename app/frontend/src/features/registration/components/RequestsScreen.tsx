@@ -144,8 +144,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                         <div className="w-9 h-9 rounded-full bg-[#aec7f7] text-[#2e476f] flex items-center justify-center font-bold text-xs shrink-0 group-hover/name:ring-2 group-hover/name:ring-[#1b365d]/20">
                           {req.initials || req.name.substring(0, 2).toUpperCase()}
                         </div>
-                        <div>
-                          <div className="font-semibold text-sm text-[#1a1b1e] dark:!text-white group-hover/name:text-[#1b365d] dark:group-hover/name:!text-blue-300 group-hover/name:underline transition-colors">
+                        <div className="min-w-0 max-w-[200px] sm:max-w-[300px]">
+                          <div className="font-semibold text-sm text-[#1a1b1e] dark:!text-white group-hover/name:text-[#1b365d] dark:group-hover/name:!text-blue-300 group-hover/name:underline transition-colors truncate">
                             {req.name}
                           </div>
                         </div>

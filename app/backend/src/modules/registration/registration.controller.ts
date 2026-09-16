@@ -34,7 +34,11 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
 
 const createBodySchema = z.object({
   email: z.string().trim().email('Email không hợp lệ'),
-  displayName: z.string().trim().min(1, 'Họ và tên là bắt buộc'),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Họ và tên là bắt buộc')
+    .max(100, 'Họ và tên không được vượt quá 100 ký tự'),
   phone: emptyToUndefined(
     z
       .string()

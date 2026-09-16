@@ -356,26 +356,26 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
           {/* User Profile Header Card */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#F8FAFC] dark:bg-[#1e1f23] border border-[#E2E8F0] dark:border-[#3b3d45]">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 min-w-0">
               {account.avatar ? (
                 <img
                   src={account.avatar}
                   alt={account.name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-[#1b365d] shadow-xs"
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#1b365d] shadow-xs shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-[#1b365d] text-white flex items-center justify-center font-bold text-xl shadow-xs">
+                <div className="w-16 h-16 rounded-full bg-[#1b365d] text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
                   {account.initials || account.name.substring(0, 2).toUpperCase()}
                 </div>
               )}
-              <div>
-                <h4 className="text-lg font-bold text-[#1b365d] dark:text-[#d6e3ff]">
+              <div className="min-w-0">
+                <h4 className="text-lg font-bold text-[#1b365d] dark:text-[#d6e3ff] break-words">
                   {account.name}
                 </h4>
               </div>
             </div>
 
-            <div className="flex flex-col sm:items-end gap-2 text-xs text-[#74777f] dark:text-[#c4c6cf]">
+            <div className="flex flex-col sm:items-end gap-2 text-xs text-[#74777f] dark:text-[#c4c6cf] shrink-0">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   {account.role === 'Admin' ? t('role_admin') : t('role_ctv')}
@@ -406,43 +406,43 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
               <span>{t('accounts.personal_and_account_info')}</span>
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F8FAFC] dark:bg-[#1e1f23] p-4 rounded-xl border border-[#E2E8F0] dark:border-[#3b3d45]">
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('full_name')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">{account.name}</span>
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('full_name')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">{account.name}</span>
               </div>
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('email')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('email')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">
                   {account.email}
                 </span>
               </div>
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('phone_number')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('phone_number')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">
                   {formatPhoneNumber(account.phone)}
                 </span>
               </div>
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('dob')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">
-                  {account.dob || '15/08/1998'}
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('dob')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">
+                  {account.dob || t('not_updated')}
                 </span>
               </div>
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('gender')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('gender')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">
                   {account.gender === 'Nam'
                     ? t('gender_male')
                     : account.gender === 'Nữ'
                       ? t('gender_female')
                       : account.gender
                         ? t('gender_other')
-                        : t('gender_male')}
+                        : t('not_updated')}
                 </span>
               </div>
-              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45]">
-                <span className="text-[#74777f]">{t('address')}:</span>
-                <span className="font-semibold text-[#1b365d] dark:text-white">
+              <div className="flex justify-between p-2 rounded bg-white dark:bg-[#25262b] border border-[#E2E8F0]/60 dark:border-[#3b3d45] gap-2">
+                <span className="text-[#74777f] shrink-0">{t('address')}:</span>
+                <span className="font-semibold text-[#1b365d] dark:text-white break-words text-right min-w-0">
                   {account.address || t('not_updated')}
                 </span>
               </div>
