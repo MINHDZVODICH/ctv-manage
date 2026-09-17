@@ -140,8 +140,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span
                 className={
                   isCollapsed
-                    ? 'absolute top-1 right-1 bg-[#EA580C] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center'
-                    : 'bg-[#EA580C] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0'
+                    ? `absolute top-1 right-1 text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center transition-colors ${
+                        currentTab === 'requests'
+                          ? 'bg-white text-accent shadow-xs'
+                          : 'bg-accent text-white'
+                      }`
+                    : `text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 transition-colors ${
+                        currentTab === 'requests'
+                          ? 'bg-white text-accent shadow-xs'
+                          : 'bg-accent text-white'
+                      }`
                 }
               >
                 {pendingRequestsCount}

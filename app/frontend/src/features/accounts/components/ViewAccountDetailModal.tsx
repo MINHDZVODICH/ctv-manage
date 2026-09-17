@@ -779,19 +779,22 @@ export const ViewAccountDetailModal: React.FC<ViewAccountDetailModalProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="bg-white dark:bg-[#25262b] border border-slate-200 dark:border-slate-700 rounded-2xl max-w-xl w-full p-5 shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#1b365d] dark:text-[#87a0cd] text-[20px]">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3 gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-[#1b365d] dark:text-[#87a0cd] text-[20px] shrink-0">
                   badge
                 </span>
-                <h3 className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff]">
+                <h3
+                  className="font-bold text-sm text-[#1b365d] dark:text-[#d6e3ff] truncate"
+                  title={previewImg.title}
+                >
                   {previewImg.title}
                 </h3>
               </div>
               <button
                 onClick={() => setPreviewImg(null)}
                 aria-label={t('close')}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>

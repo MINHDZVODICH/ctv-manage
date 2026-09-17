@@ -603,18 +603,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             className="bg-white dark:bg-[#25262b] rounded-2xl max-w-2xl w-full p-5 border border-slate-200 dark:border-slate-700 shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-blue-600">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700 gap-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-blue-600 shrink-0">
                   {previewModal.side === 'avatar' ? 'account_circle' : 'badge'}
                 </span>
-                <span>{previewModal.title}</span>
+                <span className="truncate" title={previewModal.title}>
+                  {previewModal.title}
+                </span>
               </h3>
               <button
                 onClick={() => setPreviewModal(null)}
                 title={t('close')}
                 aria-label={t('close')}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -683,7 +685,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             className="bg-white dark:bg-[#25262b] rounded-2xl max-w-3xl w-full p-5 border border-slate-200 dark:border-slate-700 shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700 gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
@@ -697,7 +699,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  <h3
+                    className="text-sm font-bold text-slate-900 dark:text-white truncate"
+                    title={previewDocModal.fileName}
+                  >
                     {previewDocModal.fileName}
                   </h3>
                   {previewDocModal.fileSize && (
@@ -711,7 +716,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onClick={() => setPreviewDocModal(null)}
                 title={t('close')}
                 aria-label={t('close')}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
