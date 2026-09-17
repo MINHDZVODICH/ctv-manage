@@ -65,9 +65,11 @@ export const profileTranslations: DomainTranslations = {
     'profile.month': 'Tháng',
     'profile.year': 'Năm',
     'profile.address_placeholder': 'TP. Hồ Chí Minh',
-    'profile.phone_hint': 'Số điện thoại chỉ gồm từ 6 đến 15 chữ số',
+    'profile.phone_hint': 'Số điện thoại gồm 10 hoặc 11 chữ số',
     'profile.error_name_required': 'Vui lòng nhập họ và tên!',
     'profile.error_name_max_length': 'Họ và tên không được vượt quá 100 ký tự!',
+    'profile.error_phone_format': 'Số điện thoại phải gồm 10 hoặc 11 chữ số!',
+    'profile.error_dob_incomplete': 'Vui lòng chọn đầy đủ ngày, tháng, năm sinh hoặc để trống!',
 
     // Change Password Modal & Validation
     'profile.change_password_title': 'Đổi mật khẩu',
@@ -148,9 +150,11 @@ export const profileTranslations: DomainTranslations = {
     'profile.month': 'Month',
     'profile.year': 'Year',
     'profile.address_placeholder': 'e.g. Ho Chi Minh City',
-    'profile.phone_hint': 'Phone number must be between 6 and 15 digits',
+    'profile.phone_hint': 'Phone number must be 10 or 11 digits',
     'profile.error_name_required': 'Please enter your full name!',
     'profile.error_name_max_length': 'Full name must not exceed 100 characters!',
+    'profile.error_phone_format': 'Phone number must be 10 or 11 digits!',
+    'profile.error_dob_incomplete': 'Please select day, month and year or leave all empty!',
 
     // Change Password Modal & Validation
     'profile.change_password_title': 'Change Password',

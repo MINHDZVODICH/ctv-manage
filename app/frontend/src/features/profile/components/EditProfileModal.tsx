@@ -68,12 +68,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [gender, setGender] = useState(normalizeGenderValue(user.gender));
   const [address, setAddress] = useState(user.address || '');
   const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [dobError, setDobError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && user) {
       setName(user.name);
       setNameError(null);
       setPhone(user.phone || '');
+      setPhoneError(null);
+      setDobError(null);
       const parts = parseDobToParts(user.dob);
       setDobDay(parts.day);
       setDobMonth(parts.month);
@@ -93,19 +97,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    let hasError = false;
+
     if (!name.trim()) {
       setNameError('profile.error_name_required');
-      return;
-    }
-    if (name.trim().length > 100) {
+      hasError = true;
+    } else if (name.trim().length > 100) {
       setNameError('profile.error_name_max_length');
-      return;
+      hasError = true;
+    } else {
+      setNameError(null);
     }
-    setNameError(null);
-    const dob = dobDay && dobMonth && dobYear ? `${dobDay}/${dobMonth}/${dobYear}` : '';
+
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone.length > 0 && !/^\d{10,11}$/.test(trimmedPhone)) {
+      setPhoneError('profile.error_phone_format');
+      hasError = true;
+    } else {
+      setPhoneError(null);
+    }
+
+    const hasAnyDob = Boolean(dobDay || dobMonth || dobYear);
+    const hasAllDob = Boolean(dobDay && dobMonth && dobYear);
+    if (hasAnyDob && !hasAllDob) {
+      setDobError('profile.error_dob_incomplete');
+      hasError = true;
+    } else {
+      setDobError(null);
+    }
+
+    if (hasError) return;
+
+    const dob = hasAllDob ? `${dobDay}/${dobMonth}/${dobYear}` : '';
     onSave({
       name: name.trim(),
-      phone,
+      phone: trimmedPhone,
       dob,
       gender,
       address,
@@ -115,11 +141,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <div
-      onClick={onClose}
       className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-[#1e1f23] rounded-2xl border border-[#E2E8F0] dark:border-[#3b3d45] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#3b3d45] bg-[#F8FAFC] dark:bg-[#18191c] shrink-0">
@@ -178,13 +202,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel"
-                minLength={6}
-                pattern="[0-9]{6,15}"
+                maxLength={11}
                 title={t('profile.phone_hint')}
                 value={phone}
-                onChange={(e) => setPhone(onlyDigits(e.target.value, 15))}
-                className="w-full px-3 py-2 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none"
+                onChange={(e) => {
+                  setPhone(onlyDigits(e.target.value, 11));
+                  if (phoneError) setPhoneError(null);
+                }}
+                className={`w-full px-3 py-2 border rounded-lg text-sm text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none ${
+                  phoneError
+                    ? 'border-[#DC2626]'
+                    : 'border-[#c4c6cf] dark:border-slate-700'
+                }`}
               />
+              {phoneError && (
+                <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
+                  {t(phoneError)}
+                </p>
+              )}
             </div>
 
             <div>
@@ -196,9 +231,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <div className="relative">
                   <select
                     value={dobDay}
-                    onChange={(e) => setDobDay(e.target.value)}
+                    onChange={(e) => {
+                      setDobDay(e.target.value);
+                      if (dobError) setDobError(null);
+                    }}
                     title={t('profile.day')}
-                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                    className={`w-full h-[38px] pl-2 pr-5 border rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center ${
+                      dobError ? 'border-[#DC2626]' : 'border-[#c4c6cf] dark:border-slate-700'
+                    }`}
                   >
                     <option value="">--</option>
                     {Array.from({ length: maxDaysInMonth }, (_, i) => {
@@ -222,6 +262,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     onChange={(e) => {
                       const m = e.target.value;
                       setDobMonth(m);
+                      if (dobError) setDobError(null);
                       const maxDays = new Date(
                         parseInt(dobYear || '2000', 10),
                         parseInt(m, 10),
@@ -232,7 +273,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       }
                     }}
                     title={t('profile.month')}
-                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                    className={`w-full h-[38px] pl-2 pr-5 border rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center ${
+                      dobError ? 'border-[#DC2626]' : 'border-[#c4c6cf] dark:border-slate-700'
+                    }`}
                   >
                     <option value="">--</option>
                     {Array.from({ length: 12 }, (_, i) => {
@@ -256,6 +299,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     onChange={(e) => {
                       const y = e.target.value;
                       setDobYear(y);
+                      if (dobError) setDobError(null);
                       const maxDays = new Date(
                         parseInt(y, 10),
                         parseInt(dobMonth || '1', 10),
@@ -266,7 +310,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       }
                     }}
                     title={t('profile.year')}
-                    className="w-full h-[38px] pl-2 pr-5 border border-[#c4c6cf] dark:border-slate-700 rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center"
+                    className={`w-full h-[38px] pl-2 pr-5 border rounded-lg text-xs font-medium text-[#1a1b1e] dark:text-slate-100 bg-white dark:bg-slate-800 focus:border-[#002046] dark:focus:border-blue-400 outline-none cursor-pointer appearance-none text-center ${
+                      dobError ? 'border-[#DC2626]' : 'border-[#c4c6cf] dark:border-slate-700'
+                    }`}
                   >
                     <option value="">--</option>
                     {Array.from({ length: new Date().getFullYear() - 1939 }, (_, i) => {
@@ -283,6 +329,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   </span>
                 </div>
               </div>
+              {dobError && (
+                <p className="text-[11px] text-[#DC2626] mt-1 font-medium">
+                  {t(dobError)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -317,14 +368,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-4 border-t border-[#E2E8F0] dark:border-[#3b3d45] flex items-center justify-end gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-            >
-              {t('cancel')}
-            </button>
+          <div className="pt-4 border-t border-[#E2E8F0] dark:border-[#3b3d45] flex items-center justify-end shrink-0">
             <button
               type="submit"
               className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
