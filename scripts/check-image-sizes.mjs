@@ -1,14 +1,39 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 
+const args = process.argv.slice(2);
+let backendTag = process.env.BACKEND_IMAGE || '';
+let frontendTag = process.env.FRONTEND_IMAGE || '';
+
+const positionalArgs = [];
+for (const arg of args) {
+  if (arg.startsWith('--backend=')) {
+    backendTag = arg.split('=')[1];
+  } else if (arg.startsWith('--frontend=')) {
+    frontendTag = arg.split('=')[1];
+  } else if (!arg.startsWith('--')) {
+    positionalArgs.push(arg);
+  }
+}
+
+if (!backendTag && positionalArgs[0]) {
+  backendTag = positionalArgs[0];
+}
+if (!frontendTag && positionalArgs[1]) {
+  frontendTag = positionalArgs[1];
+}
+
+backendTag = backendTag || 'ctv-backend:latest';
+frontendTag = frontendTag || 'ctv-frontend:latest';
+
 const BUDGETS = {
   backend: {
-    name: 'ctv-backend:latest',
+    name: backendTag,
     maxBytes: 350 * 1024 * 1024, // 350 MB budget (>= 25% reduction from 467 MB)
     baselineMb: 467.04,
   },
   frontend: {
-    name: 'ctv-frontend:latest',
+    name: frontendTag,
     maxBytes: 50 * 1024 * 1024, // 50 MB budget (>= 50% reduction from 102.47 MB)
     baselineMb: 102.47,
   },

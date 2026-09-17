@@ -33,7 +33,7 @@
 - Env fallback: `BACKEND_IMAGE`, `FRONTEND_IMAGE`
 - Default fallback: `ctv-backend:latest`, `ctv-frontend:latest`
 
-- [ ] **Step 1: Cập nhật `scripts/check-image-sizes.mjs` để nhận image tags động**
+- [x] **Step 1: Cập nhật `scripts/check-image-sizes.mjs` để nhận image tags động**
 
 Hỗ trợ lấy tên image từ CLI argv (`process.argv[2]`, `process.argv[3]`) hoặc biến môi trường `BACKEND_IMAGE`, `FRONTEND_IMAGE`, fallback về `ctv-backend:latest`, `ctv-frontend:latest`.
 
@@ -55,7 +55,7 @@ const BUDGETS = {
 };
 ```
 
-- [ ] **Step 2: Cập nhật `.github/workflows/ci.yml` truyền đúng tag vừa build**
+- [x] **Step 2: Cập nhật `.github/workflows/ci.yml` truyền đúng tag vừa build**
 
 Trong `.github/workflows/ci.yml`:
 ```yaml
@@ -66,7 +66,7 @@ Trong `.github/workflows/ci.yml`:
           node scripts/check-image-sizes.mjs ctv-backend:1.0.1 ctv-frontend:1.0.0
 ```
 
-- [ ] **Step 3: Kiểm tra script với các image hiện có trên máy local**
+- [x] **Step 3: Kiểm tra script với các image hiện có trên máy local**
 
 Chạy thử nghiệm:
 ```bash
@@ -74,7 +74,7 @@ node scripts/check-image-sizes.mjs minhdz163/ctv-backend:latest minhdz163/ctv-fr
 ```
 Xác nhận output nhận đúng tag `minhdz163/ctv-backend:latest` và `minhdz163/ctv-frontend:latest`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add scripts/check-image-sizes.mjs .github/workflows/ci.yml
 git commit -m "fix(ci): support dynamic image tags in check-image-sizes script"
@@ -87,7 +87,7 @@ git commit -m "fix(ci): support dynamic image tags in check-image-sizes script"
 **Files:**
 - Document: `docs/benchmarks/2026-09-17-docker-baseline.md`
 
-- [ ] **Step 1: Đo kích thước image hiện tại**
+- [x] **Step 1: Đo kích thước image hiện tại**
 
 Đo dung lượng thực tế của image local:
 ```bash
@@ -95,7 +95,7 @@ docker image inspect minhdz163/ctv-backend:latest --format '{{.Size}}'
 docker image inspect minhdz163/ctv-frontend:latest --format '{{.Size}}'
 ```
 
-- [ ] **Step 2: Phân tích kích thước các layers**
+- [x] **Step 2: Phân tích kích thước các layers**
 
 Chạy `docker history` để phân tích chi tiết dung lượng từng layer:
 ```bash
@@ -103,7 +103,7 @@ docker history minhdz163/ctv-backend:latest --format "table {{.CreatedBy}}\t{{.S
 docker history minhdz163/ctv-frontend:latest --format "table {{.CreatedBy}}\t{{.Size}}"
 ```
 
-- [ ] **Step 3: Đo build context hiện tại**
+- [x] **Step 3: Đo build context hiện tại**
 
 Kiểm tra kích thước build context gửi đến Docker daemon khi chạy build:
 ```bash
@@ -111,11 +111,11 @@ docker build --no-cache -f docker/frontend.Dockerfile -t test-ctx-frontend .
 ```
 Ghi lại kích thước "transferring context: ...".
 
-- [ ] **Step 4: Đo thời gian build không cache và có cache**
+- [x] **Step 4: Đo thời gian build không cache và có cache**
 
 Đo thời gian build không cache (`--no-cache`) và có cache (chạy lần 2).
 
-- [ ] **Step 5: Ghi nhận kết quả vào tài liệu benchmark**
+- [x] **Step 5: Ghi nhận kết quả vào tài liệu benchmark**
 
 Lưu các chỉ số baseline đo được vào `docs/benchmarks/2026-09-17-docker-baseline.md`.
 
@@ -126,11 +126,11 @@ Lưu các chỉ số baseline đo được vào `docs/benchmarks/2026-09-17-dock
 **Files:**
 - Modify: `.dockerignore`
 
-- [ ] **Step 1: Kiểm tra các thư mục và file rác có mặt trong context**
+- [x] **Step 1: Kiểm tra các thư mục và file rác có mặt trong context**
 
 Xác minh sự tồn tại của `release.zip`, `.playwright-mcp`, `.agents`, `release/*.zip`, v.v.
 
-- [ ] **Step 2: Thêm các pattern loại trừ vào `.dockerignore`**
+- [x] **Step 2: Thêm các pattern loại trừ vào `.dockerignore`**
 
 ```dockerignore
 .agents
@@ -139,11 +139,11 @@ release.zip
 *.zip
 ```
 
-- [ ] **Step 3: Kiểm tra lại dung lượng build context sau khi bỏ qua**
+- [x] **Step 3: Kiểm tra lại dung lượng build context sau khi bỏ qua**
 
 Chạy lại lệnh build để xác nhận `transferring context` đã giảm xuống mức tối thiểu cần thiết.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add .dockerignore
 git commit -m "perf(docker): exclude release archives and agent directories from build context"
@@ -156,7 +156,7 @@ git commit -m "perf(docker): exclude release archives and agent directories from
 **Files:**
 - Modify: `docker/frontend.Dockerfile`
 
-- [ ] **Step 1: Cập nhật `docker/frontend.Dockerfile`**
+- [x] **Step 1: Cập nhật `docker/frontend.Dockerfile`**
 
 Thay thế `npm ci` toàn monorepo bằng cài đặt riêng cho workspace frontend kết hợp cache mount:
 ```dockerfile
@@ -182,16 +182,16 @@ COPY --from=build /app/app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
 ```
 
-- [ ] **Step 2: Kiểm tra build frontend local**
+- [x] **Step 2: Kiểm tra build frontend local**
 ```bash
 docker build -f docker/frontend.Dockerfile -t ctv-frontend:test .
 ```
 Xác nhận build thành công và kích thước ≤ 50 MiB.
 
-- [ ] **Step 3: Kiểm tra cache hit khi thay đổi source**
+- [x] **Step 3: Kiểm tra cache hit khi thay đổi source**
 Chạm thử vào một file trong `app/frontend/src/` và chạy lại build: xác nhận layer `npm ci` được lấy từ cache (`CACHED`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add docker/frontend.Dockerfile
 git commit -m "perf(docker): isolate frontend workspace install and add npm cache mount"
@@ -204,7 +204,7 @@ git commit -m "perf(docker): isolate frontend workspace install and add npm cach
 **Files:**
 - Modify: `docker/backend.Dockerfile`
 
-- [ ] **Step 1: Thay đổi quy trình cài đặt production dependencies trong backend**
+- [x] **Step 1: Thay đổi quy trình cài đặt production dependencies trong backend**
 
 Thay vì dùng `node -e` ghi đè `package.json` và chạy `npm install` không lockfile:
 1. Dùng `package-lock.json` đồng bộ.
@@ -212,7 +212,7 @@ Thay vì dùng `node -e` ghi đè `package.json` và chạy `npm install` không
 3. Tách layer `prisma:generate`: Copy `app/backend/prisma` trước và chạy `prisma:generate`, sau đó mới copy `app/backend/src` để tránh re-generate khi chỉ sửa logic source.
 4. Đảm bảo runtime stage có Prisma CLI để `entrypoint.sh` chạy `prisma migrate deploy` khi container khởi động.
 
-- [ ] **Step 2: Cập nhật `docker/backend.Dockerfile`**
+- [x] **Step 2: Cập nhật `docker/backend.Dockerfile`**
 
 ```dockerfile
 FROM node:22-alpine AS base
@@ -269,7 +269,7 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "dist/src/main.js"]
 ```
 
-- [ ] **Step 3: Kiểm tra build backend local và kiểm tra layer cache**
+- [x] **Step 3: Kiểm tra build backend local và kiểm tra layer cache**
 ```bash
 docker build -f docker/backend.Dockerfile -t ctv-backend:test .
 ```
@@ -278,7 +278,7 @@ Xác nhận:
 - Dung lượng ≤ 350 MiB.
 - Thay đổi một file trong `app/backend/src/` không làm mất cache layer `npm ci` và `prisma:generate`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 ```bash
 git add docker/backend.Dockerfile
 git commit -m "perf(docker): lock backend production dependencies and layer prisma generation"
@@ -291,13 +291,13 @@ git commit -m "perf(docker): lock backend production dependencies and layer pris
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Bổ sung Docker Buildx action trong `ci.yml`**
+- [x] **Step 1: Bổ sung Docker Buildx action trong `ci.yml`**
 Thêm step `docker/setup-buildx-action@v3`.
 
-- [ ] **Step 2: Cấu hình GitHub Actions cache cho build images**
+- [x] **Step 2: Cấu hình GitHub Actions cache cho build images**
 Tách riêng cache scope giữa backend (`scope=backend`) và frontend (`scope=frontend`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 ```bash
 git add .github/workflows/ci.yml
 git commit -m "ci: add docker buildx action with gha cache for image builds"
@@ -310,13 +310,13 @@ git commit -m "ci: add docker buildx action with gha cache for image builds"
 **Files:**
 - Research & Decision Log
 
-- [ ] **Step 1: Đo dung lượng của Prisma CLI trong runtime image**
+- [x] **Step 1: Đo dung lượng của Prisma CLI trong runtime image**
 Kiểm tra kích thước thư mục `node_modules/prisma` so với tổng `node_modules`.
 
-- [ ] **Step 2: Đánh giá phương án tách migration container**
+- [x] **Step 2: Đánh giá phương án tách migration container**
 Nếu dung lượng Prisma CLI < 30 MB và runtime image hiện tại đã nằm thoải mái trong ngân sách (ví dụ < 250 MB), giữ cơ chế migration tự động qua `entrypoint.sh` để đơn giản hóa vận hành và tránh rủi ro race condition khi deploy một container đơn lẻ. Nếu > 50 MB, thiết kế một service migration chạy trước trong compose.
 
-- [ ] **Step 3: Ghi nhận quyết định kiến trúc**
+- [x] **Step 3: Ghi nhận quyết định kiến trúc**
 
 ---
 
@@ -325,17 +325,17 @@ Nếu dung lượng Prisma CLI < 30 MB và runtime image hiện tại đã nằm
 **Files:**
 - Run test commands
 
-- [ ] **Step 1: Kiểm tra ngân sách dung lượng**
+- [x] **Step 1: Kiểm tra ngân sách dung lượng**
 ```bash
 node scripts/check-image-sizes.mjs ctv-backend:test ctv-frontend:test
 ```
 
-- [ ] **Step 2: Chạy kiểm tra deployment startup**
+- [x] **Step 2: Chạy kiểm tra deployment startup**
 ```bash
 node scripts/check-deployment-startup.mjs
 ```
 
-- [ ] **Step 3: Kiểm tra smoke test trên container thật**
+- [x] **Step 3: Kiểm tra smoke test trên container thật**
 1. Chạy compose lên: `docker compose up -d`
 2. Kiểm tra log backend xem migration có tự động chạy thành công không: `docker compose logs backend`
 3. Kiểm tra đăng nhập (xác thực Argon2).
