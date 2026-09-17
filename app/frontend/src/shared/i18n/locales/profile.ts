@@ -5,7 +5,7 @@ export const profileTranslations: DomainTranslations = {
     // Profile Screen
     'profile.title': 'Hồ sơ cá nhân',
     'profile.subtitle': 'Quản lý thông tin cá nhân và tài liệu định danh',
-    'profile.edit_profile': 'Chỉnh sửa thông tin',
+    'profile.edit_profile': 'Chỉnh sửa',
     'profile.change_password': 'Đổi mật khẩu',
     'profile.personal_info': 'Thông tin cá nhân',
     'profile.contact_info': 'Thông tin liên hệ',
@@ -88,9 +88,9 @@ export const profileTranslations: DomainTranslations = {
   },
   en: {
     // Profile Screen
-    'profile.title': 'Personal Profile',
+    'profile.title': 'My Profile',
     'profile.subtitle': 'Manage personal information and identification documents',
-    'profile.edit_profile': 'Edit Profile',
+    'profile.edit_profile': 'Edit',
     'profile.change_password': 'Change Password',
     'profile.personal_info': 'Personal Information',
     'profile.contact_info': 'Contact Information',

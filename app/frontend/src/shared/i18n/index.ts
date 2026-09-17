@@ -82,7 +82,7 @@ const legacyVietnamese: LocaleTranslations = {
 
   account_info: 'Thông tin tài khoản',
   change_password: 'Đổi mật khẩu',
-  edit_info: 'Chỉnh sửa thông tin',
+  edit_info: 'Chỉnh sửa',
   personal_info: 'Thông tin cá nhân',
   account_details: 'Thông tin chi tiết',
   full_name: 'Họ và tên',
@@ -233,7 +233,7 @@ const legacyEnglish: LocaleTranslations = {
 
   account_info: 'Account Information',
   change_password: 'Change Password',
-  edit_info: 'Edit Profile',
+  edit_info: 'Edit',
   personal_info: 'Personal Information',
   account_details: 'Detailed Information',
   full_name: 'Full Name',
